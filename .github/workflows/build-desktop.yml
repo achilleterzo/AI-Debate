@@ -17,15 +17,15 @@ jobs:
           - os: windows-latest
             artifact_name: ai-debate-windows
             build_args: --win nsis
-            artifact_path: release/**/*.exe
+            artifact_path: release/*Setup*.exe
           - os: ubuntu-latest
             artifact_name: ai-debate-linux
             build_args: --linux AppImage
-            artifact_path: release/**/*.AppImage
+            artifact_path: release/*.AppImage
           - os: macos-latest
             artifact_name: ai-debate-macos
             build_args: --mac dmg
-            artifact_path: release/**/*.dmg
+            artifact_path: release/*.dmg
 
     runs-on: ${{ matrix.os }}
 
@@ -58,3 +58,9 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
+
+      - name: Upload release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact_path }}
