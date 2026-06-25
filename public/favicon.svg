@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="1024px" height="1024px" version="1.1" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" image-rendering="optimizeQuality" fill-rule="evenodd" clip-rule="evenodd"
+viewBox="0 0 1024 1024" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+   <radialGradient id="id0">
+    <stop offset="0" stop-opacity="1" stop-color="#6c5c9e"/>
+    <stop offset="1" stop-opacity="1" stop-color="#140a2c"/>
+   </radialGradient>
+ </defs>
+ <g>
+  <circle fill="url(#id0)" cx="512" cy="512" r="512"/>
+  <g>
+   <path fill="white" d="M164.09 302.245l321.569 0c21.569,0 39.216,17.647 39.216,39.216l0 155.883c0,21.569 -17.647,39.215 -39.216,39.215l-243.817 0 -62.065 59.205 0 -59.205 -15.687 0c-21.569,0 -39.215,-17.646 -39.215,-39.215l0 -155.883c0,-21.569 17.646,-39.216 39.215,-39.216z"/>
+   <g>
+    <circle fill="#B3B3B3" cx="252.816" cy="473.134" r="24.13"/>
+    <circle fill="#B3B3B3" cx="324.875" cy="473.134" r="24.13"/>
+    <circle fill="#B3B3B3" cx="396.934" cy="473.134" r="24.13"/>
+   </g>
+  </g>
+  <g>
+   <path fill="#1A1A1A" d="M822.882 499.253l-361.764 0c-24.265,0 -44.118,19.853 -44.118,44.117l0 175.369c0,24.265 19.853,44.117 44.118,44.117l274.294 0 69.823 66.605 0 -66.605 17.647 0c24.266,0 44.118,-19.852 44.118,-44.117l0 -175.369c0,-24.264 -19.852,-44.117 -44.118,-44.117z"/>
+   <g>
+    <circle fill="#B09CF0" cx="723.066" cy="691.503" r="27.146"/>
+    <circle fill="#B09CF0" cx="642" cy="691.503" r="27.146"/>
+    <circle fill="#B09CF0" cx="560.934" cy="691.503" r="27.146"/>
+   </g>
+  </g>
+ </g>
+</svg>

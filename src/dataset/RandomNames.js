@@ -1,0 +1,18 @@
+export const RANDOM_NAMES = [
+	'Alice', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabio', 'Giulia', 'Hassan', 'Irene', 'Luca',
+	'Maya', 'Nora', 'Omar', 'Petra', 'Quinn', 'Rosa', 'Sandro', 'Tania', 'Ugo', 'Vera',
+	'Walter', 'Xena', 'Yuri', 'Zara', 'Marco', 'Sofia', 'Leonardo', 'Chiara', 'Andrea', 'Marta',
+	'Pietro', 'Laura', 'Matteo', 'Anna', 'Davide', 'Elisa', 'Riccardo', 'Serena', 'Giorgio', 'Paola',
+	'Adam', 'Aisha', 'Amir', 'Ana', 'Anton', 'Arjun', 'Bao', 'Bianca', 'Carmen', 'Chen',
+	'Daniel', 'Daria', 'David', 'Dimitri', 'Emma', 'Fatima', 'Felix', 'Greta', 'Hannah', 'Hiroshi',
+	'Ibrahim', 'Ingrid', 'Ivan', 'Jana', 'Jonas', 'Julia', 'Karl', 'Katarina', 'Kenji', 'Kofi',
+	'Lars', 'Leila', 'Liam', 'Lin', 'Lucas', 'Mehmet', 'Mia', 'Mohamed', 'Nadia', 'Nikolai',
+	'Olga', 'Oliver', 'Pavel', 'Pedro', 'Ravi', 'Rin', 'Ruth', 'Said', 'Sakura', 'Samuel',
+	'Sara', 'Stefan', 'Sven', 'Tatiana', 'Theo', 'Tomoko', 'Valeria', 'Viktor', 'Wei', 'Yuki',
+	'Yusuf', 'Zhang', 'Zoe', 'Adele', 'Akira', 'Aleksei', 'Ali', 'Amara', 'Anya', 'Artem',
+	'Astrid', 'Boris', 'Camila', 'Chloe', 'Dario', 'Delia', 'Ekaterina', 'Eva', 'Farah', 'Goran',
+	'Hana', 'Haruki', 'Helena', 'Igor', 'Jamal', 'Jasmin', 'Joao', 'Kamila', 'Kira', 'Lena',
+	'Luka', 'Magnus', 'Mali', 'Mateo', 'Mei', 'Milan', 'Nastya', 'Natasha', 'Niko', 'Oskar',
+	'Pia', 'Radka', 'Rene', 'Sabine', 'Sergei', 'Shen', 'Simon', 'Svenja', 'Tao', 'Tariq',
+	'Ulla', 'Xia', 'Yara', 'Zoran',
+];

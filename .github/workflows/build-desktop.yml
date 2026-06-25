@@ -1,0 +1,58 @@
+name: Build Desktop App
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: ai-debate-windows
+            build_args: --win nsis
+            artifact_path: release/**/*.exe
+          - os: ubuntu-latest
+            artifact_name: ai-debate-linux
+            build_args: --linux AppImage
+            artifact_path: release/**/*.AppImage
+          - os: macos-latest
+            artifact_name: ai-debate-macos
+            build_args: --mac dmg
+            artifact_path: release/**/*.dmg
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build desktop package
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:desktop:ci -- ${{ matrix.build_args }}
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error

@@ -1,0 +1,77 @@
+{
+  "name": "AI-Debate",
+  "private": true,
+  "version": "0.9.10",
+  "description": "Desktop and web AI debate simulator built with React, Vite, Ollama, and Electron.",
+  "author": "AI Debate contributors",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "dev:web": "vite",
+    "dev:electron": "wait-on tcp:5173 && electron .",
+    "build": "vite build",
+    "build:desktop": "npm run build && electron-builder",
+    "build:desktop:ci": "npm run build && electron-builder --publish never",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "electron-window-state": "^5.0.3",
+    "jspdf": "^4.2.1",
+    "marked": "^18.0.2",
+    "pdfjs-dist": "^5.6.205",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-select": "^5.10.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@tailwindcss/vite": "^4.2.4",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^10.0.3",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.5.0",
+    "postcss": "^8.5.13",
+    "tailwindcss": "^4.2.4",
+    "vite": "^8.0.9",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.achilleterzo.aidebate",
+    "productName": "AI Debate",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/web/**",
+      "electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "public/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "public/icon.png"
+    }
+  }
+}
