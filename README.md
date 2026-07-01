@@ -4,7 +4,7 @@
 
 It lets you configure multiple participants, assign each one a model and behavioral profile, run turn-based conversations, inject moderator interjections, generate summaries and analytical conclusions, and export the whole session.
 
-## What It Does
+## Features
 
 - Run debates between multiple AI participants
 - Support a manual `User` participant inside the debate flow
