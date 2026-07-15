@@ -335,10 +335,11 @@ export default function App() {
     }
   }, [messages, streamingRole])
 
-  const handleStart = () => {
-    if (!topic.trim() || participants.some(p => !p.model)) return
+  const handleStart = (topicInput = topicRef.current) => {
+    const topicText = topicInput.trim()
+    if (!topicText || participants.some(p => !p.model)) return
     logLaunchEstimate('start')
-    Storage.saveTopicToHistory(topic)
+    Storage.saveTopicToHistory(topicText)
     setTopicHistory(Storage.loadTopics())
     setTopicDropOpen(false)
     interjectRef.current = null
@@ -354,7 +355,7 @@ export default function App() {
         resumeMessages: messages,
         resumeRound: turnRef.current,
         resumeSummary: summaryRef.current,
-        injectTopic: topic.trim(),
+         injectTopic: topicText,
       })
       setTopicValue('')
       return
@@ -372,18 +373,18 @@ export default function App() {
       resumeMessages: null,
       resumeRound: null,
       resumeSummary: '',
-      injectTopic: topic.trim(),
+       injectTopic: topicText,
     })
     setTopicValue('')
   }
 
   const handleStop = () => stopDebate()
 
-  const handleResume = () => {
+  const handleResume = (topicInput = topicRef.current) => {
     if (messages.length === 0) return
     logLaunchEstimate('resume')
     interjectRef.current = null
-    const inject = topic.trim() || null
+    const inject = topicInput.trim() || null
     setTopicValue('')
     const cleanMessages = messages.filter(m => m.role !== 'error')
 
@@ -751,9 +752,9 @@ export default function App() {
       messages,
       participants,
        baseUrl,
-      conclusions,
-      summary,
-      topic: (messages.find(m => m.role === 'topic')?.content || '').trim(),
+       conclusions,
+       summary,
+       topic: (messages.find(m => m.role === 'topic')?.content || '').trim(),
       constants: {
         MOODS,
         MOOD_INTENSITY,
@@ -1196,7 +1197,7 @@ export default function App() {
           moodIntensity={MOOD_INTENSITY}
           defaultMoodIntensity={Debate.DEFAULT_MOOD_INTENSITY}
           DotsComponent={DotsView}
-          onResume={handleResume}
+           onResume={() => handleResume()}
           is2xlLayout={is2xlLayout}
         />
         {/* ── balloon feedback summary in progress ── */}
@@ -1454,13 +1455,13 @@ export default function App() {
           onFocus={() => { if (messages.length === 0 && !running && topicHistory.length > 0 && !topicRef.current) setTopicDropOpen(true) }}
           onKeyDown={e => {
             if (e.key === 'Escape') { setTopicDropOpen(false); return }
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              const v = flushTopic()
-              if (running && v.trim()) handleInterjection()
-              else if (messages.length > 0 && !running) handleResume()
-              else if (canStart) handleStart()
-            }
+           if (e.key === 'Enter' && !e.shiftKey) {
+             e.preventDefault()
+             const v = flushTopic()
+             if (running && v.trim()) handleInterjection()
+             else if (messages.length > 0 && !running) handleResume(v)
+             else if (v.trim() && allModelsSet && ollamaOk) handleStart(v)
+           }
           }}
           placeholder={
             running
@@ -1598,7 +1599,7 @@ export default function App() {
 
         {/* state: idle, no session */}
         {!running && messages.length === 0 && (
-          <button style={{ ...styles.connectBtn(!canStart), minHeight: 44, alignSelf: 'stretch' }} onClick={handleStart} disabled={!canStart}>
+          <button style={{ ...styles.connectBtn(!canStart), minHeight: 44, alignSelf: 'stretch' }} onClick={() => handleStart()} disabled={!canStart}>
             Avvia
           </button>
         )}
@@ -1642,7 +1643,7 @@ export default function App() {
           <>
             <button
               style={{ ...styles.connectBtn(!canResume), minHeight: 44, alignSelf: 'stretch' }}
-              onClick={handleResume}
+              onClick={() => handleResume()}
               disabled={!canResume}
               title={
                 !allModelsSet ? ui.allParticipantsNeedModel

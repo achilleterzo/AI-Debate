@@ -40,7 +40,7 @@ export function useDebateController({
   const interjectRef = useRef(null)
   const roundLimitRef = useRef(0)
   const seqRef = useRef(0)
-  const nextSeq = () => ++seqRef.current
+  const nextSeq = useCallback(() => ++seqRef.current, [])
   const userInputRejectRef = useRef(null)
 
   const participantsRef = useRef(participants)
@@ -120,6 +120,7 @@ export function useDebateController({
     generalPersonalityInstructions,
     globalConstraints,
     moderationCooling,
+    nextSeq,
     setLastPromptEstimate,
     setMessages,
     setParticipants,
@@ -160,11 +161,17 @@ export function useDebateController({
   }, [setStopping])
 
   const queueInterjection = useCallback((text, clearTopic) => {
-    interjectRef.current = text
+    const interjection = {
+      role: 'interjection',
+      ollamaRole: 'user',
+      content: text,
+      turn: turnRef.current?.round ?? 0,
+      seq: nextSeq(),
+    }
+    interjectRef.current = [...(interjectRef.current ?? []), interjection]
     clearTopic()
-    const pendingMsg = { role: 'interjection', ollamaRole: 'user', content: text, turn: null, pending: true }
-    setMessages(prev => [...prev, pendingMsg])
-  }, [setMessages])
+    setMessages(prev => Debate.appendInterjection(prev, interjection))
+  }, [nextSeq, setMessages])
 
   return {
     contextEstimate,

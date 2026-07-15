@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { styles } from './Style'
 import ReactSelect from 'react-select'
 import { UI_STRINGS } from '../i18n/UiStrings'
+import { Debate } from '../debate/Debate'
 
 export default function ParticipantsPanel({
   participants,
@@ -55,29 +56,7 @@ export default function ParticipantsPanel({
     if (fromIdx === null || fromIdx === toIdx) { setDragOver(null); return }
 
     setParticipants(prev => {
-      const reordered = [...prev]
-      const [moved] = reordered.splice(fromIdx, 1)
-      reordered.splice(toIdx, 0, moved)
-      // Remap id, tag, palette to new positions
-        return reordered.map((x, i) => ({
-          ...mkParticipant(i, x.model),
-          endpointOverride: x.endpointOverride ?? '',
-          name: x.name,
-          isModerator: !!x.isModerator || x.mood === 'moderator',
-          mood: x.mood,
-        moodIntensity: x.moodIntensity ?? defaultMoodIntensity,
-        characterType: x.characterType ?? null,
-        responseLength: x.responseLength ?? null,
-          educationLevel: x.educationLevel ?? null,
-          ageGroup: x.ageGroup ?? defaultAgeGroup,
-          affinity: {}, // affinity by ID is stale after reorder — reset
-          affinityLocks: {},
-          moderatorAlwaysIntervene: !!x.moderatorAlwaysIntervene,
-          moderatorDynamicAffinity: !!x.moderatorDynamicAffinity,
-          moderatorFactCheck: !!x.moderatorFactCheck,
-          moderatorEnforceTopic: !!x.moderatorEnforceTopic,
-          constraints: x.constraints ?? [],
-        }))
+      return Debate.reorderParticipants(prev, fromIdx, toIdx)
     })
 
     setDragSrcIdx(null)

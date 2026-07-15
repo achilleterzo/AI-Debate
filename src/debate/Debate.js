@@ -176,6 +176,13 @@ export class Debate {
     return [...history].reverse().find(message => (message.role === 'interjection' || message.role === 'topic') && message.content?.trim()) || null
   }
 
+  static appendInterjection(history = [], interjection) {
+    if (!interjection?.content?.trim()) return history
+    const exists = history.some(message => message.role === 'interjection' && message.seq === interjection.seq)
+    if (exists) return history
+    return [...history, { ...interjection, pending: false }]
+  }
+
   static detectTopicDrift({ history = [], messages = [] }) {
     const activeTopic = Debate.getActiveTopicMessage(history)
     if (!activeTopic?.content?.trim() || messages.length === 0) return { detected: false, reason: '' }
@@ -300,6 +307,17 @@ export class Debate {
       constraints: participant.constraints ?? [],
       characterContext: participant.characterContext ?? null,
     }))
+  }
+
+  static reorderParticipants(participants = [], fromIndex, toIndex) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= participants.length || toIndex >= participants.length) {
+      return participants
+    }
+
+    const reordered = [...participants]
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, moved)
+    return reordered
   }
 
   static parseConclusionList(text) {
@@ -742,6 +760,30 @@ export class Debate {
     let skipSummaryOnce = resumeRound?.skipSummary ?? false
     summaryRef.current = resumeSummary ?? ''
 
+    const queuedInterjections = () => {
+      const queued = interjectRef.current
+      return Array.isArray(queued) ? queued : (queued ? [queued] : [])
+    }
+
+    const syncHistory = () => {
+      const nextHistory = queuedInterjections().reduce(
+        (currentHistory, interjection) => Debate.appendInterjection(currentHistory, interjection),
+        history,
+      )
+      setMessages(() => nextHistory)
+    }
+
+    const consumeQueuedInterjection = () => {
+      const queued = queuedInterjections()
+      if (queued.length === 0) return
+      history = queued.reduce(
+        (currentHistory, interjection) => Debate.appendInterjection(currentHistory, interjection),
+        history,
+      )
+      interjectRef.current = null
+      syncHistory()
+    }
+
     const roundLimit = Debate.computeRoundLimit({
       hasResumeMessages: !!resumeMessages,
       currentRoundLimit: roundLimitRef.current,
@@ -754,13 +796,13 @@ export class Debate {
       seqRef.current = 0
       const seeded = Debate.createInitialHistory({ history, injectTopic, round, nextSeq })
       history = seeded.history
-      setMessages([...seeded.seededMessages])
+       setMessages([...seeded.seededMessages])
       round = 0
       step = 0
     } else if (injectTopic) {
       const seeded = Debate.createInitialHistory({ history, injectTopic, round, nextSeq })
       history = seeded.history
-      setMessages([...history])
+       syncHistory()
     }
 
     outer: while (true) {
@@ -880,6 +922,8 @@ export class Debate {
         step = 0
         if (stopRef.current) break outer
 
+        consumeQueuedInterjection()
+
         parts = participantsRef.current
         if (s >= parts.length) break
 
@@ -896,7 +940,7 @@ export class Debate {
         })
         if (lifecycleMessages.length > 0) {
           history = [...history, ...lifecycleMessages]
-          setMessages([...history])
+          syncHistory()
         }
 
         const realHistory = history
@@ -915,7 +959,7 @@ export class Debate {
           const seq = nextSeq()
           const placeholder = { role: actor.tag, ollamaRole: 'assistant', content: '', turn: turnLabel, seq, participantSnapshot: { ...actor } }
           history = [...history, placeholder]
-          setMessages([...history])
+          syncHistory()
           setStreamingSeq(seq)
         }
         setStreamingRole(actor.tag)
@@ -926,7 +970,7 @@ export class Debate {
 
         if (stopRef.current) {
           history = history.slice(0, -1)
-          setMessages([...history])
+          syncHistory()
           break outer
         }
 
@@ -1040,8 +1084,8 @@ export class Debate {
             userInputRejectRef.current = null
             if (userText !== null) {
               const userMsg = { role: actor.tag, ollamaRole: 'assistant', content: userText, turn: turnLabel, seq: nextSeq(), participantSnapshot: { ...actor } }
-              history = [...history, userMsg]
-              setMessages([...history])
+                history = [...history, userMsg]
+                syncHistory()
             }
           } catch {
             userInputRejectRef.current = null
@@ -1066,7 +1110,7 @@ export class Debate {
             onPayload: debugMode ? (p => debugPayloads.push(p)) : null,
             onToken: text => {
               history = history.map((message, index) => index === history.length - 1 ? { ...message, content: text } : message)
-              setMessages([...history])
+               syncHistory()
             },
             timeoutMs,
           })
@@ -1074,7 +1118,7 @@ export class Debate {
           const shouldSkipModeratorTurn = actor.isModerator && !actor.moderatorAlwaysIntervene && !roundModerationSignal?.needed && /^\s*\[SKIP_TURN\]\s*$/i.test(finalContent)
           if (shouldSkipModeratorTurn) {
             history = history.slice(0, -1)
-            setMessages([...history])
+             syncHistory()
             setStreamingRole(null)
             setStreamingSeq(null)
             continue
@@ -1108,7 +1152,7 @@ export class Debate {
           } else {
             history = history.slice(0, -1)
           }
-          setMessages([...history])
+           syncHistory()
         } catch (err) {
           const errMsg = {
             role: 'error',
@@ -1118,7 +1162,7 @@ export class Debate {
             seq: nextSeq(),
           }
           history = [...history.slice(0, -1), errMsg]
-          setMessages([...history])
+          syncHistory()
           turnRef.current = { round, step: s, skipSummary: true }
           setStreamingRole(null)
           setStreamingSeq(null)
@@ -1127,13 +1171,7 @@ export class Debate {
           return
         }
 
-        const interjection = interjectRef.current
-        if (interjection) {
-          interjectRef.current = null
-          const userMsg = { role: 'interjection', ollamaRole: 'user', content: interjection, turn: turnLabel + 0.5, seq: nextSeq() }
-          history = [...history.filter(message => !(message.pending && message.role === 'interjection' && message.content === interjection)), userMsg]
-          setMessages([...history])
-        }
+        consumeQueuedInterjection()
 
         setStreamingRole(null)
         setStreamingSeq(null)

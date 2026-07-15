@@ -137,3 +137,31 @@ describe('Debate participant lifecycle messages', () => {
     expect(second).toEqual([])
   })
 })
+
+describe('Debate participant ordering', () => {
+  it('changes display order without changing participant identities or affinities', () => {
+    const alpha = { id: 0, tag: 'A', name: 'Alpha', affinity: { 1: 0.5 } }
+    const beta = { id: 1, tag: 'B', name: 'Beta', affinity: { 0: -0.5 } }
+    const reordered = Debate.reorderParticipants([alpha, beta], 0, 1)
+
+    expect(reordered).toEqual([beta, alpha])
+    expect(reordered[0]).toBe(beta)
+    expect(reordered[1]).toBe(alpha)
+  })
+})
+
+describe('Debate topic variations', () => {
+  it('persists multiple queued variations without duplicating them', () => {
+    const first = { role: 'interjection', content: 'Focus on costs', seq: 10, pending: true }
+    const second = { role: 'interjection', content: 'Include environmental impact', seq: 11, pending: true }
+    const history = Debate.appendInterjection([], first)
+    const withBoth = Debate.appendInterjection(history, second)
+
+    expect(withBoth).toEqual([
+      { ...first, pending: false },
+      { ...second, pending: false },
+    ])
+    expect(Debate.appendInterjection(withBoth, second)).toBe(withBoth)
+    expect(Debate.getActiveTopicMessage(withBoth)?.content).toBe('Include environmental impact')
+  })
+})

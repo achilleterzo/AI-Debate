@@ -28,7 +28,6 @@ export class Data {
     participants,
     baseUrl,
     conclusions = [],
-    summary = '',
     topic = '',
     constants,
   }) {
@@ -104,7 +103,6 @@ export class Data {
 
       if (msg.role === 'topic') {
         body += `<div class="topic"><h1>Topic</h1>${md(msg.content)}</div>`
-        if (summary) body += `<div class="summary"><div class="summary-label">◆ Context Summary</div>${md(summary)}</div>`
         continue
       }
 
@@ -204,7 +202,7 @@ export class Data {
     Data.triggerDownload(html, filename, 'text/html;charset=utf-8')
   }
 
-  static exportMD({ messages, participants, baseUrl, conclusions = [], summary = '', topic = '', constants }) {
+  static exportMD({ messages, participants, baseUrl, conclusions = [], topic = '', constants }) {
     const {
       MOODS,
       MOOD_INTENSITY,
@@ -263,7 +261,6 @@ export class Data {
       const msg = item.msg
       if (msg.role === 'topic') {
         out += `> **Topic:** ${msg.content}\n\n`
-        if (summary) out += `> **Context summary:**\n>\n${summary.split('\n').map(line => `> ${line}`).join('\n')}\n\n`
         continue
       }
       if (msg.role === 'user') {
