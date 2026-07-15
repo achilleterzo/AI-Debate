@@ -14,6 +14,8 @@
     "build:desktop": "npm run build && electron-builder",
     "build:desktop:ci": "npm run build && electron-builder --publish never",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -42,6 +44,7 @@
     "postcss": "^8.5.13",
     "tailwindcss": "^4.2.4",
     "vite": "^8.0.9",
+    "vitest": "^4.1.10",
     "wait-on": "^9.0.10"
   },
   "build": {

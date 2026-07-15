@@ -141,7 +141,6 @@ export default function App() {
   useEffect(() => { showScrollBtnRef.current = showScrollBtn }, [showScrollBtn])
 
   const {
-    participantHistory,
     contextEstimate,
     turnRef,
     summaryRef,
@@ -751,8 +750,7 @@ export default function App() {
     buildArgs: () => ({
       messages,
       participants,
-      participantHistory,
-      baseUrl,
+       baseUrl,
       conclusions,
       summary,
       topic: (messages.find(m => m.role === 'topic')?.content || '').trim(),
@@ -768,7 +766,7 @@ export default function App() {
       },
     }),
     onAfterExport: null,
-  }), [messages, participants, participantHistory, baseUrl, conclusions, summary, topMenuUi.exportHtml, topMenuUi.exportMarkdown, topMenuUi.exportJson])
+  }), [messages, participants, baseUrl, conclusions, summary, topMenuUi.exportHtml, topMenuUi.exportMarkdown, topMenuUi.exportJson])
 
   const handleClearSettings = useCallback(() => {
     Session.requestClearSettings({

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Debate } from './Debate'
 
 export function useDebateController({
@@ -34,8 +34,6 @@ export function useDebateController({
   setStreamingRole,
   setUserInputPending,
 }) {
-  const [participantHistory, setParticipantHistory] = useState([])
-
   const stopRef = useRef(false)
   const turnRef = useRef(0)
   const summaryRef = useRef('')
@@ -45,7 +43,6 @@ export function useDebateController({
   const nextSeq = () => ++seqRef.current
   const userInputRejectRef = useRef(null)
 
-  const participantHistoryRef = useRef([])
   const participantsRef = useRef(participants)
   const maxTurnsRef = useRef(maxTurns)
   const recentKRef = useRef(recentK)
@@ -70,7 +67,6 @@ export function useDebateController({
   }, [messages, summary, useSummary])
 
   useEffect(() => { participantsRef.current = participants }, [participants])
-  useEffect(() => { participantHistoryRef.current = participantHistory }, [participantHistory])
   useEffect(() => { maxTurnsRef.current = maxTurns }, [maxTurns])
   useEffect(() => { recentKRef.current = recentK }, [recentK])
   useEffect(() => { timeoutSecRef.current = timeoutSec }, [timeoutSec])
@@ -92,8 +88,6 @@ export function useDebateController({
     summaryModelOverride,
     uiLang,
     handlePromptEstimate: info => setLastPromptEstimate(info),
-    setParticipantHistory,
-    participantHistoryRef,
     characterContextRef,
     fetchedUrlsRef,
     setMessages,
@@ -128,7 +122,6 @@ export function useDebateController({
     moderationCooling,
     setLastPromptEstimate,
     setMessages,
-    setParticipantHistory,
     setParticipants,
     setRunning,
     setStopping,
@@ -145,43 +138,6 @@ export function useDebateController({
     summaryModelOverride,
     uiLang,
   ])
-
-  useEffect(() => {
-    if (messages.length === 0) return
-    const prev = participantHistoryRef.current
-    if (prev.length === 0) return
-
-    const lastEntry = prev[prev.length - 1]
-    const lastParts = lastEntry.participants
-    const newParts = participants
-
-    const leftMsgs = []
-    const joinMsgs = []
-    const seq0 = seqRef.current
-
-    for (const old of lastParts) {
-      const cur = newParts.find(participant => participant.id === old.id)
-      if (!cur) {
-        leftMsgs.push({ role: 'participant_left', ollamaRole: 'system', content: '', turn: 0, seq: ++seqRef.current, participantSnapshot: old })
-      } else if (cur.model !== old.model || cur.name !== old.name || !!cur.isModerator !== !!old.isModerator || (cur.endpointOverride ?? '') !== (old.endpointOverride ?? '')) {
-        leftMsgs.push({ role: 'participant_left', ollamaRole: 'system', content: '', turn: 0, seq: ++seqRef.current, participantSnapshot: old })
-        joinMsgs.push({ role: 'participant_joined', ollamaRole: 'system', content: '', turn: 0, seq: ++seqRef.current, participantSnapshot: cur })
-      }
-    }
-
-    for (const cur of newParts) {
-      if (!lastParts.find(participant => participant.id === cur.id)) {
-        joinMsgs.push({ role: 'participant_joined', ollamaRole: 'system', content: '', turn: 0, seq: ++seqRef.current, participantSnapshot: cur })
-      }
-    }
-
-    if (leftMsgs.length > 0 || joinMsgs.length > 0) {
-      const entry = { seq: seq0 + 1, participants: newParts.map(participant => ({ ...participant })) }
-      setParticipantHistory(history => [...history, entry])
-      setMessages(prevMessages => [...prevMessages, ...leftMsgs, ...joinMsgs])
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants])
 
   const startDebate = useCallback(({ resumeMessages, resumeRound, resumeSummary, injectTopic, extraRounds = 0 }) => {
     Debate.start({
@@ -211,7 +167,6 @@ export function useDebateController({
   }, [setMessages])
 
   return {
-    participantHistory,
     contextEstimate,
     turnRef,
     summaryRef,

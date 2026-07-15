@@ -577,6 +577,64 @@ export class Debate {
     return result
   }
 
+  static buildParticipantLifecycleMessages({ history = [], participants = [], actor, turn, nextSeq }) {
+    const latestEvents = new Map()
+    for (const message of history) {
+      if (!['participant_joined', 'participant_left'].includes(message.role)) continue
+      const id = message.participantSnapshot?.id
+      if (typeof id === 'number') latestEvents.set(id, message)
+    }
+
+    const messages = []
+    const activeIds = new Set(participants.map(participant => participant.id))
+    for (const [id, message] of latestEvents) {
+      if (message.role === 'participant_joined' && !activeIds.has(id)) {
+        messages.push({
+          role: 'participant_left',
+          ollamaRole: 'system',
+          content: '',
+          turn,
+          seq: nextSeq(),
+          participantSnapshot: message.participantSnapshot,
+        })
+      }
+    }
+
+    if (actor.model === Debate.USER_MODEL) return messages
+
+    const previous = latestEvents.get(actor.id)
+    const hasChanged = previous?.role === 'participant_joined' && (
+      previous.participantSnapshot.model !== actor.model ||
+      previous.participantSnapshot.name !== actor.name ||
+      !!previous.participantSnapshot.isModerator !== !!actor.isModerator ||
+      (previous.participantSnapshot.endpointOverride ?? '') !== (actor.endpointOverride ?? '')
+    )
+
+    if (hasChanged) {
+      messages.push({
+        role: 'participant_left',
+        ollamaRole: 'system',
+        content: '',
+        turn,
+        seq: nextSeq(),
+        participantSnapshot: previous.participantSnapshot,
+      })
+    }
+
+    if (!previous || previous.role === 'participant_left' || hasChanged) {
+      messages.push({
+        role: 'participant_joined',
+        ollamaRole: 'system',
+        content: '',
+        turn,
+        seq: nextSeq(),
+        participantSnapshot: { ...actor },
+      })
+    }
+
+    return messages
+  }
+
   static escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
@@ -604,8 +662,6 @@ export class Debate {
       summaryModelOverride,
       uiLang,
       handlePromptEstimate,
-      setParticipantHistory,
-      participantHistoryRef,
       characterContextRef,
       fetchedUrlsRef,
       setMessages,
@@ -678,9 +734,6 @@ export class Debate {
       characterContextRef.current = {}
       fetchedUrlsRef.current = {}
       Web.clearCaches()
-      const initialEntry = { seq: 0, participants: parts.map(participant => ({ ...participant })) }
-      setParticipantHistory([initialEntry])
-      participantHistoryRef.current = [initialEntry]
     }
 
     let history = resumeMessages ?? []
@@ -834,20 +887,16 @@ export class Debate {
         const actorBaseUrl = actor.endpointOverride?.trim() || baseUrl
         const turnLabel = round + 1
 
-        if (actor.model !== Debate.USER_MODEL) {
-          const alreadyJoined = history.some(message => message.role === 'participant_joined' && message.participantSnapshot?.id === actor.id)
-          if (!alreadyJoined) {
-            const joinMsg = {
-              role: 'participant_joined',
-              ollamaRole: 'system',
-              content: '',
-              turn: turnLabel,
-              seq: nextSeq(),
-              participantSnapshot: { ...actor },
-            }
-            history = [...history, joinMsg]
-            setMessages([...history])
-          }
+        const lifecycleMessages = Debate.buildParticipantLifecycleMessages({
+          history,
+          participants: parts,
+          actor,
+          turn: turnLabel,
+          nextSeq,
+        })
+        if (lifecycleMessages.length > 0) {
+          history = [...history, ...lifecycleMessages]
+          setMessages([...history])
         }
 
         const realHistory = history
