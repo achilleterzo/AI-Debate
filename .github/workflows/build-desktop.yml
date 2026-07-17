@@ -49,7 +49,7 @@ jobs:
           bodies=$(git log "$range" --format=%B)
 
           bump=""
-          if echo "$subjects" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:' || echo "$bodies" | grep -q 'BREAKING CHANGE'; then
+          if echo "$subjects" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:' || echo "$bodies" | grep -qE '^BREAKING[ -]CHANGE:'; then
             bump="major"
           elif echo "$subjects" | grep -qE '^feat(\([^)]*\))?:'; then
             bump="minor"
