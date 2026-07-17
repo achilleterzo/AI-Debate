@@ -25,3 +25,4 @@ CHECKLIST.md
 *.sw?
 /release
 /.vite
+/.claude
