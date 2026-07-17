@@ -21,6 +21,7 @@ export default function AppModals({
   onClosePromptSettings,
   onSavePromptSettings,
   onResetPromptSettings,
+  onClearSettings,
   confirmModal,
   onCancelConfirmModal,
   onConfirmModal,
@@ -51,6 +52,7 @@ export default function AppModals({
           onClose={onClosePromptSettings}
           onSave={onSavePromptSettings}
           onReset={onResetPromptSettings}
+          onClearSettings={onClearSettings}
         />
       )}
       {confirmModal && (

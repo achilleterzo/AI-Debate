@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { UI_STRINGS } from '../i18n/UiStrings'
 
-export default function PromptSettingsModal({ value, onClose, onSave, onReset }) {
+export default function PromptSettingsModal({ value, onClose, onSave, onReset, onClearSettings }) {
   const ui = UI_STRINGS.promptSettingsModal
   const common = UI_STRINGS.common
+  const topMenuUi = UI_STRINGS.topMenu
   const [text, setText] = useState(value)
 
   return (
@@ -26,7 +27,10 @@ export default function PromptSettingsModal({ value, onClose, onSave, onReset })
           />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '10px 14px', borderTop: '1px solid #2e2e2e' }}>
-          <button onClick={() => setText(onReset())} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{ui.resetDefault}</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setText(onReset())} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{ui.resetDefault}</button>
+            <button onClick={onClearSettings} style={{ background: 'transparent', border: '1px solid #5a2e2e', color: '#f87171', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{topMenuUi.clearSavedSettings}</button>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{common.cancel}</button>
             <button onClick={() => onSave(text)} style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{common.save}</button>

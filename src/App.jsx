@@ -519,7 +519,6 @@ export default function App() {
           onLoadSnapshot={handleLoadSnapshot}
           onOpenPromptSettings={handleOpenPromptSettings}
           exportItems={exportItems}
-          onClearSettings={handleClearSettings}
           ollamaOk={ollamaOk}
           modelsCount={models.length}
           is2xlLayout={is2xlLayout}
@@ -786,6 +785,7 @@ export default function App() {
         onClosePromptSettings={() => setPromptSettingsModal(false)}
         onSavePromptSettings={handleSavePromptSettings}
         onResetPromptSettings={handleResetPromptSettings}
+        onClearSettings={handleClearSettings}
         confirmModal={confirmModal}
         onCancelConfirmModal={handleCancelConfirmModal}
         onConfirmModal={handleConfirmModal}

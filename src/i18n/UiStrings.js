@@ -24,13 +24,13 @@ export const UI_OPTION_LABELS = {
 
 export const UI_STRINGS = {
   common: { cancel: 'Cancel', save: 'Save', remove: 'Remove', edit: 'Edit', add: 'Add', confirm: 'Confirm', reset: 'Reset', copy: 'Copy', user: 'User', moderator: 'Moderator', cloud: 'Cloud', local: 'Local', noModels: 'No models', chooseModel: '— choose model —' },
-  topMenu: { title: 'Settings', saveSnapshot: 'Save JSON snapshot', loadSnapshot: 'Load JSON snapshot', promptSettings: 'Personality prompt settings', clearSavedSettings: 'Clear saved settings', exportHtml: 'Export HTML', exportMarkdown: 'Export Markdown', exportJson: 'Export JSON' },
+  topMenu: { title: 'Settings', export: 'Export', saveSnapshot: 'Save JSON snapshot', loadSnapshot: 'Load JSON snapshot', promptSettings: 'Settings', clearSavedSettings: 'Clear saved settings', exportHtml: 'Export HTML', exportMarkdown: 'Export Markdown', exportJson: 'Export JSON' },
   userInput: { skip: 'Skip', send: 'Send' },
   payloadModal: { title: 'PAYLOAD SENT', copy: 'Copy' },
   constraintModal: { removeTitle: 'Remove constraint', editTitle: 'Edit constraint', newTitle: 'New constraint', globalSubtitle: 'Global constraint (applies to everyone)', participantSubtitle: tag => `Participant constraint ${tag}`.trim(), confirmRemove: 'Confirm removal of this constraint?', placeholder: 'Write the constraint...', history: 'Constraint history', removeFromHistory: 'Remove from history', selectSaved: 'Select saved constraint...', noConstraints: 'No constraints' },
   confirmModal: { defaultConfirm: 'Confirm' },
   endpointModal: { title: 'Participant custom endpoint', clearTitle: 'Remove custom endpoint', emptyHint: 'Leave empty to use the general endpoint.' },
-  promptSettingsModal: { title: 'Personality prompt settings', description: 'General instructions sent in the system payload to all participants', resetDefault: 'Reset default' },
+  promptSettingsModal: { title: 'Settings', description: 'General instructions sent in the system payload to all participants', resetDefault: 'Reset default' },
   topBar: {},
   chat: { empty: 'No messages yet', topic: 'Topic', variation: 'Variation', user: 'User', resume: 'Resume', left: 'left', joined: 'joined', round: n => `round ${n}`, moderation: 'Moderation', copyResponse: 'Copy response', inspectPayload: 'Inspect payload' },
   participants: {
