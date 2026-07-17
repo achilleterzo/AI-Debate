@@ -2,12 +2,12 @@ export const DEFAULT_URL = 'http://localhost:11434'
 export const DEFAULT_MAX_TURNS = 6
 export const DEFAULT_RECENT_K = 0
 export const DEFAULT_USE_SUMMARY = true
-export const DEFAULT_DYNAMIC_AFFINITY = false
+export const DEFAULT_DYNAMIC_AFFINITY = true
 export const DEFAULT_SUMMARY_MODEL_ENABLED = false
 export const DEFAULT_SUMMARY_MODEL_OVERRIDE = ''
-export const DEFAULT_SUMMARY_ACCUMULATE = false
+export const DEFAULT_SUMMARY_ACCUMULATE = true
 export const DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD = 8
-export const DEFAULT_SUMMARIZE_ATTACHMENTS = false
+export const DEFAULT_SUMMARIZE_ATTACHMENTS = true
 export const DEFAULT_TIMEOUT_SEC = 120
 export const DEBUG_MODE_STORAGE_KEY = 'debugMode'
 
