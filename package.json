@@ -1,7 +1,7 @@
 {
   "name": "AI-Debate",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Desktop and web AI debate simulator built with React, Vite, Ollama, and Electron.",
   "author": "AI Debate contributors",
   "type": "module",
