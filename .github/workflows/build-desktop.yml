@@ -8,8 +8,82 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
+  # Decides whether this run should produce a release, and for which tag.
+  # - A direct push of a `v*` tag always releases that tag.
+  # - A push to main only releases if there is at least one `fix:`/`feat:`
+  #   commit since the last tag; in that case it bumps package.json,
+  #   commits it as `chore(release): vX.Y.Z`, and tags it.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.decide.outputs.release_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine release tag
+        id: decide
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "release_tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git log -1 --pretty=%s | grep -q '^chore(release):'; then
+            echo "HEAD is already a release commit, nothing to do."
+            echo "release_tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          range="${last_tag:+refs/tags/$last_tag..}HEAD"
+          subjects=$(git log "$range" --format=%s)
+          bodies=$(git log "$range" --format=%B)
+
+          bump=""
+          if echo "$subjects" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:' || echo "$bodies" | grep -q 'BREAKING CHANGE'; then
+            bump="major"
+          elif echo "$subjects" | grep -qE '^feat(\([^)]*\))?:'; then
+            bump="minor"
+          elif echo "$subjects" | grep -qE '^fix(\([^)]*\))?:'; then
+            bump="patch"
+          fi
+
+          if [ -z "$bump" ]; then
+            echo "No fix/feat commits since ${last_tag:-the beginning}, skipping release."
+            echo "release_tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          npm version "$bump" --no-git-tag-version --no-commit-hooks >/dev/null
+          new_version="v$(node -p "require('./package.json').version")"
+
+          if git rev-parse "refs/tags/$new_version" >/dev/null 2>&1; then
+            echo "Tag $new_version already exists, aborting to avoid overwriting it." >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(release): $new_version"
+          git tag "$new_version"
+          git push origin HEAD:main
+          git push origin "$new_version"
+
+          echo "release_tag=$new_version" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: version
+    if: needs.version.outputs.release_tag != ''
     strategy:
       fail-fast: false
       matrix:
@@ -32,6 +106,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.release_tag }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -44,6 +120,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Test
+        run: npm test
 
       - name: Build desktop package
         shell: bash
@@ -60,7 +139,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload release assets
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.version.outputs.release_tag }}
           files: ${{ matrix.artifact_path }}
