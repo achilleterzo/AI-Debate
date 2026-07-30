@@ -26,6 +26,19 @@ html, body, #root {
   font-size: 15px;
 }
 
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea, [contenteditable="true"],
+.bubble, .bubble *,
+.selectable, .selectable *,
+pre, pre *, code {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 #root {
   display: block;
   width: 100%;
