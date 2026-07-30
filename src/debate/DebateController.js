@@ -14,6 +14,7 @@ export function useDebateController({
   recentK,
   timeoutSec,
   baseUrl,
+  defaultModel,
   useSummary,
   attachedDocs,
   summarizeAttachments,
@@ -81,6 +82,7 @@ export function useDebateController({
     maxTurnsRef,
     timeoutSecRef,
     baseUrlRef,
+    defaultModel,
     useSummaryRef,
     attachedDocs,
     summarizeAttachments,
@@ -116,6 +118,7 @@ export function useDebateController({
   }), [
     attachedDocs,
     debugMode,
+    defaultModel,
     dynamicAffinity,
     generalPersonalityInstructions,
     globalConstraints,

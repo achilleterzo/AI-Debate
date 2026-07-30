@@ -1,7 +1,8 @@
 import { MODERATION_COOLING_STEPS } from '../settings/Settings'
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function AffinitySettings({ dynamicAffinity, onDynamicAffinityChange, moderationCooling, onModerationCoolingChange, running }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
 
   return (

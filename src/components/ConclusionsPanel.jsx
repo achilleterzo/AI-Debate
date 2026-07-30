@@ -1,9 +1,10 @@
 import ReactSelect from 'react-select'
 import { CONCLUSION_TYPES } from '../prompts/ConclusionTypes'
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 import { styles } from './Style'
 
 export default function ConclusionsPanel({ running, messages, models, modelSelectStyles, conclusions }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
   const common = UI_STRINGS.common
   const {
@@ -18,15 +19,15 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
     effectiveConclusionModel,
     generateConclusion,
   } = conclusions
-  const conclusionTypeDefinition = CONCLUSION_TYPES.find(entry => entry.id === conclusionType) || { label: 'Conclusion', color: '#888' }
+  const conclusionTypeDefinition = CONCLUSION_TYPES.find(entry => entry.id === conclusionType) || { label: ui.conclusionFallbackLabel, color: '#888' }
   const hasConversation = messages.some(message => !['topic', 'interjection', 'error'].includes(message.role) && message.content?.trim())
   const isCustomPromptMissing = conclusionType === 'custom' && !customConclusionPrompt.trim()
   const isDisabled = !effectiveConclusionModel || conclusionRunning || isCustomPromptMissing
   const cloudModels = models.filter(model => model.endsWith('cloud')).sort()
   const localModels = models.filter(model => !model.endsWith('cloud')).sort()
   const options = [
-    ...(cloudModels.length ? [{ label: 'Cloud', options: cloudModels.map(model => ({ value: model, label: model })) }] : []),
-    ...(localModels.length ? [{ label: 'Local', options: localModels.map(model => ({ value: model, label: model })) }] : []),
+    ...(cloudModels.length ? [{ label: common.cloud, options: cloudModels.map(model => ({ value: model, label: model })) }] : []),
+    ...(localModels.length ? [{ label: common.local, options: localModels.map(model => ({ value: model, label: model })) }] : []),
   ]
 
   return (

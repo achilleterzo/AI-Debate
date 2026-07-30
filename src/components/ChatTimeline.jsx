@@ -1,7 +1,7 @@
 import { marked } from 'marked'
 import { styles } from './Style'
 import { buildOrderedItems } from '../utils/Sorting'
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 function normalizeMathShorthands(text) {
   let out = String(text || '')
@@ -44,6 +44,7 @@ export default function ChatTimeline({
   onResume,
   is2xlLayout,
 }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.chat
   const common = UI_STRINGS.common
   if (messages.length === 0 && !running) {
@@ -93,7 +94,7 @@ export default function ChatTimeline({
         <div key={`topic-${i}`} style={{ textAlign: 'center' }}>
           <div style={{ ...styles.bubble('topic'), display: 'inline-block', fontSize: 13, color: '#aaa' }}>
             <span style={{ color: '#555', marginRight: 6 }}>{ui.topic}</span>
-            <span dangerouslySetInnerHTML={{ __html: markedInline(normalizeMathShorthands(msg.content || '')) }} />
+            <span className="selectable" dangerouslySetInnerHTML={{ __html: markedInline(normalizeMathShorthands(msg.content || '')) }} />
           </div>
         </div>
       )
@@ -105,7 +106,7 @@ export default function ChatTimeline({
         <div key={`interjection-${i}`} style={{ textAlign: 'center' }}>
           <div style={{ ...styles.bubble('topic'), display: 'inline-block', fontSize: 13, color: '#aaa', borderColor: '#3a3a2e', background: '#1e1e16' }}>
             <span style={{ color: '#777', marginRight: 6 }}>{ui.variation}</span>
-            <span dangerouslySetInnerHTML={{ __html: markedInline(normalizeMathShorthands(msg.content || '')) }} />
+            <span className="selectable" dangerouslySetInnerHTML={{ __html: markedInline(normalizeMathShorthands(msg.content || '')) }} />
           </div>
         </div>
       )
@@ -126,31 +127,37 @@ export default function ChatTimeline({
     }
 
     if (msg.role === 'error') {
+      const nonFatal = !!msg.nonFatal
       elems.push(
         <div key={`err-${i}`} style={{ textAlign: 'center', margin: '8px 0' }}>
           <div style={{
-            display: 'inline-block', background: '#3a1a1a', border: '1px solid #7a2a2a',
-            borderRadius: 8, padding: '8px 16px', color: '#ff6b6b', fontSize: 13,
+            display: 'inline-block',
+            background: nonFatal ? '#2a2410' : '#3a1a1a',
+            border: nonFatal ? '1px solid #7a6a2a' : '1px solid #7a2a2a',
+            borderRadius: 8, padding: nonFatal ? '6px 14px' : '8px 16px',
+            color: nonFatal ? '#e0c060' : '#ff6b6b', fontSize: nonFatal ? 12 : 13,
           }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
               <span>{msg.content}</span>
-              <button
-                onClick={() => onResume?.()}
-                disabled={typeof onResume !== 'function'}
-                style={{
-                  background: '#334155',
-                  border: '1px solid #3e4a5a',
-                  color: '#e0e0e0',
-                  borderRadius: 6,
-                  padding: '3px 10px',
-                  fontSize: 12,
-                  cursor: typeof onResume === 'function' ? 'pointer' : 'default',
-                  opacity: typeof onResume === 'function' ? 1 : 0.5,
-                  fontWeight: 600,
-                }}
-              >
-                {ui.resume}
-              </button>
+              {!nonFatal && (
+                <button
+                  onClick={() => onResume?.()}
+                  disabled={typeof onResume !== 'function'}
+                  style={{
+                    background: '#334155',
+                    border: '1px solid #3e4a5a',
+                    color: '#e0e0e0',
+                    borderRadius: 6,
+                    padding: '3px 10px',
+                    fontSize: 12,
+                    cursor: typeof onResume === 'function' ? 'pointer' : 'default',
+                    opacity: typeof onResume === 'function' ? 1 : 0.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  {ui.resume}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -205,7 +212,7 @@ export default function ChatTimeline({
     elems.push(
       <div key={`msg-${i}`} style={{ ...styles.msgWrap(msg.role, actor), ...(isModerationIntervention ? { alignItems: 'center' } : {}) }}>
         <div style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', color: '#ef4444' } : {}), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span>{actor.name || actor.tag} · {actor.model === userModel ? `👤 ${common.user}` : `${actor.model} · ${(() => { const m = moods.find(x => x.id === actor.mood); const intensity = moodIntensity[actor.moodIntensity ?? defaultMoodIntensity]; return m ? `${m.emoji} ${m.label} (${intensity.label})` : '' })()}`} <span style={{ fontWeight: 400, color: '#555' }}>(round {msg.turn})</span></span>
+          <span>{actor.name || actor.tag} · {actor.model === userModel ? `👤 ${common.user}` : `${actor.model} · ${(() => { const m = moods.find(x => x.id === actor.mood); const intensity = moodIntensity[actor.moodIntensity ?? defaultMoodIntensity]; return m ? `${m.emoji} ${m.label} (${intensity.label})` : '' })()}`} <span style={{ fontWeight: 400, color: '#555' }}>({ui.round(msg.turn)})</span></span>
           {isStreamingMsg && (
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.75, animation: 'spin 1s linear infinite' }}>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>

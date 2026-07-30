@@ -1,4 +1,4 @@
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 import { styles } from './Style'
 
 export default function TopicComposer({
@@ -22,6 +22,7 @@ export default function TopicComposer({
   handleInterjection,
   removeHistoryEntry,
 }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
 
   return (
@@ -32,7 +33,10 @@ export default function TopicComposer({
         defaultValue={topic}
         onChange={event => {
           topicRef.current = event.target.value
-          if (running) setTopic(event.target.value)
+          // Keep the state in sync on every keystroke: the Start/Continue
+          // buttons derive their enabled state from it, so deferring to blur
+          // left them stale while typing.
+          setTopic(event.target.value)
           if (event.target.value && topicDropOpen) setTopicDropOpen(false)
         }}
         onBlur={flushTopic}

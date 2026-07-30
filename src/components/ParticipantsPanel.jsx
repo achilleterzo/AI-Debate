@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { styles } from './Style'
 import ReactSelect from 'react-select'
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 import { Debate } from '../debate/Debate'
 
 export default function ParticipantsPanel({
@@ -33,8 +34,19 @@ export default function ParticipantsPanel({
   onConfigureEndpoint = () => {},
   endpointStatuses = {},
 }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.participants
   const common = UI_STRINGS.common
+  const reasoningLangOptions = [
+    { value: '', label: ui.reasoningLangSameAsOutput },
+    { value: Debate.REASONING_LANG_FROM_CONSTRAINT, label: ui.reasoningLangFromConstraint },
+    ...UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code })),
+  ]
+  const moderatorModeOptions = [
+    { value: 'containment', label: ui.moderatorModeContainment },
+    { value: 'facilitator', label: ui.moderatorModeFacilitator },
+    { value: 'active', label: ui.moderatorModeActive },
+  ]
   const [dragSrcIdx, setDragSrcIdx] = useState(null)
   const [dragOver, setDragOver] = useState(null) // index being hovered
   const [collapsed, setCollapsed] = useState(() => Object.fromEntries(participants.map((_, i) => [i, true])))
@@ -176,7 +188,7 @@ export default function ParticipantsPanel({
                   cursor: 'pointer',
                   minWidth: 0,
                 }}
-                title={isCollapsed ? 'Expand participant' : 'Collapse participant'}
+                title={isCollapsed ? ui.expandParticipant : ui.collapseParticipant}
               >
                 <span style={{ fontSize: 12, color: '#d0d0d0', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{titleLabel}</span>
                 <span style={{ fontSize: 10, color: '#888', border: '1px solid #2f2f2f', borderRadius: 999, padding: '1px 7px' }}>{characterLabel}</span>
@@ -339,6 +351,42 @@ export default function ParticipantsPanel({
             </div>
 
             {p.model !== userModel && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }} title={ui.reasoningLangTitle}>{ui.thinkingLanguage}:</span>
+                <div style={{ minWidth: 170 }}>
+                  <ReactSelect
+                    styles={moodSelectStyles}
+                    options={reasoningLangOptions}
+                    value={reasoningLangOptions.find(o => o.value === (p.reasoningLang || '')) ?? reasoningLangOptions[0]}
+                    onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, reasoningLang: opt?.value ?? '' } : x))}
+                    formatOptionLabel={opt => opt.code ? formatLanguageLabel(opt) : opt.label}
+                    menuPlacement="auto"
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={ui.thinkingLanguageSkipTranslationTitle}>
+                  <span style={{ fontSize: 11, color: p.reasoningLangSkipTranslation ? '#c084fc' : '#666', whiteSpace: 'nowrap' }}>{ui.thinkingLanguageSkipTranslation}</span>
+                  <div
+                    onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, reasoningLangSkipTranslation: !x.reasoningLangSkipTranslation } : x))}
+                    role="switch"
+                    aria-checked={!!p.reasoningLangSkipTranslation}
+                    style={{
+                      width: 34, height: 18, borderRadius: 9, position: 'relative',
+                      background: p.reasoningLangSkipTranslation ? '#c084fc' : '#444',
+                      transition: 'background 0.2s',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', top: 2, left: p.reasoningLangSkipTranslation ? 18 : 2,
+                      width: 14, height: 14, borderRadius: '50%', background: '#fff',
+                      transition: 'left 0.2s',
+                    }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {p.model !== userModel && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 11, color: '#666' }}>{ui.relationalAffinity}</span>
                 {participants.filter(x => x.id !== p.id).map(other => {
@@ -347,7 +395,7 @@ export default function ParticipantsPanel({
                   const locked = !!(p.affinityLocks && typeof p.affinityLocks === 'object' ? p.affinityLocks[other.id] : false)
                   return (
                     <div key={`${p.id}-aff-${other.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ minWidth: 90, fontSize: 11, color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{other.name || other.tag}</span>
+                      <span style={{ width: 90, flexShrink: 0, fontSize: 11, color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={other.name || other.tag}>{other.name || other.tag}</span>
                       <span style={{ fontSize: 10, color: '#8a8a8a', width: 16, textAlign: 'center' }}>−</span>
                       <input
                         type="range"
@@ -395,7 +443,7 @@ export default function ParticipantsPanel({
                             }))
                           }}
                         />
-                        lock
+                        {ui.lockLabel}
                       </label>
                     </div>
                   )
@@ -462,22 +510,17 @@ export default function ParticipantsPanel({
 
             {p.model !== userModel && p.isModerator && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingLeft: 2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.alwaysInterveneTitle}>
-                  <span style={{ fontSize: 11, color: p.moderatorAlwaysIntervene ? '#fb923c' : '#666', whiteSpace: 'nowrap' }}>{ui.alwaysIntervene}</span>
-                  <div
-                    onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorAlwaysIntervene: !x.moderatorAlwaysIntervene } : x))}
-                    role="switch"
-                    aria-checked={!!p.moderatorAlwaysIntervene}
-                    style={{
-                      width: 34, height: 18, borderRadius: 9, position: 'relative',
-                      background: p.moderatorAlwaysIntervene ? '#fb923c' : '#444',
-                      transition: 'background 0.2s', cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{
-                      position: 'absolute', top: 2, left: p.moderatorAlwaysIntervene ? 18 : 2,
-                      width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
-                    }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorModeTitle}>
+                  <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorModeLabel}</span>
+                  <div style={{ minWidth: 150 }}>
+                    <ReactSelect
+                      styles={moodSelectStyles}
+                      options={moderatorModeOptions}
+                      value={moderatorModeOptions.find(o => o.value === Debate.normalizeModeratorMode(p)) ?? moderatorModeOptions[0]}
+                      onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorMode: opt.value } : x))}
+                      isSearchable={false}
+                      menuPlacement="auto"
+                    />
                   </div>
                 </div>
 
@@ -542,23 +585,27 @@ export default function ParticipantsPanel({
 
             {p.model !== userModel && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                {(p.constraints ?? []).map((constraint, ci) => (
+                {(p.constraints ?? []).map((rawConstraint, ci) => {
+                  const constraint = typeof rawConstraint === 'string' ? rawConstraint : rawConstraint?.text ?? ''
+                  const isOverride = typeof rawConstraint === 'object' && !!rawConstraint?.override
+                  return (
                   <div
                     key={`${p.id}-${ci}`}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 6,
-                      background: '#1f1726',
-                      border: '1px solid #4a2f63',
+                      background: isOverride ? '#2a1f10' : '#1f1726',
+                      border: isOverride ? '1px solid #7a5a1f' : '1px solid #4a2f63',
                       borderRadius: 6,
                       padding: '2px 7px',
                       fontSize: 10,
-                      color: '#caa9ee',
+                      color: isOverride ? '#f0c060' : '#caa9ee',
                       maxWidth: 360,
                     }}
-                    title={constraint}
+                    title={isOverride ? `${ui.overrideConstraintBadge} — ${constraint}` : constraint}
                     >
+                    {isOverride && <span style={{ fontSize: 10, lineHeight: 1 }} title={ui.overrideConstraintBadge}>⚡</span>}
                     <button
                       onClick={() => onEditConstraint(idx, ci)}
                       style={{
@@ -581,13 +628,14 @@ export default function ParticipantsPanel({
                     </button>
                     <button
                       onClick={() => onDeleteConstraint(idx, ci)}
-                      style={{ background: 'none', border: 'none', color: '#7f629d', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}
+                      style={{ background: 'none', border: 'none', color: isOverride ? '#a8823f' : '#7f629d', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}
                       title={ui.removeConstraint}
                     >
                       ✕
                     </button>
                   </div>
-                ))}
+                  )
+                })}
                 <button
                   style={{ ...styles.connectBtn(false), padding: '2px 8px', fontSize: 11, flexShrink: 0 }}
                   title={ui.addConstraint}

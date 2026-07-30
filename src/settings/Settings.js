@@ -9,6 +9,7 @@ export const DEFAULT_SUMMARY_ACCUMULATE = true
 export const DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD = 8
 export const DEFAULT_SUMMARIZE_ATTACHMENTS = true
 export const DEFAULT_TIMEOUT_SEC = 120
+export const DEFAULT_FALLBACK_MODEL = ''
 export const DEBUG_MODE_STORAGE_KEY = 'debugMode'
 
 export const DEFAULT_MODERATION_COOLING = 0.15

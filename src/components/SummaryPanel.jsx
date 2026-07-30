@@ -1,4 +1,4 @@
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 import { styles } from './Style'
 
 export default function SummaryPanel({
@@ -12,6 +12,7 @@ export default function SummaryPanel({
   summaryDebug,
   onInspectPayload,
 }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
 
   return (
@@ -70,7 +71,7 @@ export default function SummaryPanel({
         </span>
       </div>
       {summaryVisible && (
-        <div style={{
+        <div className={summary ? 'selectable' : undefined} style={{
           padding: '8px 16px 12px',
           fontSize: 12, color: '#aaa', lineHeight: 1.6,
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',

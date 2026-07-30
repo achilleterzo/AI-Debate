@@ -1,3 +1,19 @@
+function constraintText(entry) {
+  return typeof entry === 'string' ? entry : String(entry?.text ?? '')
+}
+
+function moderatorModeOf(actor) {
+  if (['containment', 'facilitator', 'active'].includes(actor?.moderatorMode)) return actor.moderatorMode
+  return actor?.moderatorAlwaysIntervene ? 'active' : 'containment'
+}
+
+function detectReasoningLangFromConstraints(constraints, languages) {
+  const text = (constraints || []).map(constraintText).filter(Boolean).join(' ').toLowerCase()
+  if (!text) return ''
+  const match = languages.find(language => text.includes(language.label.toLowerCase()))
+  return match?.code ?? ''
+}
+
 export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', constants }) {
   const {
     MOODS,
@@ -10,6 +26,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     AGE_GROUPS,
     DEFAULT_AGE_GROUP,
     LANGUAGES,
+    REASONING_LANG_FROM_CONSTRAINT,
   } = constants
 
   const mood = MOODS.find(m => m.id === actor.mood) ?? MOODS.find(m => m.id === DEFAULT_MOOD)
@@ -19,11 +36,30 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   const educationLevel = EDUCATION_LEVELS.find(e => e.value === actor.educationLevel)
   const ageGroup = AGE_GROUPS[actor.ageGroup ?? DEFAULT_AGE_GROUP]
   const languageLabel = LANGUAGES.find(l => l.code === uiLang)?.label ?? uiLang
+  const requestedReasoningLang = actor.reasoningLang === REASONING_LANG_FROM_CONSTRAINT
+    ? detectReasoningLangFromConstraints([...(actor.constraints || []), ...(globalConstraints || [])], LANGUAGES)
+    : actor.reasoningLang
+  const reasoningLangCode = requestedReasoningLang && requestedReasoningLang !== uiLang ? requestedReasoningLang : ''
+  const reasoningLangLabel = reasoningLangCode ? (LANGUAGES.find(l => l.code === reasoningLangCode)?.label ?? reasoningLangCode) : ''
+  const skipTranslation = !!(reasoningLangCode && actor.reasoningLangSkipTranslation)
 
   const roster = allParticipants
     .filter(p => p.id !== actor.id)
     .map(p => `- ${p.name || p.tag}${p.isModerator ? ' (moderator)' : ''}`)
     .join('\n')
+
+  const affinityEntries = Object.entries(actor.affinity && typeof actor.affinity === 'object' ? actor.affinity : {})
+    .map(([id, weight]) => {
+      const other = allParticipants.find(p => String(p.id) === String(id) && p.id !== actor.id)
+      const value = Number(weight)
+      if (!other || !Number.isFinite(value) || value === 0) return null
+      return `- ${other.name || other.tag}: ${value > 0 ? '+' : ''}${value.toFixed(2)}`
+    })
+    .filter(Boolean)
+
+  const affinityBlock = affinityEntries.length > 0
+    ? `Your relational affinity toward other participants, from -1.00 (strong conflict, distrust, hostility) to +1.00 (strong alignment, trust, support):\n${affinityEntries.join('\n')}\n\nLet these weights shape your tone toward each participant and how willing you are to agree with, build on, or push back against their arguments.`
+    : ''
 
   const recent = history
     .filter(m => !['topic', 'interjection', 'error', 'participant_joined', 'participant_left'].includes(m.role) && m.content?.trim())
@@ -67,10 +103,18 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     ? `\n\nAttached context documents:\n${attachedDocs.map(d => `## ${d.name}\n${d.content}`).join('\n\n')}`
     : ''
 
-  const constraintsBlock = [
-    generalPersonalityInstructions?.trim(),
-    ...(globalConstraints || []).map(text => `- ${text}`),
-    ...((actor.constraints || []).map(text => `- ${text}`)),
+  const participantConstraints = (actor.constraints || [])
+    .map(entry => typeof entry === 'string' ? { text: entry, override: false } : { text: String(entry?.text ?? ''), override: !!entry?.override })
+    .filter(entry => entry.text.trim())
+  const overrideConstraints = participantConstraints.filter(entry => entry.override)
+  const personalConstraints = participantConstraints.filter(entry => !entry.override)
+
+  const debateHasModerator = allParticipants.some(p => p.isModerator && p.id !== actor.id)
+
+  const baselineRules = [
+    ...(!actor.isModerator && debateHasModerator
+      ? ['- A moderator holds procedural authority over this debate. If the moderator issues a process directive (de-escalation, topic redirection, turn assignment, format), comply with it in your next turn. You may keep defending your positions on content, but never ignore or overrule a moderator process directive.']
+      : []),
     '- Avoid referring to other participants unless it is strictly necessary for the argument you are making.',
     '- Distinguish clearly between observed facts and your inferences. If a point is not directly supported by the topic, cited material, or the discussion itself, present it only as a tentative hypothesis or avoid it.',
     '- Do not attribute internal motives, traffic strategy, business incentives, hidden intent, or undocumented decision-making to the subject unless such claims are explicitly supported by available evidence.',
@@ -79,29 +123,58 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     '- Treat the active topic as the primary obligation. Source material, cited links, and examples are supporting context only.',
     '- If the active topic asks for an opinion on a project, site, person, or initiative as a whole, do not pivot into discussing individual articles, games, side examples, or analogies unless you explicitly connect them back to that overall evaluation.',
     '- If another participant fixates on a side detail, do not follow them there by default. Pull the discussion back to the active topic.',
-  ].filter(Boolean).join('\n')
+  ]
+
+  const constraintsBlock = [
+    generalPersonalityInstructions?.trim(),
+    'Precedence between the rule sections below, from strongest to weakest: 1) character override constraints, 2) global rules, 3) your personal constraints, 4) general debate conduct. When two rules conflict, follow the one from the stronger section.',
+    overrideConstraints.length > 0
+      ? `Character override constraints (highest priority — when they conflict with ANY other rule in this prompt, including global rules, these win):\n${overrideConstraints.map(entry => `- ${entry.text}`).join('\n')}`
+      : '',
+    (globalConstraints || []).length > 0
+      ? `Global rules (they apply to every participant and take precedence over your personal constraints):\n${(globalConstraints || []).map(text => `- ${text}`).join('\n')}`
+      : '',
+    personalConstraints.length > 0
+      ? `Your personal constraints:\n${personalConstraints.map(entry => `- ${entry.text}`).join('\n')}`
+      : '',
+    `General debate conduct:\n${baselineRules.join('\n')}`,
+  ].filter(Boolean).join('\n\n')
 
   const moderationBlock = actor.isModerator && externalModerationTrigger
     ? `\n\nModeration trigger:\nneeded=${externalModerationTrigger.needed ? 'true' : 'false'}\nreason=${externalModerationTrigger.reason || ''}`
     : ''
 
+  const moderatorMode = actor.isModerator ? moderatorModeOf(actor) : null
+  const moderatorStyleText = moderatorMode === 'active'
+    ? 'Moderation style: ACTIVE. You take part in the debate proactively: you may contribute opinions, arguments, interpretations, process guidance, fact-checking, and topic enforcement, always from your position of authority above the participants.'
+    : moderatorMode === 'facilitator'
+      ? [
+          'Moderation style: FACILITATOR. You never argue a position of your own.',
+          externalModerationTrigger?.scheduledFacilitation
+            ? 'This turn is a scheduled facilitation turn: analyze the discussion so far instead of moderating. Synthesize what has emerged, map the concrete points of agreement and disagreement, and surface the blind spots — relevant angles, assumptions, or questions no participant has addressed yet. Close by steering the debate toward the most productive open question. Keep it compact.'
+            : 'This is NOT a scheduled facilitation turn: intervene only for containment — personal attacks or insults, escalating hostility, complete topic derailment, or an explicit request for moderation. If none of these apply, output exactly [SKIP_TURN].',
+        ].join(' ')
+      : 'Moderation style: CONTAINMENT. Stay out of the discussion by default. Intervene only when concretely needed: personal attacks or insults, escalating hostility, complete topic derailment, or an explicit request for moderation. When you intervene, name the problem, issue a clear corrective directive, and hand the floor back. If none of these apply, output exactly [SKIP_TURN].'
+
   const moderatorDecisionBlock = actor.isModerator
     ? [
-        `Moderator mode: always_intervene=${actor.moderatorAlwaysIntervene ? 'true' : 'false'}, enforce_topic=${actor.moderatorEnforceTopic ? 'true' : 'false'}, fact_check=${actor.moderatorFactCheck ? 'true' : 'false'}.`,
-        'You are a moderator, not a normal debate participant.',
-        actor.moderatorAlwaysIntervene
-          ? 'You may enter the thread proactively, you can contribute with normal opinions, arguments, interpretations, process guidance, fact-checking, or topic enforcement.'
-          : 'Do not contribute normal opinions, arguments, interpretations, or content-level discussion of your own. Only intervene when moderation is genuinely needed.',
-        'Intervene only for moderation purposes: personal attacks, escalating hostility, explicit natural-language requests for moderation, severe topic drift, unsupported speculation asserted as fact, fact-checking needs, or topic enforcement.',
-        'If intervention is not genuinely needed, output exactly [SKIP_TURN].',
-        'If you do intervene, output only moderation or process control. Do not continue the debate as if you were another participant.',
-      ].join(' ')
+        `Moderator mode: style=${moderatorMode}, enforce_topic=${actor.moderatorEnforceTopic ? 'true' : 'false'}, fact_check=${actor.moderatorFactCheck ? 'true' : 'false'}.`,
+        'You are the debate moderator, not a normal participant. You hold procedural authority over this debate: participants are instructed to comply with your process directives, and your rulings on process outrank their personal goals.',
+        moderatorStyleText,
+        moderatorMode === 'active' || externalModerationTrigger?.scheduledFacilitation
+          ? ''
+          : 'When you do intervene, output only moderation or process control. Do not continue the debate as if you were another participant.',
+      ].filter(Boolean).join(' ')
     : ''
 
   const defaultDeliveryStyle = 'Default delivery style: speak plainly and directly. Favor argumentative prose over performance. Avoid narrated gestures, stage directions, acted pauses, cinematic scene-setting, or theatrical framing unless they are explicitly required by a stronger instruction or by the participant\'s core identity.'
 
   return [
-    `You are ${actor.name || actor.tag}. Respond in ${languageLabel} (language code: ${uiLang}).`,
+    reasoningLangLabel
+      ? (skipTranslation
+          ? `You are ${actor.name || actor.tag}. Do all internal reasoning and deliberation in ${reasoningLangLabel} (language code: ${reasoningLangCode}), and write your final visible response in ${reasoningLangLabel} as well — do not translate it into ${languageLabel}.`
+          : `You are ${actor.name || actor.tag}. Do all internal reasoning and deliberation in ${reasoningLangLabel} (language code: ${reasoningLangCode}). Your final visible response, however, must be written only in ${languageLabel} (language code: ${uiLang}), as a faithful translation of that reasoning — never leave any part of the visible response in ${reasoningLangLabel} unless it is identical to ${languageLabel}.`)
+      : `You are ${actor.name || actor.tag}. Respond in ${languageLabel} (language code: ${uiLang}).`,
     characterType ? `Character type: ${characterType.label}.` : '',
     responseLength?.instruction ? `Verbosity rule: ${responseLength.instruction}` : '',
     defaultDeliveryStyle,
@@ -109,6 +182,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     ageGroup?.instruction ? `Age style: ${ageGroup.instruction}` : '',
     mood?.instruction ? `Mood: ${mood.instruction}` : '',
     mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
+    affinityBlock,
     topicDirectiveBlock,
     activeTopicBlock,
     sourcePriorityBlock,

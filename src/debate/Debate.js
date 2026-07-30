@@ -25,6 +25,19 @@ export class Debate {
 
   static USER_MODEL = '__user__'
 
+  static REASONING_LANG_FROM_CONSTRAINT = '__constraint__'
+
+  static MODERATOR_MODES = ['containment', 'facilitator', 'active']
+
+  static DEFAULT_MODERATOR_MODE = 'containment'
+
+  // Migrates the legacy moderatorAlwaysIntervene boolean into the mode select.
+  static normalizeModeratorMode(participant) {
+    const mode = participant?.moderatorMode
+    if (Debate.MODERATOR_MODES.includes(mode)) return mode
+    return participant?.moderatorAlwaysIntervene ? 'active' : Debate.DEFAULT_MODERATOR_MODE
+  }
+
   static DEFAULT_MOOD_INTENSITY = 2
 
   static DEFAULT_EDUCATION_LEVEL = null
@@ -49,12 +62,14 @@ export class Debate {
       endpointOverride: '',
       name: '',
       isModerator: false,
-      moderatorAlwaysIntervene: false,
+      moderatorMode: Debate.DEFAULT_MODERATOR_MODE,
       moderatorDynamicAffinity: false,
       moderatorFactCheck: false,
       moderatorEnforceTopic: false,
       mood: Debate.DEFAULT_MOOD,
       moodIntensity: Debate.DEFAULT_MOOD_INTENSITY,
+      reasoningLang: '',
+      reasoningLangSkipTranslation: false,
       affinity: {},
       affinityLocks: {},
       characterType: null,
@@ -110,6 +125,17 @@ export class Debate {
       if (value === true) out[id] = true
     }
     return out
+  }
+
+  // Constraints are stored as { text, override } objects; plain strings are
+  // accepted for backward compatibility with older snapshots and settings.
+  static normalizeParticipantConstraints(raw) {
+    if (!Array.isArray(raw)) return []
+    return raw
+      .map(entry => typeof entry === 'string'
+        ? { text: entry, override: false }
+        : { text: String(entry?.text ?? ''), override: !!entry?.override })
+      .filter(entry => entry.text.trim())
   }
 
   static parseAffinityDeltas(raw) {
@@ -275,6 +301,8 @@ export class Debate {
       DEFAULT_AGE_GROUP: Debate.DEFAULT_AGE_GROUP,
       normalizeAffinity: Debate.normalizeAffinity,
       normalizeAffinityLocks: Debate.normalizeAffinityLocks,
+      normalizeConstraints: Debate.normalizeParticipantConstraints,
+      normalizeModeratorMode: Debate.normalizeModeratorMode,
     }
   }
 
@@ -292,19 +320,21 @@ export class Debate {
       endpointOverride: participant.endpointOverride ?? '',
       name: participant.name,
       isModerator: !!participant.isModerator || participant.mood === 'moderator',
-      moderatorAlwaysIntervene: !!participant.moderatorAlwaysIntervene,
+      moderatorMode: Debate.normalizeModeratorMode(participant),
       moderatorDynamicAffinity: !!participant.moderatorDynamicAffinity,
       moderatorEnforceTopic: !!participant.moderatorEnforceTopic,
       moderatorFactCheck: !!participant.moderatorFactCheck,
       mood: participant.mood,
       moodIntensity: participant.moodIntensity ?? Debate.DEFAULT_MOOD_INTENSITY,
+      reasoningLang: participant.reasoningLang ?? '',
+      reasoningLangSkipTranslation: !!participant.reasoningLangSkipTranslation,
       characterType: participant.characterType ?? null,
       responseLength: participant.responseLength ?? null,
       educationLevel: participant.educationLevel ?? Debate.DEFAULT_EDUCATION_LEVEL,
       ageGroup: participant.ageGroup ?? Debate.DEFAULT_AGE_GROUP,
       affinity: Debate.normalizeAffinity(participant.affinity),
       affinityLocks: Debate.normalizeAffinityLocks(participant.affinityLocks),
-      constraints: participant.constraints ?? [],
+      constraints: Debate.normalizeParticipantConstraints(participant.constraints),
       characterContext: participant.characterContext ?? null,
     }))
   }
@@ -470,6 +500,7 @@ export class Debate {
       AGE_GROUPS,
       DEFAULT_AGE_GROUP: Debate.DEFAULT_AGE_GROUP,
       LANGUAGES,
+      REASONING_LANG_FROM_CONSTRAINT: Debate.REASONING_LANG_FROM_CONSTRAINT,
     }
   }
 
@@ -572,9 +603,10 @@ export class Debate {
     return { changed, participants: updated }
   }
 
-  static shouldModeratorIntervene({ actor, history = [], participants = [], roundModerationSignal = null }) {
+  static shouldModeratorIntervene({ actor, history = [], participants = [], roundModerationSignal = null, round = 0, roundLimit = 0 }) {
     const result = {
       shouldIntervene: false,
+      scheduledFacilitation: false,
     }
 
     if (!actor?.isModerator) return result
@@ -586,12 +618,31 @@ export class Debate {
     })
 
     const hasContext = nonModeratorMsgs.length > 0
+    if (!hasContext) return result
+
     const moderationRequested = !!roundModerationSignal?.needed
+    const mode = Debate.normalizeModeratorMode(actor)
 
-    result.shouldIntervene = actor.moderatorAlwaysIntervene
-      ? hasContext
-      : hasContext && moderationRequested && !!actor.moderatorEnforceTopic
+    if (mode === 'active') {
+      result.shouldIntervene = true
+      return result
+    }
 
+    if (mode === 'facilitator') {
+      const turnLabel = round + 1
+      const isLastRound = roundLimit > 0 && turnLabel >= roundLimit
+      if (turnLabel % 2 === 0 && !isLastRound) {
+        result.shouldIntervene = true
+        result.scheduledFacilitation = true
+        return result
+      }
+      result.shouldIntervene = moderationRequested
+      return result
+    }
+
+    // containment: step in only when the round signal reports a concrete need
+    // (insults, escalation, complete derailment, explicit request).
+    result.shouldIntervene = moderationRequested
     return result
   }
 
@@ -673,6 +724,7 @@ export class Debate {
       maxTurnsRef,
       timeoutSecRef,
       baseUrlRef,
+      defaultModel,
       useSummaryRef,
       attachedDocs,
       summarizeAttachments,
@@ -927,7 +979,8 @@ export class Debate {
         parts = participantsRef.current
         if (s >= parts.length) break
 
-        const actor = parts[s]
+        const rawActor = parts[s]
+        const actor = rawActor.model ? rawActor : { ...rawActor, model: defaultModel || rawActor.model }
         const actorBaseUrl = actor.endpointOverride?.trim() || baseUrl
         const turnLabel = round + 1
 
@@ -944,13 +997,17 @@ export class Debate {
         }
 
         const realHistory = history
+        const moderatorMode = actor.isModerator ? Debate.normalizeModeratorMode(actor) : null
 
+        let moderationDecision = null
         if (actor.isModerator) {
-          const moderationDecision = Debate.shouldModeratorIntervene({
+          moderationDecision = Debate.shouldModeratorIntervene({
             actor,
             history: realHistory,
             participants: parts,
             roundModerationSignal,
+            round,
+            roundLimit,
           })
           if (!moderationDecision.shouldIntervene) continue
         }
@@ -1042,6 +1099,13 @@ export class Debate {
           for (const message of realHistory) await pushHistoryMsg(message)
         }
 
+        // Chat templates (Gemma among others) produce empty output when the
+        // payload carries no user turn at all — which is exactly the shape of
+        // the very first turn, where the topic lives in the system prompt.
+        if (!contextMessages.some(message => message.ollamaRole === 'user')) {
+          contextMessages.push({ ollamaRole: 'user', content: 'The debate starts now. Give your opening statement on the active topic, staying in character and following your system instructions.' })
+        }
+
         const sourceUrls = [...new Set(
           realHistory
             .filter(message => message.role === 'topic' || message.role === 'interjection')
@@ -1062,6 +1126,7 @@ export class Debate {
             ? {
                 needed: !!roundModerationSignal?.needed,
                 reason: roundModerationSignal?.reason || '',
+                scheduledFacilitation: !!moderationDecision?.scheduledFacilitation,
               }
             : null,
           characterContext,
@@ -1115,7 +1180,7 @@ export class Debate {
             timeoutMs,
           })
           const finalContent = full && full.trim() ? full : (history[history.length - 1]?.content ?? '')
-          const shouldSkipModeratorTurn = actor.isModerator && !actor.moderatorAlwaysIntervene && !roundModerationSignal?.needed && /^\s*\[SKIP_TURN\]\s*$/i.test(finalContent)
+          const shouldSkipModeratorTurn = actor.isModerator && moderatorMode !== 'active' && !roundModerationSignal?.needed && /^\s*\[SKIP_TURN\]\s*$/i.test(finalContent)
           if (shouldSkipModeratorTurn) {
             history = history.slice(0, -1)
              syncHistory()
@@ -1124,7 +1189,11 @@ export class Debate {
             continue
           }
           let moderatedContent = finalContent
-          if (actor.isModerator && finalContent.trim() && !Debate.isModerationDirectiveStyle(finalContent)) {
+          // Directive-style rewrite only applies to containment interventions:
+          // active moderators contribute content, and scheduled facilitation
+          // turns are analytical by design — rewriting would destroy both.
+          const skipModeratorRewrite = moderatorMode === 'active' || !!moderationDecision?.scheduledFacilitation
+          if (actor.isModerator && finalContent.trim() && !skipModeratorRewrite && !Debate.isModerationDirectiveStyle(finalContent)) {
             let rewrite = ''
             try {
               await streamChat({
@@ -1149,8 +1218,18 @@ export class Debate {
           }
           if (moderatedContent.trim()) {
             history = history.map((message, index) => index === history.length - 1 ? { ...message, content: moderatedContent, ...(debugMode ? { payload, debugPayloads } : {}) } : message)
-          } else {
+          } else if (actor.isModerator) {
             history = history.slice(0, -1)
+          } else {
+            const emptyMsg = {
+              role: 'error',
+              ollamaRole: null,
+              nonFatal: true,
+              content: `⚠ ${actor.name || actor.tag}: empty response from ${actor.model} — skipping this turn.`,
+              turn: turnLabel,
+              seq: nextSeq(),
+            }
+            history = [...history.slice(0, -1), emptyMsg]
           }
            syncHistory()
         } catch (err) {

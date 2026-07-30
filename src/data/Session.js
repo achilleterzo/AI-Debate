@@ -1,19 +1,21 @@
 import { topicToSlug } from '../utils/Slug'
 
 export class Session {
-  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks }) {
+  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode }) {
     return {
       id: p.id,
       model: p.model,
       endpointOverride: p.endpointOverride ?? '',
       name: p.name,
       isModerator: !!p.isModerator || p.mood === 'moderator',
-      moderatorAlwaysIntervene: !!p.moderatorAlwaysIntervene,
+      moderatorMode: normalizeModeratorMode(p),
       moderatorDynamicAffinity: !!p.moderatorDynamicAffinity,
       moderatorFactCheck: !!p.moderatorFactCheck,
       moderatorEnforceTopic: !!p.moderatorEnforceTopic,
       mood: p.mood === 'moderator' ? DEFAULT_MOOD : p.mood,
       moodIntensity: p.moodIntensity ?? DEFAULT_MOOD_INTENSITY,
+      reasoningLang: p.reasoningLang ?? '',
+      reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
       characterType: p.characterType ?? null,
       responseLength: p.responseLength ?? null,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,
@@ -21,29 +23,31 @@ export class Session {
       tag: p.tag,
       affinity: normalizeAffinity(p.affinity),
       affinityLocks: normalizeAffinityLocks(p.affinityLocks),
-      constraints: p.constraints ?? [],
+      constraints: normalizeConstraints(p.constraints),
     }
   }
 
-  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks }) {
+  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode }) {
     return {
       ...mkParticipant(i, p.model),
       endpointOverride: p.endpointOverride ?? '',
       name: p.name ?? '',
       isModerator: !!p.isModerator || p.mood === 'moderator',
-      moderatorAlwaysIntervene: !!p.moderatorAlwaysIntervene,
+      moderatorMode: normalizeModeratorMode(p),
       moderatorDynamicAffinity: !!p.moderatorDynamicAffinity,
       moderatorFactCheck: !!p.moderatorFactCheck,
       moderatorEnforceTopic: !!p.moderatorEnforceTopic,
       mood: p.mood === 'moderator' ? DEFAULT_MOOD : (p.mood ?? DEFAULT_MOOD),
       moodIntensity: p.moodIntensity ?? DEFAULT_MOOD_INTENSITY,
+      reasoningLang: p.reasoningLang ?? '',
+      reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
       characterType: p.characterType ?? null,
       responseLength: p.responseLength ?? null,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,
       ageGroup: p.ageGroup ?? DEFAULT_AGE_GROUP,
       affinity: normalizeAffinity(p.affinity),
       affinityLocks: normalizeAffinityLocks(p.affinityLocks),
-      constraints: p.constraints ?? [],
+      constraints: normalizeConstraints(p.constraints),
     }
   }
 

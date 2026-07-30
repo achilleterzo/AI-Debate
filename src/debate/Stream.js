@@ -230,9 +230,9 @@ export async function streamChat({
       continue
     }
 
-    if (!full.trim() && toolRound > 0 && !retried) {
+    if (!full.trim() && !retried) {
       retried = true
-      console.warn(`${label} risposta vuota dopo tool rounds — retry senza tools`)
+      console.warn(`${label} risposta vuota — retry${toolRound > 0 ? ' senza tools' : ''}`)
       full = ''
       onToken('')
       continue

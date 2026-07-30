@@ -1,6 +1,6 @@
 import ReactSelect from 'react-select'
 import { SUMMARY_ACCUMULATE_STEPS } from '../settings/Settings'
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function SummarySettings({
   useSummary,
@@ -19,6 +19,7 @@ export default function SummarySettings({
   modelSelectStyles,
   running,
 }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
   const common = UI_STRINGS.common
 
@@ -40,9 +41,7 @@ export default function SummarySettings({
         <div style={{ width: 1, height: 18, background: '#2e2e2e', flexShrink: 0 }} />
         <div
           onClick={() => !running && onSummarizeAttachmentsChange(!summarizeAttachments)}
-          title={summarizeAttachments
-            ? 'Attachment summarization active: attached documents are analytically summarized first using the summary model'
-            : 'Enable analytical summarization of attachments with the summary model'}
+          title={summarizeAttachments ? ui.summarizeAttachmentsTitleOn : ui.summarizeAttachmentsTitleOff}
           style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: running ? 'default' : 'pointer', userSelect: 'none', opacity: running ? 0.5 : 1 }}
         >
           <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: summarizeAttachments ? '#22d3ee' : '#444', transition: 'background 0.2s', flexShrink: 0 }}>
@@ -88,7 +87,7 @@ export default function SummarySettings({
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 0 6px' }}>
         <div
           onClick={() => !running && onSummaryModelEnabledChange(!summaryModelEnabled)}
-          title={summaryModelEnabled ? 'Use dedicated model for summaries (click to disable)' : 'Enable dedicated model for summaries'}
+          title={summaryModelEnabled ? ui.summaryModelTitleOn : ui.summaryModelTitleOff}
           style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: running ? 'default' : 'pointer', userSelect: 'none', opacity: running ? 0.5 : 1 }}
         >
           <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: summaryModelEnabled ? '#4a9eff' : '#444', transition: 'background 0.2s', flexShrink: 0 }}>
@@ -103,8 +102,8 @@ export default function SummarySettings({
               const cloud = models.filter(m => m.endsWith('cloud')).sort()
               const local = models.filter(m => !m.endsWith('cloud')).sort()
               return [
-                ...(cloud.length ? [{ label: 'Cloud', options: cloud.map(m => ({ value: m, label: m })) }] : []),
-                ...(local.length ? [{ label: 'Local', options: local.map(m => ({ value: m, label: m })) }] : []),
+                ...(cloud.length ? [{ label: common.cloud, options: cloud.map(m => ({ value: m, label: m })) }] : []),
+                ...(local.length ? [{ label: common.local, options: local.map(m => ({ value: m, label: m })) }] : []),
               ]
             })()}
             value={summaryModelOverride ? { value: summaryModelOverride, label: summaryModelOverride } : null}
