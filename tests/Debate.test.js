@@ -43,7 +43,7 @@ describe('Debate participant domain rules', () => {
       endpointOverride: 'http://remote',
       affinity: { 1: 0.2 },
       affinityLocks: { 1: true },
-      constraints: ['Use sources'],
+      constraints: [{ text: 'Use sources', override: false }],
     })
   })
 })
