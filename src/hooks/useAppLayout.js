@@ -49,6 +49,14 @@ export function useAppLayout({ messages, streamingRole, headerOpen, summary, sum
   }, [headerOpen, recomputeHeaderBodyMaxHeight, summary, summaryVisible])
 
   useEffect(() => {
+    if (messages.length === 0) {
+      autoScrollRef.current = true
+      if (showScrollBtnRef.current) {
+        showScrollBtnRef.current = false
+        setShowScrollBtn(false)
+      }
+      return
+    }
     if (!autoScrollRef.current) return
     const chat = chatRef.current
     if (chat) {

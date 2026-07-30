@@ -3,7 +3,7 @@ import ConstraintModalView from './ConstraintModal'
 import EndpointModalView from './EndpointModal'
 import PromptSettingsModalView from './PromptSettingsModal'
 import ConfirmModalView from './ConfirmModal'
-import { modelSelectStyles } from './Style'
+import { modelSelectStyles, moodSelectStyles } from './Style'
 
 export default function AppModals({
   payloadModal,
@@ -22,6 +22,8 @@ export default function AppModals({
   onSavePromptSettings,
   onResetPromptSettings,
   onClearSettings,
+  interfaceLang,
+  onInterfaceLangChange,
   confirmModal,
   onCancelConfirmModal,
   onConfirmModal,
@@ -53,6 +55,9 @@ export default function AppModals({
           onSave={onSavePromptSettings}
           onReset={onResetPromptSettings}
           onClearSettings={onClearSettings}
+          interfaceLang={interfaceLang}
+          onInterfaceLangChange={onInterfaceLangChange}
+          moodSelectStyles={moodSelectStyles}
         />
       )}
       {confirmModal && (

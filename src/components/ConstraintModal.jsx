@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import ReactSelect from 'react-select'
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function ConstraintModal({ state, onClose, onConfirm, globalSuggestions = [], selectStyles, onDeleteGlobalSuggestion }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.constraintModal
   const common = UI_STRINGS.common
   const [text, setText] = useState(state?.initialText ?? '')
+  const [override, setOverride] = useState(!!state?.initialOverride)
   const isDelete = state?.mode === 'delete'
+  const isParticipant = state?.scope === 'participant'
   const title = isDelete ? ui.removeTitle : state?.mode === 'edit' ? ui.editTitle : ui.newTitle
   const subtitle = state?.scope === 'global' ? ui.globalSubtitle : ui.participantSubtitle(state?.participantTag ?? '')
 
@@ -38,12 +41,34 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
                   if (e.key === 'Escape') onClose()
                   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault()
-                    onConfirm(text)
+                    onConfirm(text, override)
                   }
                 }}
                 placeholder={ui.placeholder}
                 style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 13, lineHeight: 1.55, padding: '8px 10px', resize: 'vertical', minHeight: 92 }}
               />
+              {isParticipant && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.overridePriorityTitle}>
+                  <span style={{ fontSize: 11, color: override ? '#f59e0b' : '#666', whiteSpace: 'nowrap' }}>{ui.overridePriority}</span>
+                  <div
+                    onClick={() => setOverride(prev => !prev)}
+                    role="switch"
+                    aria-checked={override}
+                    style={{
+                      width: 34, height: 18, borderRadius: 9, position: 'relative',
+                      background: override ? '#f59e0b' : '#444',
+                      transition: 'background 0.2s',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', top: 2, left: override ? 18 : 2,
+                      width: 14, height: 14, borderRadius: '50%', background: '#fff',
+                      transition: 'left 0.2s',
+                    }} />
+                  </div>
+                </div>
+              )}
               {state?.scope === 'global' && globalSuggestions.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ fontSize: 11, color: '#888' }}>{ui.history}</div>
@@ -92,7 +117,7 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button onClick={onClose} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{common.cancel}</button>
             <button
-              onClick={() => onConfirm(text)}
+              onClick={() => onConfirm(text, override)}
               style={{
                 background: isDelete ? '#3a1e1e' : '#1f2a3f',
                 border: `1px solid ${isDelete ? '#7a3b3b' : '#3f5a8a'}`,

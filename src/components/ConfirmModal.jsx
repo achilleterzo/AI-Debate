@@ -1,6 +1,7 @@
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function ConfirmModal({ state, onCancel, onConfirm }) {
+  const UI_STRINGS = useUiStrings()
   const common = UI_STRINGS.common
   const ui = UI_STRINGS.confirmModal
 

@@ -68,7 +68,7 @@ export const styles = {
 		minWidth: 20,
 	}),
 	nameInput: {
-		width: 90, background: '#0f0f0f', color: '#e0e0e0',
+		width: 120, background: '#0f0f0f', color: '#e0e0e0',
 		border: '1px solid #2e2e2e', borderRadius: 6,
 		padding: '4px 8px', fontSize: 12, outline: 'none',
 	},

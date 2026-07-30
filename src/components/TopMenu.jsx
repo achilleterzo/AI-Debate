@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function TopMenu({
   DropdownItem,
@@ -8,6 +8,7 @@ export default function TopMenu({
   onOpenPromptSettings,
   exportItems,
 }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.topMenu
   const MenuItemComponent = DropdownItem
   const menuRef = useRef(null)

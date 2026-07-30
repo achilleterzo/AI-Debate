@@ -1,4 +1,4 @@
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 import { styles } from './Style'
 
 export default function InputActionButtons({
@@ -23,6 +23,7 @@ export default function InputActionButtons({
   onResume,
   onReset,
 }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
 
   return (
@@ -105,7 +106,7 @@ export default function InputActionButtons({
 
       {!running && messages.length === 0 && (
         <button style={{ ...styles.connectBtn(!canStart), minHeight: 44, alignSelf: 'stretch' }} onClick={onStart} disabled={!canStart}>
-          Avvia
+          {ui.start}
         </button>
       )}
 
@@ -137,7 +138,7 @@ export default function InputActionButtons({
             onClick={onStop}
             disabled={stopping}
           >
-            {stopping ? 'In arresto…' : 'Stop'}
+            {stopping ? ui.stopping : ui.stop}
           </button>
         </>
       )}
@@ -155,7 +156,7 @@ export default function InputActionButtons({
               : ui.resumePingPong
             }
           >
-            {messages.some(m => m.role === 'error') ? ui.resume : topic.trim() ? ui.continueWithPrompt : ui.continue}
+            {messages.some(m => m.role === 'error') ? ui.resumePingPong : topic.trim() ? ui.continueWithPrompt : ui.continue}
           </button>
           <button style={{ ...styles.connectBtn(false), minHeight: 44, alignSelf: 'stretch' }} onClick={onReset}>
             {ui.resetButton}

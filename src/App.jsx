@@ -30,7 +30,7 @@ import { CHARACTER_TYPES } from './dataset/CharacterTypes'
 import { EDUCATION_LEVELS } from './prompts/EducationLevels'
 import { MOOD_INTENSITY } from './prompts/MoodIntensity'
 import { AGE_GROUPS } from './prompts/AgeGroups'
-import { UI_STRINGS } from './i18n/UiStrings'
+import { UiStringsProvider, useUiStrings } from './i18n/UiStringsContext'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from './prompts/DefaultGeneralPersonalityInstructions'
 import { DEFAULT_URL } from './settings/Settings'
 import { formatMoodOption, GlobalStyles, modelSelectStyles, moodSelectStyles, styles } from './components/Style'
@@ -47,6 +47,16 @@ import { CONCLUSION_TYPES } from './prompts/ConclusionTypes'
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
+  const settings = useAppSettings()
+  return (
+    <UiStringsProvider lang={settings.interfaceLang}>
+      <AppInner settings={settings} />
+    </UiStringsProvider>
+  )
+}
+
+function AppInner({ settings }) {
+  const UI_STRINGS = useUiStrings()
   const common = UI_STRINGS.common
   const ui = UI_STRINGS.app
   const topMenuUi = UI_STRINGS.topMenu
@@ -61,7 +71,6 @@ export default function App() {
   // ── conversation ──
   const [globalConstraintHistory, setGlobalConstraintHistory] = useState(Storage.loadGlobalConstraintsHistory)
   const { attachedDocs, inputRef: docInputRef, addFiles, removeAttachment } = useAttachments()
-  const settings = useAppSettings()
   const {
     saved, endpointInput, setEndpointInput, baseUrl, setBaseUrl, participants, setParticipants,
     globalConstraints, setGlobalConstraints, generalPersonalityInstructions, setGeneralPersonalityInstructions,
@@ -70,7 +79,8 @@ export default function App() {
     summaryModelEnabled, setSummaryModelEnabled, summaryModelOverride, setSummaryModelOverride,
     summaryAccumulate, setSummaryAccumulate, summaryAccumulateThreshold, setSummaryAccumulateThreshold,
     summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode, uiLang, setUiLang,
-    timeoutSec, setTimeoutSec,
+    interfaceLang, setInterfaceLang,
+    timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
   } = settings
   const [messages, setMessages] = useState([])
   const [running, setRunning] = useState(false)
@@ -119,6 +129,7 @@ export default function App() {
     recentK,
     timeoutSec,
     baseUrl,
+    defaultModel,
     useSummary,
     attachedDocs,
     summarizeAttachments,
@@ -284,13 +295,16 @@ export default function App() {
 
   const handleEditParticipantConstraint = (idx, constraintIdx) => {
     const p = participants[idx]
-    const initialText = p?.constraints?.[constraintIdx] ?? ''
-    setConstraintModal({ mode: 'edit', scope: 'participant', participantIdx: idx, participantTag: p?.tag ?? '', constraintIdx, initialText })
+    const entry = p?.constraints?.[constraintIdx]
+    const initialText = typeof entry === 'string' ? entry : entry?.text ?? ''
+    const initialOverride = typeof entry === 'object' && !!entry?.override
+    setConstraintModal({ mode: 'edit', scope: 'participant', participantIdx: idx, participantTag: p?.tag ?? '', constraintIdx, initialText, initialOverride })
   }
 
   const handleDeleteParticipantConstraint = (idx, constraintIdx) => {
     const p = participants[idx]
-    const initialText = p?.constraints?.[constraintIdx] ?? ''
+    const entry = p?.constraints?.[constraintIdx]
+    const initialText = typeof entry === 'string' ? entry : entry?.text ?? ''
     setConstraintModal({ mode: 'delete', scope: 'participant', participantIdx: idx, participantTag: p?.tag ?? '', constraintIdx, initialText })
   }
 
@@ -323,7 +337,7 @@ export default function App() {
     )
   }
 
-  const handleConstraintConfirm = (value) => {
+  const handleConstraintConfirm = (value, override = false) => {
     const modal = constraintModal
     if (!modal) return
 
@@ -356,14 +370,15 @@ export default function App() {
         if (!text) return
         setParticipants(prev => prev.map((p, i) => {
           if (i !== modal.participantIdx) return p
-          const list = [...(p.constraints ?? [])]
+          const list = Debate.normalizeParticipantConstraints(p.constraints)
+          const entry = { text, override: !!override }
           if (modal.mode === 'add') {
-            if (!list.includes(text)) list.push(text)
+            if (!list.some(c => c.text === text)) list.push(entry)
             return { ...p, constraints: list }
           }
           if (modal.mode === 'edit') {
             if (modal.constraintIdx == null || modal.constraintIdx < 0 || modal.constraintIdx >= list.length) return p
-            list[modal.constraintIdx] = text
+            list[modal.constraintIdx] = entry
             return { ...p, constraints: list }
           }
           return p
@@ -388,7 +403,7 @@ export default function App() {
     fetchModels(url)
   }
 
-  const allModelsSet = participants.length >= 2 && participants.every(p => p.model)
+  const allModelsSet = participants.length >= 2 && participants.every(p => p.model || defaultModel)
   const canStart  = topic.trim() && allModelsSet && !running && ollamaOk
   const canResume = messages.length > 0 && allModelsSet && !running && ollamaOk
 
@@ -495,14 +510,14 @@ export default function App() {
   const handleClearSettings = useCallback(() => {
     Session.requestClearSettings({
       openConfirm,
-      title: 'Clear saved settings?',
+      title: ui.clearSettingsTitle,
       message: ui.clearSettingsMessage,
-      confirmLabel: 'Delete',
+      confirmLabel: common.delete,
       onConfirm: () => {
         Storage.clearSettings()
       },
     })
-  }, [openConfirm, ui.clearSettingsMessage])
+  }, [openConfirm, ui.clearSettingsTitle, ui.clearSettingsMessage, common.delete])
 
   return (
     <div className="h-screen w-full items-stretch 2xl:flex 2xl:flex-row" style={{ ...styles.app, flexDirection: is2xlLayout ? 'row' : 'column', alignItems: 'stretch' }}>
@@ -551,40 +566,13 @@ export default function App() {
           connecting={connecting}
           connectError={connectError}
           disabled={running}
-        />
-
-        {/* participant selection */}
-        <ParticipantsPanel
-          participants={participants}
-          running={running}
-          setParticipants={setParticipants}
-          userModel={Debate.USER_MODEL}
-          characterTypes={CHARACTER_TYPES}
-          responseLengths={RESPONSE_LENGTHS}
+          models={models}
           modelSelectStyles={modelSelectStyles}
           moodSelectStyles={moodSelectStyles}
-          moodOptions={MOOD_OPTIONS}
-          formatMoodOption={formatMoodOption}
-          moods={MOODS}
-          moodIntensity={MOOD_INTENSITY}
-          defaultMoodIntensity={Debate.DEFAULT_MOOD_INTENSITY}
-          educationLevels={EDUCATION_LEVELS}
-          ageGroups={AGE_GROUPS}
-          defaultAgeGroup={Debate.DEFAULT_AGE_GROUP}
-          models={models}
-          palette={PALETTE}
-          mkParticipant={Debate.mkParticipant}
-          randomName={Debate.randomName}
-          onResetAffinities={handleResetAffinities}
-          onAddConstraint={handleAddParticipantConstraint}
-          onEditConstraint={handleEditParticipantConstraint}
-          onDeleteConstraint={handleDeleteParticipantConstraint}
-          onRequestRemoveParticipant={handleRequestRemoveParticipant}
-          onConfigureEndpoint={handleConfigureParticipantEndpoint}
-          endpointStatuses={endpointStatuses}
+          defaultModel={defaultModel}
+          onDefaultModelChange={setDefaultModel}
         />
 
-        <div style={{ marginTop: is2xlLayout ? 'auto' : 0 }}>
         <AffinitySettings
           dynamicAffinity={dynamicAffinity}
           onDynamicAffinityChange={setDynamicAffinity}
@@ -623,7 +611,37 @@ export default function App() {
           onDebugModeChange={next => { localStorage.setItem('debugMode', next); setDebugMode(next) }}
           running={running}
         />
-	</div>
+
+        {/* participant selection */}
+        <ParticipantsPanel
+          participants={participants}
+          running={running}
+          setParticipants={setParticipants}
+          userModel={Debate.USER_MODEL}
+          characterTypes={CHARACTER_TYPES}
+          responseLengths={RESPONSE_LENGTHS}
+          modelSelectStyles={modelSelectStyles}
+          moodSelectStyles={moodSelectStyles}
+          moodOptions={MOOD_OPTIONS}
+          formatMoodOption={formatMoodOption}
+          moods={MOODS}
+          moodIntensity={MOOD_INTENSITY}
+          defaultMoodIntensity={Debate.DEFAULT_MOOD_INTENSITY}
+          educationLevels={EDUCATION_LEVELS}
+          ageGroups={AGE_GROUPS}
+          defaultAgeGroup={Debate.DEFAULT_AGE_GROUP}
+          models={models}
+          palette={PALETTE}
+          mkParticipant={Debate.mkParticipant}
+          randomName={Debate.randomName}
+          onResetAffinities={handleResetAffinities}
+          onAddConstraint={handleAddParticipantConstraint}
+          onEditConstraint={handleEditParticipantConstraint}
+          onDeleteConstraint={handleDeleteParticipantConstraint}
+          onRequestRemoveParticipant={handleRequestRemoveParticipant}
+          onConfigureEndpoint={handleConfigureParticipantEndpoint}
+          endpointStatuses={endpointStatuses}
+        />
 </div> {/* end accordion */}
 </div>
 </div>
@@ -786,6 +804,8 @@ export default function App() {
         onSavePromptSettings={handleSavePromptSettings}
         onResetPromptSettings={handleResetPromptSettings}
         onClearSettings={handleClearSettings}
+        interfaceLang={interfaceLang}
+        onInterfaceLangChange={setInterfaceLang}
         confirmModal={confirmModal}
         onCancelConfirmModal={handleCancelConfirmModal}
         onConfirmModal={handleConfirmModal}

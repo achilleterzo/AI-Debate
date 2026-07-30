@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function EndpointModal({ state, onClose, onConfirm }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.endpointModal
   const common = UI_STRINGS.common
   const [value, setValue] = useState(state?.initialValue ?? '')

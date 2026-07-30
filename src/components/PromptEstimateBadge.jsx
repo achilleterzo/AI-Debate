@@ -1,5 +1,9 @@
+import { useUiStrings } from '../i18n/UiStringsContext'
+
 export default function PromptEstimateBadge({ estimate }) {
+  const UI_STRINGS = useUiStrings()
   if (!estimate) return null
+  const ui = UI_STRINGS.app
 
   return (
     <div style={{
@@ -12,8 +16,8 @@ export default function PromptEstimateBadge({ estimate }) {
       borderRadius: 999,
       padding: '2px 8px',
       whiteSpace: 'nowrap',
-    }} title={`Last prompt sent: ${estimate.totalChars} characters (~${estimate.estimatedTokens} tokens), ${estimate.messageCount} messages, model ${estimate.model}`}>
-      Last request: ~{estimate.estimatedTokens} tok · {estimate.model}
+    }} title={ui.lastPromptTitle(estimate)}>
+      {ui.lastPromptLabel(estimate)}
     </div>
   )
 }

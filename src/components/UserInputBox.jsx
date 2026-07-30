@@ -1,6 +1,7 @@
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function UserInputBox({ actor, onSend, onSkip, userInputRef }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.userInput
   const common = UI_STRINGS.common
   const side = actor ? (actor.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'flex-end'
@@ -30,7 +31,7 @@ export default function UserInputBox({ actor, onSend, onSkip, userInputRef }) {
                 if (txt) onSend(txt)
               }
             }}
-            placeholder="Write your response... (Ctrl+Enter to send)"
+            placeholder={ui.placeholder}
             style={{
               width: '100%', boxSizing: 'border-box', background: 'transparent',
               border: 'none', borderBottom: '1px solid #444', borderRadius: 0,

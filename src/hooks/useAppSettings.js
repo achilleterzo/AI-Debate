@@ -4,6 +4,7 @@ import { Debate } from '../debate/Debate'
 import {
   DEBUG_MODE_STORAGE_KEY,
   DEFAULT_DYNAMIC_AFFINITY,
+  DEFAULT_FALLBACK_MODEL,
   DEFAULT_MAX_TURNS,
   DEFAULT_MODERATION_COOLING,
   DEFAULT_RECENT_K,
@@ -40,7 +41,9 @@ export function useAppSettings() {
   const [summarizeAttachments, setSummarizeAttachments] = useState(saved?.summarizeAttachments ?? DEFAULT_SUMMARIZE_ATTACHMENTS)
   const [debugMode, setDebugMode] = useState(() => localStorage.getItem(DEBUG_MODE_STORAGE_KEY) === 'true')
   const [uiLang, setUiLang] = useState(saved?.uiLang ?? Debate.detectBrowserLang())
+  const [interfaceLang, setInterfaceLang] = useState(saved?.interfaceLang ?? Debate.detectBrowserLang())
   const [timeoutSec, setTimeoutSec] = useState(saved?.timeoutSec ?? DEFAULT_TIMEOUT_SEC)
+  const [defaultModel, setDefaultModel] = useState(saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL)
 
   return {
     saved,
@@ -53,7 +56,8 @@ export function useAppSettings() {
     summaryModelEnabled, setSummaryModelEnabled, summaryModelOverride, setSummaryModelOverride,
     summaryAccumulate, setSummaryAccumulate, summaryAccumulateThreshold, setSummaryAccumulateThreshold,
     summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode, uiLang, setUiLang,
-    timeoutSec, setTimeoutSec,
+    interfaceLang, setInterfaceLang,
+    timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
   }
 }
 
@@ -61,8 +65,8 @@ export function usePersistedAppSettings({ settings, conclusions }) {
   const {
     participants, maxTurns, recentK, timeoutSec, baseUrl, useSummary, dynamicAffinity,
     moderationCooling, summaryModelEnabled, summaryModelOverride, summaryAccumulate,
-    summaryAccumulateThreshold, summarizeAttachments, uiLang, globalConstraints,
-    generalPersonalityInstructions,
+    summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, globalConstraints,
+    generalPersonalityInstructions, defaultModel,
   } = settings
   const { conclusionModel, customConclusionPrompt, standardConclusionPrompt } = conclusions
   useEffect(() => {
@@ -70,12 +74,12 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       participants: Debate.serializeParticipantsForSession(participants),
       maxTurns, recentK, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling,
       summaryModelEnabled, summaryModelOverride, summaryAccumulate, summaryAccumulateThreshold,
-      summarizeAttachments, uiLang,
+      summarizeAttachments, uiLang, interfaceLang, defaultModel,
       conclusionModel,
       customConclusionPrompt: customConclusionPrompt ?? '',
       standardConclusionPrompt: standardConclusionPrompt ?? '',
       globalConstraints: globalConstraints ?? [],
       generalPersonalityInstructions: generalPersonalityInstructions ?? DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS,
     })
-  }, [participants, maxTurns, recentK, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryAccumulate, summaryAccumulateThreshold, summarizeAttachments, uiLang, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions])
+  }, [participants, maxTurns, recentK, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryAccumulate, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions])
 }

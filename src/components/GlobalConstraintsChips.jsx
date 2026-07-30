@@ -1,6 +1,7 @@
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function GlobalConstraintsChips({ constraints, onEdit, onDelete }) {
+  const UI_STRINGS = useUiStrings()
   if (constraints.length === 0) return null
 
   return (

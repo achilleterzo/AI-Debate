@@ -1,4 +1,4 @@
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 import DropdownItem from './DropdownItem'
 import TopMenu from './TopMenu'
 import { styles } from './Style'
@@ -16,6 +16,7 @@ export default function HeaderTop({
   headerOpen,
   onToggleHeaderOpen,
 }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
 
   return (

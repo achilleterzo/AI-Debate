@@ -1,6 +1,7 @@
-import { UI_STRINGS } from '../i18n/UiStrings'
+import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function AttachmentsChips({ attachments, onRemove }) {
+  const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
   if (attachments.length === 0) return null
 
