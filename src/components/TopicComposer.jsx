@@ -1,4 +1,6 @@
 import { useUiStrings } from '../i18n/UiStringsContext'
+import { SUGGESTION_MODE } from '../services/Suggestions'
+import MagicWand from './MagicWand'
 import { styles } from './Style'
 
 export default function TopicComposer({
@@ -21,6 +23,7 @@ export default function TopicComposer({
   handleResume,
   handleInterjection,
   removeHistoryEntry,
+  wand,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
@@ -29,7 +32,7 @@ export default function TopicComposer({
     <div ref={topicWrapRef} style={{ position: 'relative', flex: 1, display: 'flex' }}>
       <textarea
         ref={textareaRef}
-        style={{ ...styles.textarea, flex: 1 }}
+        style={{ ...styles.textarea, flex: 1, ...(wand && messages.length > 0 ? { paddingRight: 42 } : {}) }}
         defaultValue={topic}
         onChange={event => {
           topicRef.current = event.target.value
@@ -59,6 +62,21 @@ export default function TopicComposer({
         placeholder={running ? ui.topicQueued : messages.length > 0 ? ui.topicContinue : ui.topicInitial}
         rows={1}
       />
+      {/* The wand needs a debate to reason about, so it appears once the
+          conversation has started — i.e. in continue / steer mode. */}
+      {wand && messages.length > 0 && (
+        <div style={{ position: 'absolute', right: 8, top: 6 }}>
+          <MagicWand
+            wand={wand}
+            mode={SUGGESTION_MODE.STEER}
+            placement="top"
+            onPick={suggestion => {
+              setTopicValue(suggestion)
+              textareaRef.current?.focus()
+            }}
+          />
+        </div>
+      )}
       {topicDropOpen && messages.length === 0 && !running && topicHistory.length > 0 && (
         <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 200, background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8, marginBottom: 4, boxShadow: '0 -4px 16px #0008', overflow: 'hidden' }}>
           {topicHistory.map((entry, index) => (

@@ -1,0 +1,303 @@
+/**
+ * "Magic wand" suggestions.
+ *
+ * Builds the prompts that ask a model for ready-to-use text, and turns the
+ * answer back into a list. Kept free of React and of the HTTP layer so the
+ * prompt shape and the (deliberately forgiving) parsing can be tested directly.
+ */
+
+export const SUGGESTION_MODE = {
+  /** Prompts the user could send to continue or steer the running debate. */
+  STEER: 'steer',
+  /** Extra guidance for the conclusion, inferred from how the debate went. */
+  CONCLUSION: 'conclusion',
+  /** A participant persona, driven by the selected character type. */
+  PARTICIPANT: 'participant',
+}
+
+/** Each participant wand is independent, so its mode carries the row index. */
+export function participantMode(index) {
+  return `${SUGGESTION_MODE.PARTICIPANT}:${index}`
+}
+
+export function isParticipantMode(mode) {
+  return String(mode ?? '').startsWith(`${SUGGESTION_MODE.PARTICIPANT}:`)
+}
+
+export const DEFAULT_SUGGESTION_COUNT = 4
+
+const MAX_SUGGESTION_CHARS = 220
+
+export function buildSuggestionSystemPrompt({ language, uiLang }) {
+  return [
+    'You produce short, ready-to-use text for a debate application.',
+    `Write every suggestion in ${language} (language code: ${uiLang}).`,
+    'Answer with a JSON array of strings and nothing else: no prose, no markdown fences, no numbering, no keys.',
+    'Never reveal reasoning or meta-commentary.',
+  ].join(' ')
+}
+
+export function buildSuggestionPrompt({
+  mode,
+  topic = '',
+  conversation = '',
+  summary = '',
+  participants = [],
+  count = DEFAULT_SUGGESTION_COUNT,
+}) {
+  const roster = participants
+    .map(participant => participant?.name || participant?.tag)
+    .filter(Boolean)
+    .join(', ')
+
+  const context = [
+    topic.trim() ? `Debate topic:\n${topic.trim()}` : '',
+    roster ? `Participants: ${roster}` : '',
+    summary.trim() ? `Summary so far:\n${summary.trim()}` : '',
+    conversation.trim() ? `Recent exchanges:\n${conversation.trim()}` : '',
+  ].filter(Boolean).join('\n\n')
+
+  const task = mode === SUGGESTION_MODE.CONCLUSION
+    ? [
+        `Analyse how this debate actually went and propose ${count} distinct pieces of additional guidance for the analyst who will write its conclusion.`,
+        'Each one must point at something the debate itself raises: an unresolved disagreement, a claim left unverified, an angle nobody covered, a shift of position worth noting, or an imbalance between participants.',
+        'Write each as a direct instruction to the analyst. Do not write the conclusion itself.',
+      ].join(' ')
+    : [
+        `Propose ${count} distinct prompts the user could send next to continue or steer this debate.`,
+        'Vary the intent: deepen the strongest open thread, challenge an unexamined assumption, request concrete evidence, or redirect toward a neglected angle.',
+        'Write each as the message the user would actually send, addressed to the debate. Do not answer the debate yourself.',
+      ].join(' ')
+
+  return [
+    context || 'The debate has just started and has no exchanges yet.',
+    task,
+    `Each suggestion must be a single sentence, under ${MAX_SUGGESTION_CHARS} characters, self-contained and immediately usable.`,
+    `Return exactly ${count} strings in a JSON array.`,
+  ].join('\n\n')
+}
+
+export function buildParticipantSystemPrompt({ language, uiLang }) {
+  return [
+    'You design debate participants for a debate application.',
+    `Write every human-readable value in ${language} (language code: ${uiLang}), except language codes.`,
+    'Answer with a JSON array of objects and nothing else: no prose, no markdown fences, no commentary.',
+    'Never reveal reasoning or meta-commentary.',
+  ].join(' ')
+}
+
+/**
+ * The character type drives the whole persona, so it is stated first and the
+ * task is phrased differently for real people than for invented ones.
+ */
+export function buildParticipantPrompt({
+  characterTypeLabel,
+  characterType = null,
+  topic = '',
+  others = [],
+  count = 3,
+  languageOptions = [],
+  moodOptions = [],
+}) {
+  const roster = others
+    .map(other => {
+      const traits = (other.traits || []).filter(Boolean).join('; ')
+      return `- ${other.name || other.tag}${traits ? ` — ${traits}` : ''}`
+    })
+    .join('\n')
+
+  const identityTask = characterType
+    ? `Each entry must be a real, recognisable ${characterTypeLabel}. Use the person's actual name and give traits that reflect their documented positions, expertise and rhetorical style.`
+    : 'Each entry must be an invented but believable person. Give a plausible full name and traits that define a clear, specific point of view.'
+
+  const languageHint = languageOptions.length > 0
+    ? `"reasoningLang": a language code from [${languageOptions.join(', ')}] ONLY when the persona would genuinely think in that language (for example a historical figure tied to a language); otherwise null.`
+    : '"reasoningLang": null.'
+
+  const moodHint = moodOptions.length > 0
+    ? `"mood": the debating attitude that best fits this persona, one of [${moodOptions.join(', ')}].`
+    : '"mood": null.'
+
+  return [
+    topic.trim() ? `Debate topic:\n${topic.trim()}` : 'No debate topic has been set yet.',
+    roster ? `Participants already at the table:\n${roster}` : 'No other participants yet.',
+    `Propose ${count} distinct candidates for a new participant. ${identityTask}`,
+    'Pick candidates that add friction and coverage the table is missing: a different discipline, generation, or stance. Never duplicate an existing participant.',
+    [
+      'Each object must have exactly these keys:',
+      '"name": the participant name, no title or honorific.',
+      '"traits": 2 or 3 short instruction sentences describing stance, expertise and rhetorical habits. Write them addressed to the participant ("You argue from…").',
+      '"ageGroup": one of 0 (child), 1 (teenager), 2 (adult), 3 (mature), 4 (elder).',
+      '"educationLevel": one of "street", "primary", "proficient", "academic", "expert", or null when unremarkable.',
+      moodHint,
+      '"moodIntensity": how strongly that attitude shows, one of 0 (low), 1 (light), 2 (balanced), 3 (strong), 4 (extreme).',
+      languageHint,
+    ].join('\n'),
+    `Return exactly ${count} objects in a JSON array.`,
+  ].join('\n\n')
+}
+
+const AGE_ALIASES = { child: 0, teenager: 1, teen: 1, adult: 2, mature: 3, elder: 4, elderly: 4, senior: 4 }
+const EDUCATION_VALUES = ['street', 'primary', 'proficient', 'academic', 'expert']
+
+function normalizeAgeGroup(value) {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4) return value
+  const text = String(value ?? '').trim().toLowerCase()
+  if (/^[0-4]$/.test(text)) return Number(text)
+  for (const [alias, index] of Object.entries(AGE_ALIASES)) {
+    if (text.includes(alias)) return index
+  }
+  return null
+}
+
+const INTENSITY_ALIASES = { low: 0, light: 1, balanced: 2, medium: 2, strong: 3, extreme: 4 }
+
+function normalizeMood(value, allowed) {
+  const text = String(value ?? '').trim().toLowerCase()
+  if (!text || !allowed.length) return null
+  return allowed.find(mood => text === mood) ?? allowed.find(mood => text.includes(mood)) ?? null
+}
+
+function normalizeIntensity(value) {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4) return value
+  const text = String(value ?? '').trim().toLowerCase()
+  if (/^[0-4]$/.test(text)) return Number(text)
+  for (const [alias, level] of Object.entries(INTENSITY_ALIASES)) {
+    if (text.includes(alias)) return level
+  }
+  return null
+}
+
+function normalizeEducation(value) {
+  const text = String(value ?? '').trim().toLowerCase()
+  return EDUCATION_VALUES.find(level => text === level || text.includes(level)) ?? null
+}
+
+function normalizeLang(value, allowed) {
+  const text = String(value ?? '').trim().toLowerCase()
+  if (!text || text === 'null' || text === 'none') return ''
+  return allowed.includes(text) ? text : ''
+}
+
+/**
+ * Turns the answer into participant drafts, keeping only values the existing
+ * selectors can actually represent. Anything unrecognised becomes null so the
+ * current setting is left untouched rather than overwritten with junk.
+ */
+export function parseParticipantDrafts(raw, { max = 3, languageOptions = [], moodOptions = [] } = {}) {
+  const text = stripFences(raw)
+  const start = text.indexOf('[')
+  const end = text.lastIndexOf(']')
+  if (start === -1 || end <= start) return []
+
+  let parsed
+  try {
+    parsed = JSON.parse(text.slice(start, end + 1))
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+
+  const drafts = []
+  const seen = new Set()
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== 'object') continue
+    const name = cleanEntry(entry.name).slice(0, 60)
+    if (!name) continue
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const traits = (Array.isArray(entry.traits) ? entry.traits : [entry.traits])
+      .map(trait => cleanEntry(trait).slice(0, MAX_SUGGESTION_CHARS))
+      .filter(trait => trait.length >= 8)
+      .slice(0, 3)
+
+    drafts.push({
+      name,
+      traits,
+      ageGroup: normalizeAgeGroup(entry.ageGroup),
+      educationLevel: normalizeEducation(entry.educationLevel),
+      mood: normalizeMood(entry.mood, moodOptions),
+      moodIntensity: normalizeIntensity(entry.moodIntensity),
+      reasoningLang: normalizeLang(entry.reasoningLang, languageOptions),
+    })
+    if (drafts.length >= max) break
+  }
+  return drafts
+}
+
+function stripFences(raw) {
+  return String(raw ?? '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim()
+}
+
+function cleanEntry(value) {
+  return String(value ?? '')
+    .trim()
+    // Drop list markers the model may add despite the JSON instruction.
+    .replace(/^[-*•]\s+/, '')
+    .replace(/^\d+[.)]\s+/, '')
+    .replace(/^["'«]|["'»]$/g, '')
+    .trim()
+}
+
+/**
+ * Parses the model answer into a suggestion list.
+ *
+ * A strict JSON array is the requested shape, but small local models routinely
+ * answer with a numbered or bulleted list instead, so that is accepted too
+ * rather than dropping an otherwise perfectly usable answer.
+ */
+export function parseSuggestions(raw, { max = DEFAULT_SUGGESTION_COUNT } = {}) {
+  const text = stripFences(raw)
+  if (!text) return []
+
+  const collected = []
+
+  const jsonStart = text.indexOf('[')
+  const jsonEnd = text.lastIndexOf(']')
+  if (jsonStart !== -1 && jsonEnd > jsonStart) {
+    try {
+      const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1))
+      if (Array.isArray(parsed)) {
+        for (const entry of parsed) {
+          if (typeof entry === 'string') collected.push(cleanEntry(entry))
+          else if (entry && typeof entry === 'object') {
+            // Tolerate [{ "suggestion": "..." }] and similar wrappers.
+            const value = entry.text ?? entry.suggestion ?? entry.prompt ?? entry.value
+            if (typeof value === 'string') collected.push(cleanEntry(value))
+          }
+        }
+      }
+    } catch {
+      // Fall through to the line-based reading below.
+    }
+  }
+
+  if (collected.length === 0) {
+    for (const line of text.split('\n')) {
+      const cleaned = cleanEntry(line)
+      // Keep only lines that look like an actual suggestion, not headings.
+      if (cleaned.length < 8) continue
+      if (/^[a-z\s]{0,30}:$/i.test(cleaned)) continue
+      collected.push(cleaned)
+    }
+  }
+
+  const seen = new Set()
+  const unique = []
+  for (const entry of collected) {
+    const value = entry.slice(0, MAX_SUGGESTION_CHARS).trim()
+    if (!value) continue
+    const key = value.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(value)
+    if (unique.length >= max) break
+  }
+  return unique
+}

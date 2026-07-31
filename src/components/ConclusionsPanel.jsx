@@ -1,9 +1,11 @@
 import ReactSelect from 'react-select'
 import { CONCLUSION_TYPES } from '../prompts/ConclusionTypes'
 import { useUiStrings } from '../i18n/UiStringsContext'
+import { SUGGESTION_MODE } from '../services/Suggestions'
+import MagicWand from './MagicWand'
 import { styles } from './Style'
 
-export default function ConclusionsPanel({ running, messages, models, modelSelectStyles, conclusions }) {
+export default function ConclusionsPanel({ running, messages, models, modelSelectStyles, conclusions, wand }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
   const common = UI_STRINGS.common
@@ -58,6 +60,19 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
               <textarea value={standardConclusionPrompt} onChange={event => setStandardConclusionPrompt(event.target.value)} placeholder={ui.standardConclusionPlaceholder} rows={2} title={ui.standardConclusionTitle} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.45, padding: '8px 10px', resize: 'vertical' }} />
             )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {wand && (
+                <MagicWand
+                  wand={wand}
+                  mode={SUGGESTION_MODE.CONCLUSION}
+                  placement="top"
+                  onPick={suggestion => {
+                    const apply = conclusionType === 'custom' ? setCustomConclusionPrompt : setStandardConclusionPrompt
+                    const current = (conclusionType === 'custom' ? customConclusionPrompt : standardConclusionPrompt).trim()
+                    // Guidance accumulates: keep what the user already wrote.
+                    apply(current ? `${current}\n${suggestion}` : suggestion)
+                  }}
+                />
+              )}
               <div style={{ flex: 1 }}>
                 <ReactSelect styles={modelSelectStyles} options={options} value={effectiveConclusionModel ? { value: effectiveConclusionModel, label: effectiveConclusionModel } : null} onChange={option => setConclusionModel(option?.value ?? '')} placeholder={common.chooseModel} isClearable menuPlacement="top" noOptionsMessage={() => common.noModels} />
               </div>

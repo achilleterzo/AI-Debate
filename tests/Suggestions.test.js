@@ -1,0 +1,263 @@
+import { describe, expect, it } from 'vitest'
+import {
+  SUGGESTION_MODE,
+  buildParticipantPrompt,
+  buildSuggestionPrompt,
+  buildSuggestionSystemPrompt,
+  isParticipantMode,
+  participantMode,
+  parseParticipantDrafts,
+  parseSuggestions,
+} from '../src/services/Suggestions'
+
+describe('buildSuggestionSystemPrompt', () => {
+  it('pins the output language and the JSON-only contract', () => {
+    const prompt = buildSuggestionSystemPrompt({ language: 'Italiano', uiLang: 'it' })
+    expect(prompt).toContain('Italiano')
+    expect(prompt).toContain('language code: it')
+    expect(prompt).toContain('JSON array of strings')
+  })
+})
+
+describe('buildSuggestionPrompt', () => {
+  const context = {
+    topic: 'Nuclear power',
+    conversation: 'Alice: it is safe\n\nBob: waste is the issue',
+    summary: 'They disagree on waste',
+    participants: [{ name: 'Alice' }, { tag: 'B' }],
+    count: 4,
+  }
+
+  it('asks for user-sendable prompts in steer mode', () => {
+    const prompt = buildSuggestionPrompt({ mode: SUGGESTION_MODE.STEER, ...context })
+    expect(prompt).toContain('Nuclear power')
+    expect(prompt).toContain('Participants: Alice, B')
+    expect(prompt).toContain('waste is the issue')
+    expect(prompt).toContain('prompts the user could send next')
+    expect(prompt).toContain('Do not answer the debate yourself')
+  })
+
+  it('asks for analyst guidance in conclusion mode', () => {
+    const prompt = buildSuggestionPrompt({ mode: SUGGESTION_MODE.CONCLUSION, ...context })
+    expect(prompt).toContain('additional guidance for the analyst')
+    expect(prompt).toContain('Do not write the conclusion itself')
+  })
+
+  it('states plainly when there is nothing to go on', () => {
+    const prompt = buildSuggestionPrompt({ mode: SUGGESTION_MODE.STEER })
+    expect(prompt).toContain('has just started and has no exchanges yet')
+  })
+
+  it('omits sections that carry no context', () => {
+    const prompt = buildSuggestionPrompt({ mode: SUGGESTION_MODE.STEER, topic: 'Only a topic' })
+    expect(prompt).toContain('Only a topic')
+    expect(prompt).not.toContain('Summary so far')
+    expect(prompt).not.toContain('Recent exchanges')
+    expect(prompt).not.toContain('Participants:')
+  })
+})
+
+describe('parseSuggestions', () => {
+  it('reads a plain JSON array', () => {
+    expect(parseSuggestions('["First one", "Second one"]')).toEqual(['First one', 'Second one'])
+  })
+
+  it('reads a fenced JSON array', () => {
+    expect(parseSuggestions('```json\n["Fenced one"]\n```')).toEqual(['Fenced one'])
+  })
+
+  it('reads a JSON array wrapped in prose', () => {
+    const raw = 'Sure! Here are some ideas:\n["Wrapped one", "Wrapped two"]\nHope this helps.'
+    expect(parseSuggestions(raw)).toEqual(['Wrapped one', 'Wrapped two'])
+  })
+
+  it('unwraps objects when the model returns keyed entries', () => {
+    const raw = '[{"suggestion": "From a key"}, {"text": "From another"}]'
+    expect(parseSuggestions(raw)).toEqual(['From a key', 'From another'])
+  })
+
+  it('falls back to a numbered list when JSON is not used', () => {
+    const raw = '1. Ask for concrete evidence\n2. Challenge the core assumption\n3. Redirect to the neglected angle'
+    expect(parseSuggestions(raw)).toEqual([
+      'Ask for concrete evidence',
+      'Challenge the core assumption',
+      'Redirect to the neglected angle',
+    ])
+  })
+
+  it('falls back to a bulleted list and drops the markers', () => {
+    const raw = '- Push on the cost question\n* Ask Bob to substantiate the claim'
+    expect(parseSuggestions(raw)).toEqual(['Push on the cost question', 'Ask Bob to substantiate the claim'])
+  })
+
+  it('strips surrounding quotes', () => {
+    expect(parseSuggestions('"A quoted suggestion line"')).toEqual(['A quoted suggestion line'])
+  })
+
+  it('removes duplicates case-insensitively', () => {
+    expect(parseSuggestions('["Same thing", "SAME THING", "Other"]')).toEqual(['Same thing', 'Other'])
+  })
+
+  it('honours the max count', () => {
+    expect(parseSuggestions('["a1234567", "b1234567", "c1234567"]', { max: 2 })).toHaveLength(2)
+  })
+
+  it('returns an empty list for unusable answers', () => {
+    expect(parseSuggestions('')).toEqual([])
+    expect(parseSuggestions(null)).toEqual([])
+    expect(parseSuggestions('   ')).toEqual([])
+  })
+
+  it('skips heading-like lines in the fallback path', () => {
+    const raw = 'Suggestions:\nAsk for the underlying data source'
+    expect(parseSuggestions(raw)).toEqual(['Ask for the underlying data source'])
+  })
+})
+
+describe('participantMode', () => {
+  it('keeps each participant wand independent and recognisable', () => {
+    expect(participantMode(2)).toBe('participant:2')
+    expect(isParticipantMode(participantMode(0))).toBe(true)
+    expect(isParticipantMode(SUGGESTION_MODE.STEER)).toBe(false)
+    expect(isParticipantMode(undefined)).toBe(false)
+  })
+})
+
+describe('buildParticipantPrompt', () => {
+  it('asks for a real person when a character type is selected', () => {
+    const prompt = buildParticipantPrompt({
+      characterType: 'historical',
+      characterTypeLabel: 'historical figure',
+      topic: 'Nuclear power',
+      others: [{ name: 'Alice', traits: ['You argue from economics.'] }],
+      languageOptions: ['en', 'it'],
+    })
+    expect(prompt).toContain('real, recognisable historical figure')
+    expect(prompt).toContain('- Alice — You argue from economics.')
+    expect(prompt).toContain('Never duplicate an existing participant')
+    expect(prompt).toContain('[en, it]')
+  })
+
+  it('asks for an invented person for the plain type', () => {
+    const prompt = buildParticipantPrompt({ characterType: null, characterTypeLabel: 'Person' })
+    expect(prompt).toContain('invented but believable person')
+    expect(prompt).toContain('No other participants yet')
+  })
+
+  it('never asks for a model, endpoint or affinity', () => {
+    const prompt = buildParticipantPrompt({ characterType: null, characterTypeLabel: 'Person' })
+    for (const forbidden of ['model', 'endpoint', 'affinity']) {
+      expect(prompt.toLowerCase()).not.toContain(forbidden)
+    }
+  })
+
+  it('offers the available moods and the intensity scale', () => {
+    const prompt = buildParticipantPrompt({
+      characterType: null,
+      characterTypeLabel: 'Person',
+      moodOptions: ['none', 'diplomatic', 'analytical'],
+    })
+    expect(prompt).toContain('[none, diplomatic, analytical]')
+    expect(prompt).toContain('"moodIntensity"')
+    expect(prompt).toContain('4 (extreme)')
+  })
+})
+
+describe('parseParticipantDrafts', () => {
+  const languageOptions = ['en', 'it', 'de']
+  const moodOptions = ['none', 'diplomatic', 'analytical', 'antagonist']
+
+  it('reads a well-formed draft', () => {
+    const raw = JSON.stringify([{
+      name: 'Marie Curie',
+      traits: ['You argue from laboratory evidence.', 'You distrust unfounded speculation.'],
+      ageGroup: 3,
+      educationLevel: 'expert',
+      mood: 'analytical',
+      moodIntensity: 3,
+      reasoningLang: 'it',
+    }])
+    expect(parseParticipantDrafts(raw, { languageOptions, moodOptions })).toEqual([{
+      name: 'Marie Curie',
+      traits: ['You argue from laboratory evidence.', 'You distrust unfounded speculation.'],
+      ageGroup: 3,
+      educationLevel: 'expert',
+      mood: 'analytical',
+      moodIntensity: 3,
+      reasoningLang: 'it',
+    }])
+  })
+
+  it('accepts a mood intensity written as a label', () => {
+    const raw = JSON.stringify([{ name: 'A', traits: [], mood: 'Analytical', moodIntensity: 'extreme' }])
+    expect(parseParticipantDrafts(raw, { moodOptions })[0]).toMatchObject({
+      mood: 'analytical',
+      moodIntensity: 4,
+    })
+  })
+
+  it('rejects a mood that is not among the offered ids', () => {
+    const raw = JSON.stringify([{ name: 'B', traits: [], mood: 'sarcastic', moodIntensity: 9 }])
+    expect(parseParticipantDrafts(raw, { moodOptions })[0]).toMatchObject({
+      mood: null,
+      moodIntensity: null,
+    })
+  })
+
+  it('accepts age written as a label instead of an index', () => {
+    const raw = JSON.stringify([{ name: 'A', traits: [], ageGroup: 'Elder' }])
+    expect(parseParticipantDrafts(raw)[0].ageGroup).toBe(4)
+  })
+
+  it('nulls out values the selectors cannot represent', () => {
+    const raw = JSON.stringify([{
+      name: 'B',
+      traits: [],
+      ageGroup: 99,
+      educationLevel: 'postdoctoral',
+      reasoningLang: 'klingon',
+    }])
+    expect(parseParticipantDrafts(raw, { languageOptions })[0]).toMatchObject({
+      ageGroup: null,
+      educationLevel: null,
+      reasoningLang: '',
+    })
+  })
+
+  it('rejects a language that is not among the offered codes', () => {
+    const raw = JSON.stringify([{ name: 'C', traits: [], reasoningLang: 'fr' }])
+    expect(parseParticipantDrafts(raw, { languageOptions })[0].reasoningLang).toBe('')
+  })
+
+  it('drops entries with no usable name and deduplicates by name', () => {
+    const raw = JSON.stringify([
+      { name: '', traits: ['x'] },
+      { name: 'Dup', traits: [] },
+      { name: 'dup', traits: [] },
+    ])
+    expect(parseParticipantDrafts(raw).map(d => d.name)).toEqual(['Dup'])
+  })
+
+  it('keeps at most three traits and discards fragments', () => {
+    const raw = JSON.stringify([{
+      name: 'D',
+      traits: ['ok', 'A proper trait sentence.', 'Another proper trait.', 'A third proper trait.', 'A fourth one here.'],
+    }])
+    expect(parseParticipantDrafts(raw)[0].traits).toEqual([
+      'A proper trait sentence.',
+      'Another proper trait.',
+      'A third proper trait.',
+    ])
+  })
+
+  it('returns nothing for unusable answers', () => {
+    expect(parseParticipantDrafts('not json')).toEqual([])
+    expect(parseParticipantDrafts('{"name":"solo object"}')).toEqual([])
+    expect(parseParticipantDrafts('')).toEqual([])
+  })
+
+  it('reads a fenced array wrapped in prose', () => {
+    const raw = 'Here you go:\n```json\n[{"name":"Eve","traits":["You focus on ethics."]}]\n```'
+    expect(parseParticipantDrafts(raw)[0].name).toBe('Eve')
+  })
+})
