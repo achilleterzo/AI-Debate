@@ -1,4 +1,5 @@
 import { Web } from '../services/Web'
+import { getProvider } from '../providers/index.js'
 
 function trimText(txt, maxChars) {
   const s = String(txt || '')
@@ -6,12 +7,15 @@ function trimText(txt, maxChars) {
   return s.slice(0, Math.max(0, maxChars - 28)) + '\n\n...[truncated for context]'
 }
 
-function compactMessages(arr, { keepLast = 2, maxPerMsg = 12000 } = {}) {
+function compactMessages(arr, { keepLast = Infinity, maxPerMsg = 12000 } = {}) {
   const out = []
   const sys = arr.find(message => message.role === 'system')
   if (sys) out.push({ ...sys, content: trimText(sys.content, maxPerMsg) })
   const nonSystem = arr.filter(message => message.role !== 'system')
-  const tail = nonSystem.slice(-keepLast).map(message => ({ ...message, content: trimText(message.content, maxPerMsg) }))
+  const recent = Number.isFinite(keepLast) ? nonSystem.slice(-keepLast) : nonSystem
+  const summary = nonSystem.find(message => String(message.content || '').startsWith('[Conversation summary so far]\n'))
+  const selected = summary && !recent.includes(summary) ? [summary, ...recent] : recent
+  const tail = selected.map(message => ({ ...message, content: trimText(message.content, maxPerMsg) }))
   return [...out, ...tail]
 }
 
@@ -24,36 +28,28 @@ export async function streamChat({
   systemPrompt = null,
   useTools = false,
   onPayload = null,
+  onResponse = null,
   onEstimate = null,
   noResultsMessage = query => `No results for: ${query}`,
   sourceUrls = [],
+  provider = getProvider(),
 }) {
-  const label = `[ollama] ${model}`
+  const label = `[${provider.id}] ${model}`
   console.group(label)
 
   let apiMessages = systemPrompt
-    ? [{ role: 'system', content: systemPrompt }, ...messages.map(message => ({ role: message.ollamaRole, content: message.content }))]
-    : messages.map(message => ({ role: message.ollamaRole, content: message.content }))
-
-  apiMessages = apiMessages.reduce((acc, message) => {
-    const prev = acc[acc.length - 1]
-    if (prev && prev.role === message.role) {
-      acc[acc.length - 1] = { ...prev, content: prev.content + '\n\n' + message.content }
-    } else {
-      acc.push(message)
-    }
-    return acc
-  }, [])
+    ? [{ role: 'system', content: systemPrompt }, ...messages.map(message => ({ role: message.role, content: message.content }))]
+    : messages.map(message => ({ role: message.role, content: message.content }))
 
   const MAX_TOOL_ROUNDS = 2
   let toolRound = 0
   let retried = false
   let retriedTooLong = false
   let retriedServerError = false
-  const supportsTools = !['deepseek', 'minimax'].some(token => model.toLowerCase().includes(token))
+  const supportsTools = provider.supportsTools(model)
 
   while (true) {
-    const payloadMessages = compactMessages(apiMessages, { keepLast: 3, maxPerMsg: 18000 })
+    const payloadMessages = compactMessages(apiMessages, { maxPerMsg: 18000 })
     const totalChars = payloadMessages.reduce((count, message) => count + String(message.content || '').length, 0)
     const estimatedTokens = Math.ceil(totalChars / 4)
     if (typeof onEstimate === 'function') {
@@ -62,30 +58,40 @@ export async function streamChat({
     if (payloadMessages.length !== apiMessages.length || payloadMessages.some((message, index) => message.content !== (apiMessages[index]?.content ?? ''))) {
       console.warn(`${label} payload compattato prima dell'invio (context guard)`)
     }
-    console.log('→ payload', { model, messages: payloadMessages })
-    if (onPayload) onPayload({ model, messages: payloadMessages })
-
     const controller = new AbortController()
     const timer = setTimeout(() => {
       console.warn(`${label} timeout dopo ${timeoutMs / 1000}s — abort`)
       controller.abort()
     }, timeoutMs)
 
+    const wantsTools = useTools && supportsTools && toolRound < MAX_TOOL_ROUNDS && !retried
+    const request = provider.buildChatRequest({
+      baseUrl,
+      model,
+      messages: payloadMessages,
+      tools: wantsTools ? [Web.WEB_SEARCH_TOOL] : null,
+    })
+    const debugRequest = {
+      provider: provider.id,
+      url: request.url,
+      method: 'POST',
+      headers: request.headers,
+      body: request.body,
+    }
+    console.log('→ payload', debugRequest)
+    if (onPayload) onPayload(debugRequest)
+
     let res
     try {
-      res = await fetch(`${baseUrl}/api/chat`, {
+      res = await fetch(request.url, {
         method: 'POST',
         signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          messages: payloadMessages,
-          stream: true,
-          ...(useTools && supportsTools && toolRound < MAX_TOOL_ROUNDS && !retried ? { tools: [Web.WEB_SEARCH_TOOL] } : {}),
-        }),
+        headers: request.headers,
+        body: JSON.stringify(request.body),
       })
     } catch (err) {
       clearTimeout(timer)
+      onResponse?.({ request: debugRequest, response: { error: err.message } })
       console.error(`${label} fetch error:`, err)
       console.groupEnd()
       throw err.name === 'AbortError'
@@ -96,6 +102,7 @@ export async function streamChat({
     if (!res.ok) {
       clearTimeout(timer)
       const body = await res.text().catch(() => '')
+      onResponse?.({ request: debugRequest, response: { status: res.status, body } })
       if (res.status >= 500 && res.status < 600 && !retriedServerError) {
         retriedServerError = true
         const jitterMs = 350 + Math.floor(Math.random() * 500)
@@ -119,50 +126,57 @@ export async function streamChat({
 
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
+    const parser = provider.createStreamParser()
     let full = ''
     let tokenCount = 0
     let toolCalls = []
 
+    const handleEvent = event => {
+      switch (event.type) {
+        case 'malformed':
+          console.warn(`${label} riga non parsabile:`, event.line)
+          break
+        // A provider-reported error aborts the turn: it is surfaced to the
+        // caller instead of being logged and swallowed, which used to leave
+        // the user with an unexplained empty response.
+        case 'error':
+          throw new Error(event.message)
+        case 'toolCalls':
+          toolCalls = event.toolCalls
+          break
+        case 'delta': {
+          full += event.text
+          tokenCount++
+          let visible = full.replace(/<think>[\s\S]*?<\/think>/g, '').trimStart()
+          visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*?<\|tool[▁_]calls[▁_]end\|>/g, '').trimEnd()
+          visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
+          onToken(visible || full)
+          break
+        }
+        case 'done':
+          if (event.content && !full) {
+            full = event.content
+            onToken(full.replace(/<think>[\s\S]*?<\/think>/g, '').trimStart() || full)
+          }
+          console.log(`${label} done — tokens: ${tokenCount}, full length: ${full.length}`)
+          break
+        default:
+          break
+      }
+    }
+
     try {
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        for (const line of chunk.split('\n')) {
-          if (!line.trim()) continue
-          try {
-            const json = JSON.parse(line)
-            if (json.error) {
-              console.error(`${label} error da Ollama:`, json.error)
-              throw new Error(json.error)
-            }
-            if (json.message?.tool_calls?.length) {
-              toolCalls = json.message.tool_calls
-            }
-            if (json.message?.content) {
-              full += json.message.content
-              tokenCount++
-              let visible = full.replace(/<think>[\s\S]*?<\/think>/g, '').trimStart()
-              visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*?<\|tool[▁_]calls[▁_]end\|>/g, '').trimEnd()
-              visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
-              onToken(visible || full)
-            }
-            if (json.done) {
-              if (json.message?.content && !full) {
-                full = json.message.content
-                onToken(full.replace(/<think>[\s\S]*?<\/think>/g, '').trimStart() || full)
-              }
-              console.log(`${label} done — tokens: ${tokenCount}, full length: ${full.length}`)
-            }
-          } catch (parseErr) {
-            if (line.trim() && !(parseErr instanceof SyntaxError)) {
-              console.warn(`${label} riga non parsabile:`, line, parseErr)
-            }
-          }
+        if (done) {
+          for (const event of parser.flush()) handleEvent(event)
+          break
         }
+        for (const event of parser.push(decoder.decode(value, { stream: true }))) handleEvent(event)
       }
     } catch (streamErr) {
       clearTimeout(timer)
+      onResponse?.({ request: debugRequest, response: { error: streamErr.message } })
       console.error(`${label} stream error:`, streamErr)
       console.groupEnd()
       throw streamErr
@@ -191,15 +205,16 @@ export async function streamChat({
       }
     }
 
-    console.log('← response', {
-      model,
+    const debugResponse = {
       message: {
         role: 'assistant',
         content: full,
         contentLength: full.length,
         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
       },
-    })
+    }
+    onResponse?.({ request: debugRequest, response: debugResponse })
+    console.log('← response', { model, ...debugResponse })
 
     if (toolCalls.length > 0 && toolRound < MAX_TOOL_ROUNDS) {
       toolRound++
