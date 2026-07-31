@@ -3,7 +3,9 @@ import {
   DEFAULT_MODERATION_COOLING,
   MAX_MODERATION_COOLING,
   MIN_MODERATION_COOLING,
+  DEFAULT_MODERATOR_PERMISSIVENESS,
   normalizeModerationCooling,
+  normalizeModeratorPermissiveness,
 } from '../src/settings/Settings'
 
 describe('normalizeModerationCooling', () => {
@@ -18,5 +20,14 @@ describe('normalizeModerationCooling', () => {
     expect(normalizeModerationCooling(0.5)).toBe(0.5)
     expect(normalizeModerationCooling(100)).toBe(MAX_MODERATION_COOLING)
     expect(normalizeModerationCooling(0.001)).toBe(MIN_MODERATION_COOLING)
+  })
+})
+
+describe('normalizeModeratorPermissiveness', () => {
+  it('defaults invalid values and clamps the five levels', () => {
+    expect(normalizeModeratorPermissiveness()).toBe(DEFAULT_MODERATOR_PERMISSIVENESS)
+    expect(normalizeModeratorPermissiveness(-1)).toBe(0)
+    expect(normalizeModeratorPermissiveness(2.6)).toBe(3)
+    expect(normalizeModeratorPermissiveness(99)).toBe(4)
   })
 })
