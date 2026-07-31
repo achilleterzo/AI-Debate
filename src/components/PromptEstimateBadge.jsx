@@ -1,12 +1,15 @@
 import { useUiStrings } from '../i18n/UiStringsContext'
 
-export default function PromptEstimateBadge({ estimate }) {
+export default function PromptEstimateBadge({ estimate, request, onInspectRequest }) {
   const UI_STRINGS = useUiStrings()
   if (!estimate) return null
   const ui = UI_STRINGS.app
 
   return (
-    <div style={{
+    <button
+      onClick={request ? onInspectRequest : undefined}
+      disabled={!request}
+      style={{
       marginTop: 4,
       alignSelf: 'flex-end',
       fontSize: 10,
@@ -16,8 +19,9 @@ export default function PromptEstimateBadge({ estimate }) {
       borderRadius: 999,
       padding: '2px 8px',
       whiteSpace: 'nowrap',
+      cursor: request ? 'pointer' : 'default',
     }} title={ui.lastPromptTitle(estimate)}>
       {ui.lastPromptLabel(estimate)}
-    </div>
+    </button>
   )
 }

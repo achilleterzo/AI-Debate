@@ -21,6 +21,7 @@ export function useConclusions({
   timeoutSec,
   nextSeq,
   setLastPromptEstimate,
+  setLastRequest,
 }) {
   const [conclusions, setConclusions] = useState([])
   const [conclusionModel, setConclusionModel] = useState(initialModel)
@@ -71,10 +72,12 @@ export function useConclusions({
       await streamChat({
         baseUrl,
         model,
-        messages: [{ ollamaRole: 'user', content: prompt }],
+        messages: [{ role: 'user', content: prompt }],
         systemPrompt: `You are an expert analyst. Respond only with the requested ${conclusionTypeDefinition.labelEn.toLowerCase()}, no preamble. Write in ${language} (language code: ${uiLang}). Never reveal chain-of-thought, planning notes, or meta-commentary (e.g., "the user is asking", "let me analyze"). Output final answer only.`,
         useTools: false,
         onEstimate: setLastPromptEstimate,
+        onPayload: request => setLastRequest?.({ request }),
+        onResponse: exchange => setLastRequest?.(exchange),
         onToken: token => { result = token },
         timeoutMs: timeoutSec * 1000,
       })
@@ -85,12 +88,14 @@ export function useConclusions({
           baseUrl,
           model,
           messages: [{
-            ollamaRole: 'user',
+            role: 'user',
             content: `Rewrite the following text into a clean final answer for "${conclusionTypeDefinition.label}" in ${language} (language code: ${uiLang}).\n\nRules:\n- Remove all meta-reasoning, planning, and self-referential commentary.\n- Keep only the final content requested by the conclusion type.\n- No preamble.\n\nText to rewrite:\n${result}`,
           }],
           systemPrompt: `Return only the cleaned final answer in ${language}.`,
           useTools: false,
           onEstimate: setLastPromptEstimate,
+          onPayload: request => setLastRequest?.({ request }),
+          onResponse: exchange => setLastRequest?.(exchange),
           onToken: token => { cleaned = token },
           timeoutMs: timeoutSec * 1000,
         })
@@ -113,7 +118,7 @@ export function useConclusions({
     } finally {
       setConclusionRunning(false)
     }
-  }, [attachedDocs, baseUrl, conclusionRunning, conclusionType, conclusions, conversationRef, customConclusionPrompt, effectiveConclusionModel, messages, nextSeq, participants, setLastPromptEstimate, standardConclusionPrompt, summaryRef, timeoutSec, uiLang])
+  }, [attachedDocs, baseUrl, conclusionRunning, conclusionType, conclusions, conversationRef, customConclusionPrompt, effectiveConclusionModel, messages, nextSeq, participants, setLastPromptEstimate, setLastRequest, standardConclusionPrompt, summaryRef, timeoutSec, uiLang])
 
   return {
     conclusions,

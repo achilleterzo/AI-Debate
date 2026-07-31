@@ -29,6 +29,7 @@ export function useDebateController({
   globalConstraints,
   generalPersonalityInstructions,
   setLastPromptEstimate,
+  setLastRequest,
   setStopping,
   setRunning,
   setStreamingSeq,
@@ -90,6 +91,8 @@ export function useDebateController({
     summaryModelOverride,
     uiLang,
     handlePromptEstimate: info => setLastPromptEstimate(info),
+    handleRequest: request => setLastRequest({ request }),
+    handleResponse: exchange => setLastRequest(exchange),
     characterContextRef,
     fetchedUrlsRef,
     setMessages,
@@ -124,6 +127,7 @@ export function useDebateController({
     globalConstraints,
     moderationCooling,
     nextSeq,
+    setLastRequest,
     setLastPromptEstimate,
     setMessages,
     setParticipants,
@@ -166,7 +170,6 @@ export function useDebateController({
   const queueInterjection = useCallback((text, clearTopic) => {
     const interjection = {
       role: 'interjection',
-      ollamaRole: 'user',
       content: text,
       turn: turnRef.current?.round ?? 0,
       seq: nextSeq(),
