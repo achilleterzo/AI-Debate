@@ -37,6 +37,8 @@ import { formatMoodOption, GlobalStyles, modelSelectStyles, moodSelectStyles, st
 import { Debate } from './debate/Debate'
 import { useDebateController } from './debate/DebateController'
 import { useSnapshots } from './hooks/useSnapshots'
+import { useUpdateCheck } from './hooks/useUpdateCheck'
+import { useMagicWand } from './hooks/useMagicWand'
 import { useConclusions } from './hooks/useConclusions'
 import { useEndpointStatuses } from './hooks/useEndpointStatuses'
 import { useAppLayout } from './hooks/useAppLayout'
@@ -99,6 +101,7 @@ function AppInner({ settings }) {
   const [summaryVisible, setSummaryVisible] = useState(false)
   const [summaryInProgress, setSummaryInProgress] = useState(false)
   const [lastPromptEstimate, setLastPromptEstimate] = useState(null) // { model, messageCount, totalChars, estimatedTokens }
+  const [lastRequest, setLastRequest] = useState(null)
   const [userInputPending, setUserInputPending] = useState(null) // { resolve, tag }
   const userInputRef = useRef('')
 
@@ -142,6 +145,7 @@ function AppInner({ settings }) {
     globalConstraints,
     generalPersonalityInstructions,
     setLastPromptEstimate,
+    setLastRequest,
     setStopping,
     setRunning,
     setStreamingSeq,
@@ -168,6 +172,7 @@ function AppInner({ settings }) {
     removeHistoryEntry,
   } = useTopicComposer({
     participants,
+    defaultModel,
     messages,
     maxTurns,
     useSummary,
@@ -202,6 +207,22 @@ function AppInner({ settings }) {
     timeoutSec,
     nextSeq,
     setLastPromptEstimate,
+    setLastRequest,
+  })
+  const wand = useMagicWand({
+    baseUrl,
+    defaultModel,
+    participants,
+    summaryModelEnabled,
+    summaryModelOverride,
+    messages,
+    topic,
+    summaryRef,
+    uiLang,
+    timeoutSec,
+    setLastPromptEstimate,
+    setLastRequest,
+    ollamaOk,
   })
   const {
     conclusions,
@@ -237,6 +258,7 @@ function AppInner({ settings }) {
     setParticipants,
     setBaseUrl,
     setOllamaOk,
+    defaultModel,
   })
 
   const handleStop = () => stopDebate()
@@ -403,7 +425,7 @@ function AppInner({ settings }) {
     fetchModels(url)
   }
 
-  const allModelsSet = participants.length >= 2 && participants.every(p => p.model || defaultModel)
+  const allModelsSet = participants.length >= 2 && participants.every(p => Debate.hasConfiguredModel(p, defaultModel))
   const canStart  = topic.trim() && allModelsSet && !running && ollamaOk
   const canResume = messages.length > 0 && allModelsSet && !running && ollamaOk
 
@@ -432,6 +454,8 @@ function AppInner({ settings }) {
       },
     )
   }
+
+  const updateCheck = useUpdateCheck()
 
   const { handleSaveSnapshot, handleLoadSnapshot } = useSnapshots({
     state: {
@@ -534,6 +558,7 @@ function AppInner({ settings }) {
           onLoadSnapshot={handleLoadSnapshot}
           onOpenPromptSettings={handleOpenPromptSettings}
           exportItems={exportItems}
+          updateAvailable={updateCheck.updateAvailable}
           ollamaOk={ollamaOk}
           modelsCount={models.length}
           is2xlLayout={is2xlLayout}
@@ -641,6 +666,8 @@ function AppInner({ settings }) {
           onRequestRemoveParticipant={handleRequestRemoveParticipant}
           onConfigureEndpoint={handleConfigureParticipantEndpoint}
           endpointStatuses={endpointStatuses}
+          wand={wand}
+          defaultModel={defaultModel}
         />
 </div> {/* end accordion */}
 </div>
@@ -703,6 +730,7 @@ function AppInner({ settings }) {
           models={models}
           modelSelectStyles={modelSelectStyles}
           conclusions={conclusionsState}
+          wand={wand}
         />
         {userInputPending && (
           <UserInputBoxView
@@ -759,6 +787,7 @@ function AppInner({ settings }) {
           handleResume={handleResume}
           handleInterjection={handleInterjection}
           removeHistoryEntry={removeHistoryEntry}
+          wand={wand}
         />
 
         <InputActionButtons
@@ -784,7 +813,7 @@ function AppInner({ settings }) {
           onReset={handleReset}
         />
         </div>{/* end controls row */}
-        <PromptEstimateBadge estimate={lastPromptEstimate} />
+        <PromptEstimateBadge estimate={lastPromptEstimate} request={lastRequest} onInspectRequest={() => setPayloadModal(lastRequest)} />
         </div>{/* end column wrapper */}
       </div>
       <AppModals
@@ -809,6 +838,7 @@ function AppInner({ settings }) {
         confirmModal={confirmModal}
         onCancelConfirmModal={handleCancelConfirmModal}
         onConfirmModal={handleConfirmModal}
+        updateCheck={updateCheck}
       />
       </div>
     </div>
