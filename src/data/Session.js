@@ -1,7 +1,7 @@
 import { topicToSlug } from '../utils/Slug'
 
 export class Session {
-  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode }) {
+  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness }) {
     return {
       id: p.id,
       model: p.model,
@@ -9,6 +9,7 @@ export class Session {
       name: p.name,
       isModerator: !!p.isModerator || p.mood === 'moderator',
       moderatorMode: normalizeModeratorMode(p),
+      moderatorPermissiveness: normalizeModeratorPermissiveness(p.moderatorPermissiveness),
       moderatorDynamicAffinity: !!p.moderatorDynamicAffinity,
       moderatorFactCheck: !!p.moderatorFactCheck,
       moderatorEnforceTopic: !!p.moderatorEnforceTopic,
@@ -27,13 +28,14 @@ export class Session {
     }
   }
 
-  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode }) {
+  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness }) {
     return {
       ...mkParticipant(i, p.model),
       endpointOverride: p.endpointOverride ?? '',
       name: p.name ?? '',
       isModerator: !!p.isModerator || p.mood === 'moderator',
       moderatorMode: normalizeModeratorMode(p),
+      moderatorPermissiveness: normalizeModeratorPermissiveness(p.moderatorPermissiveness),
       moderatorDynamicAffinity: !!p.moderatorDynamicAffinity,
       moderatorFactCheck: !!p.moderatorFactCheck,
       moderatorEnforceTopic: !!p.moderatorEnforceTopic,
@@ -53,9 +55,10 @@ export class Session {
 
   static stripDebugFields(messages) {
     return messages.map(message => {
-      const { payload, debugPayloads, ...rest } = message
+      const { payload, debugPayloads, ollamaRole, ...rest } = message
       void payload
       void debugPayloads
+      void ollamaRole
       return rest
     })
   }
