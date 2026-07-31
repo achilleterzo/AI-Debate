@@ -7,6 +7,7 @@ export default function TopMenu({
   onLoadSnapshot,
   onOpenPromptSettings,
   exportItems,
+  updateAvailable = false,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.topMenu
@@ -36,14 +37,23 @@ export default function TopMenu({
   return (
     <div ref={menuRef} style={{ position: 'relative' }}>
       <button
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 22, padding: '2px 4px', lineHeight: 1 }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 22, padding: '2px 4px', lineHeight: 1, position: 'relative' }}
         onClick={() => setMenuOpen(v => {
           const next = !v
           if (!next) setExportOpen(false)
           return next
         })}
-        title={ui.title}
-      >☰</button>
+        title={updateAvailable ? `${ui.title} — ${ui.updateBadge}` : ui.title}
+      >
+        ☰
+        {updateAvailable && (
+          <span style={{
+            position: 'absolute', top: 2, right: 0,
+            width: 8, height: 8, borderRadius: '50%',
+            background: '#f59e0b', boxShadow: '0 0 0 2px #111',
+          }} />
+        )}
+      </button>
       {menuOpen && (
         <div style={{
           position: 'absolute', left: 0, top: '110%', zIndex: 260,

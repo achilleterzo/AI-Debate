@@ -10,6 +10,7 @@ export default function HeaderTop({
   onLoadSnapshot,
   onOpenPromptSettings,
   exportItems,
+  updateAvailable,
   ollamaOk,
   modelsCount,
   is2xlLayout,
@@ -28,6 +29,7 @@ export default function HeaderTop({
         onLoadSnapshot={onLoadSnapshot}
         onOpenPromptSettings={onOpenPromptSettings}
         exportItems={exportItems}
+        updateAvailable={updateAvailable}
       />
 
       <span style={{ ...styles.title, textAlign: 'center' }}>{ui.debateTitle}</span>

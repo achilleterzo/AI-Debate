@@ -27,6 +27,7 @@ export default function AppModals({
   confirmModal,
   onCancelConfirmModal,
   onConfirmModal,
+  updateCheck,
 }) {
   return (
     <>
@@ -58,6 +59,7 @@ export default function AppModals({
           interfaceLang={interfaceLang}
           onInterfaceLangChange={onInterfaceLangChange}
           moodSelectStyles={moodSelectStyles}
+          updateCheck={updateCheck}
         />
       )}
       {confirmModal && (

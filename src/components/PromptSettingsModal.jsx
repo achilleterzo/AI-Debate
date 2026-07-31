@@ -3,6 +3,7 @@ import ReactSelect from 'react-select'
 import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { TRANSLATED_LANGUAGE_CODES } from '../i18n/locales'
+import { UPDATE_ERROR, UPDATE_STATUS } from '../services/Updates'
 
 const TABS = ['main', 'promptRules', 'advanced']
 
@@ -15,6 +16,7 @@ export default function PromptSettingsModal({
   interfaceLang,
   onInterfaceLangChange,
   moodSelectStyles,
+  updateCheck,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.promptSettingsModal
@@ -62,17 +64,73 @@ export default function PromptSettingsModal({
 
           <div style={{ flex: 1, minWidth: 0, padding: 14, overflowY: 'auto' }}>
             {activeTab === 'main' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontSize: 12, color: '#888' }}>{ui.interfaceLanguage}</span>
-                <div style={{ minWidth: 170 }}>
-                  <ReactSelect
-                    styles={moodSelectStyles}
-                    options={languageOptions}
-                    value={languageOptions.find(o => o.value === interfaceLang) ?? null}
-                    onChange={opt => onInterfaceLangChange(opt.value)}
-                    formatOptionLabel={formatLanguageLabel}
-                    menuPlacement="auto"
-                  />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>{ui.interfaceLanguage}</span>
+                  <div style={{ minWidth: 170 }}>
+                    <ReactSelect
+                      styles={moodSelectStyles}
+                      options={languageOptions}
+                      value={languageOptions.find(o => o.value === interfaceLang) ?? null}
+                      onChange={opt => onInterfaceLangChange(opt.value)}
+                      formatOptionLabel={formatLanguageLabel}
+                      menuPlacement="auto"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #242424', paddingTop: 14 }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>{ui.version}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, color: '#ddd', fontFamily: 'var(--mono)' }}>
+                      v{updateCheck?.currentVersion ?? '—'}
+                    </span>
+                    <button
+                      onClick={() => updateCheck?.check?.()}
+                      disabled={!updateCheck || updateCheck.isChecking}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid #3a3a3a',
+                        color: updateCheck?.isChecking ? '#555' : '#888',
+                        borderRadius: 6,
+                        padding: '4px 12px',
+                        cursor: updateCheck?.isChecking ? 'default' : 'pointer',
+                        fontSize: 12,
+                      }}
+                    >
+                      {updateCheck?.isChecking ? ui.updateChecking : ui.updateCheckNow}
+                    </button>
+                  </div>
+
+                  {updateCheck?.status === UPDATE_STATUS.UP_TO_DATE && (
+                    <span style={{ fontSize: 11, color: '#4ade80' }}>{ui.updateUpToDate}</span>
+                  )}
+                  {updateCheck?.status === UPDATE_STATUS.ERROR && (
+                    <span style={{ fontSize: 11, color: '#f87171' }}>
+                      {updateCheck.errorKind === UPDATE_ERROR.UNREACHABLE
+                        ? ui.updateUnreachable
+                        : ui.updateError(updateCheck.error)}
+                    </span>
+                  )}
+                  {updateCheck?.status === UPDATE_STATUS.AVAILABLE && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: '#f59e0b' }}>
+                        {ui.updateAvailable(updateCheck.latestVersion)}
+                      </span>
+                      <button
+                        onClick={() => window.open(updateCheck.releaseUrl, '_blank', 'noopener,noreferrer')}
+                        style={{
+                          background: '#2a1f10',
+                          border: '1px solid #7a5a1f',
+                          color: '#f0c060',
+                          borderRadius: 6,
+                          padding: '4px 12px',
+                          cursor: 'pointer',
+                          fontSize: 12,
+                        }}
+                      >{ui.updateDownload}</button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
