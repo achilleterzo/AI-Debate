@@ -4,6 +4,8 @@ import ReactSelect from 'react-select'
 import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { Debate } from '../debate/Debate'
+import { participantMode } from '../services/Suggestions'
+import MagicWand from './MagicWand'
 
 export default function ParticipantsPanel({
   participants,
@@ -33,6 +35,8 @@ export default function ParticipantsPanel({
   onRequestRemoveParticipant,
   onConfigureEndpoint = () => {},
   endpointStatuses = {},
+  wand = null,
+  defaultModel = '',
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.participants
@@ -42,6 +46,45 @@ export default function ParticipantsPanel({
     { value: Debate.REASONING_LANG_FROM_CONSTRAINT, label: ui.reasoningLangFromConstraint },
     ...UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code })),
   ]
+  // An empty model already means "fall back to the default"; this makes that
+  // state an explicit choice instead of something reachable only by clearing.
+  const defaultModelOption = {
+    value: '',
+    label: defaultModel ? `${ui.useDefaultModel} · ${defaultModel}` : ui.useDefaultModelUnset,
+  }
+
+  const describeDraft = draft => [
+    draft.mood ? moods.find(mood => mood.id === draft.mood)?.label : null,
+    draft.ageGroup != null ? ageGroups[draft.ageGroup]?.label : null,
+    draft.educationLevel ? educationLevels.find(level => level.value === draft.educationLevel)?.label : null,
+    draft.reasoningLang ? draft.reasoningLang.toUpperCase() : null,
+  ].filter(Boolean).join(' · ')
+
+  /**
+   * Replaces the persona. Picking a candidate swaps the whole character, so
+   * the previous traits are dropped rather than merged — keeping them would
+   * blend two personas into one. Model, endpoint and affinities are untouched.
+   */
+  const applyDraft = (idx, draft) => setParticipants(prev => prev.map((x, i) => {
+    if (i !== idx) return x
+
+    // Constraints the user marked as high priority are deliberate overrides,
+    // so those survive the swap while the generated traits are replaced.
+    const kept = Debate.normalizeParticipantConstraints(x.constraints).filter(entry => entry.override)
+    const generated = (draft.traits || []).map(trait => ({ text: trait, override: false }))
+
+    return {
+      ...x,
+      name: draft.name || x.name,
+      constraints: [...kept, ...generated],
+      ...(draft.ageGroup != null ? { ageGroup: draft.ageGroup } : {}),
+      ...(draft.educationLevel ? { educationLevel: draft.educationLevel } : {}),
+      ...(draft.mood ? { mood: draft.mood } : {}),
+      ...(draft.moodIntensity != null ? { moodIntensity: draft.moodIntensity } : {}),
+      ...(draft.reasoningLang ? { reasoningLang: draft.reasoningLang } : {}),
+    }
+  }))
+
   const moderatorModeOptions = [
     { value: 'containment', label: ui.moderatorModeContainment },
     { value: 'facilitator', label: ui.moderatorModeFacilitator },
@@ -113,6 +156,7 @@ export default function ParticipantsPanel({
         const moodDegreeLabel = moodIntensity[p.moodIntensity ?? defaultMoodIntensity]?.label ?? ''
         const moodBadgeLabel = p.model === userModel ? moodLabel : `${moodLabel} (${moodDegreeLabel})`
         const ageLabel = ageGroups[p.ageGroup ?? defaultAgeGroup]?.label ?? '-'
+        const permissiveness = Math.min(4, Math.max(0, Math.round(Number.isFinite(Number(p.moderatorPermissiveness)) ? Number(p.moderatorPermissiveness) : Debate.DEFAULT_MODERATOR_PERMISSIVENESS)))
         const eduLabel = educationLevels.find(e => e.value === (p.educationLevel ?? null))?.label ?? ui.modelDefault
         const nameLabel = p.name?.trim() || ui.unnamed
         const titleLabel = nameLabel
@@ -230,6 +274,15 @@ export default function ParticipantsPanel({
                       >{ct.label}</button>
                     )
                   })}
+                  {wand && (
+                    <MagicWand
+                      wand={wand}
+                      mode={participantMode(idx)}
+                      placement="bottom"
+                      describeItem={describeDraft}
+                      onPick={draft => applyDraft(idx, draft)}
+                    />
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 3 }}>
                   <span style={{ fontSize: 10, color: '#666', alignSelf: 'center', whiteSpace: 'nowrap', marginRight: 3 }}>{ui.verbosity}:</span>
@@ -277,15 +330,15 @@ export default function ParticipantsPanel({
                     const cloud = models.filter(m => m.endsWith('cloud')).sort()
                     const local = models.filter(m => !m.endsWith('cloud')).sort()
                     return [
+                      defaultModelOption,
                       { label: ui.user, options: [{ value: userModel, label: ui.userManualTurn }] },
                       ...(cloud.length ? [{ label: common.cloud, options: cloud.map(m => ({ value: m, label: m })) }] : []),
                       ...(local.length ? [{ label: common.local, options: local.map(m => ({ value: m, label: m })) }] : []),
                     ]
                   })()}
-                  value={p.model ? { value: p.model, label: p.model === userModel ? ui.userManualTurn : p.model } : null}
+                  value={p.model ? { value: p.model, label: p.model === userModel ? ui.userManualTurn : p.model } : defaultModelOption}
                   onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, model: opt?.value ?? '' } : x))}
                   placeholder={common.chooseModel}
-                  isClearable
                   menuPlacement="auto"
                   noOptionsMessage={() => ui.noModelsAvailable}
                 />
@@ -508,9 +561,22 @@ export default function ParticipantsPanel({
               </div>
             )}
 
-            {p.model !== userModel && p.isModerator && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingLeft: 2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorModeTitle}>
+             {p.model !== userModel && p.isModerator && (
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingLeft: 2 }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }} title={ui.moderatorPermissivenessTitle(ui.moderatorPermissivenessLevels[permissiveness])}>
+                   <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorPermissiveness}</span>
+                   <input
+                     type="range"
+                     min={0}
+                     max={4}
+                     step={1}
+                     value={permissiveness}
+                     onChange={e => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorPermissiveness: Number(e.target.value) } : x))}
+                     style={{ width: 78, accentColor: '#fb923c', cursor: 'pointer' }}
+                   />
+                   <span style={{ fontSize: 11, color: '#fb923c', minWidth: 76 }}>{ui.moderatorPermissivenessLevels[permissiveness]}</span>
+                 </div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorModeTitle}>
                   <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorModeLabel}</span>
                   <div style={{ minWidth: 150 }}>
                     <ReactSelect
@@ -524,6 +590,7 @@ export default function ParticipantsPanel({
                   </div>
                 </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexBasis: '100%', flexWrap: 'nowrap', overflowX: 'auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorDynamicAffinityTitle}>
                   <span style={{ fontSize: 11, color: p.moderatorDynamicAffinity ? '#22d3ee' : '#666', whiteSpace: 'nowrap' }}>{ui.moderatorDynamicAffinity}</span>
                   <div
@@ -579,6 +646,7 @@ export default function ParticipantsPanel({
                       width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
                     }} />
                   </div>
+                </div>
                 </div>
               </div>
             )}

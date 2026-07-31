@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Storage } from '../data/Storage'
 import { Web } from '../services/Web'
+import { Debate } from '../debate/Debate'
 
 export function useTopicComposer({
   participants,
+  defaultModel,
   messages,
   maxTurns,
   useSummary,
@@ -63,7 +65,7 @@ export function useTopicComposer({
 
   const handleStart = useCallback((topicInput = topicRef.current) => {
     const topicText = topicInput.trim()
-    if (!topicText || participants.some(participant => !participant.model)) return
+    if (!topicText || participants.some(participant => !Debate.hasConfiguredModel(participant, defaultModel))) return
     logLaunchEstimate('start')
     Storage.saveTopicToHistory(topicText)
     setTopicHistory(Storage.loadTopics())
@@ -94,7 +96,7 @@ export function useTopicComposer({
     setHeaderOpen(false)
     startDebate({ resumeMessages: null, resumeRound: null, resumeSummary: '', injectTopic: topicText })
     setTopicValue('')
-  }, [interjectRef, logLaunchEstimate, messages, participants, setHeaderOpen, setMessages, setSummary, setSummaryDebug, setSummaryInProgress, setTopicValue, startDebate, summaryRef, turnRef])
+  }, [defaultModel, interjectRef, logLaunchEstimate, messages, participants, setHeaderOpen, setMessages, setSummary, setSummaryDebug, setSummaryInProgress, setTopicValue, startDebate, summaryRef, turnRef])
 
   const handleResume = useCallback((topicInput = topicRef.current) => {
     if (messages.length === 0) return
