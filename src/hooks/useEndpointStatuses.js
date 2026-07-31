@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Debate } from '../debate/Debate'
+import { getProvider } from '../providers/index.js'
 
 export function useEndpointStatuses(participants) {
   const [results, setResults] = useState({})
@@ -31,12 +32,8 @@ export function useEndpointStatuses(participants) {
           next[endpoint.id] = { state: 'err' }
           return
         }
-        try {
-          const response = await fetch(`${endpoint.url}/api/tags`, { signal: AbortSignal.timeout(5000) })
-          next[endpoint.id] = { state: response.ok ? 'ok' : 'err' }
-        } catch {
-          next[endpoint.id] = { state: 'err' }
-        }
+        const reachable = await getProvider().health(endpoint.url)
+        next[endpoint.id] = { state: reachable ? 'ok' : 'err' }
       }))
       if (!cancelled) setResults(next)
     })()
