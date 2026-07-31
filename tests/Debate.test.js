@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { Debate } from '../src/debate/Debate'
 
 describe('Debate participant domain rules', () => {
+  it('accepts the configured default model when a participant has no individual model', () => {
+    expect(Debate.hasConfiguredModel({ model: '' }, 'model-a')).toBe(true)
+    expect(Debate.hasConfiguredModel({ model: '' }, '')).toBe(false)
+  })
+
   it('normalizes affinity maps, removing invalid and neutral entries', () => {
     expect(Debate.normalizeAffinity({ 1: '1.234', 2: -2, three: 0.5, 4: 0 })).toEqual({ 1: 1, 2: -1 })
     expect(Debate.normalizeAffinity(['2', 'invalid', 3])).toEqual({ 2: 1, 3: 1 })
@@ -50,12 +55,12 @@ describe('Debate participant domain rules', () => {
 
 describe('Debate summary and affinity rules', () => {
   it('parses a summary bundle and rejects incomplete payloads', () => {
-    const bundle = Debate.parseSummaryAffinityBundle('```json\n{"summary":"Round summary","affinity_deltas":{"alpha":{"beta":0.25}},"moderation":{"needed":true,"reason":"topic drift"}}\n```')
+    const bundle = Debate.parseSummaryAffinityBundle('```json\n{"summary":"Round summary","affinity_deltas":{"alpha":{"beta":0.25}},"moderation":{"needed":true,"reason":"topic drift","targets":["beta"]}}\n```')
 
     expect(bundle).toEqual({
       summary: 'Round summary',
       deltas: { alpha: { beta: 0.25 } },
-      moderation: { needed: true, reason: 'topic drift' },
+      moderation: { needed: true, reason: 'topic drift', targets: ['beta'] },
     })
     expect(Debate.parseSummaryAffinityBundle('{"summary":""}')).toBeNull()
   })
@@ -64,6 +69,7 @@ describe('Debate summary and affinity rules', () => {
     const participants = [
       { id: 0, tag: 'alpha', affinity: { 1: 0.8, 2: -0.5 }, affinityLocks: { 2: true } },
       { id: 1, tag: 'beta', affinity: { 0: 0.4 }, affinityLocks: {} },
+      { id: 3, tag: 'gamma', affinity: { 0: -0.8 }, affinityLocks: {} },
       { id: 2, tag: 'moderator', isModerator: true, moderatorDynamicAffinity: false, affinity: {}, affinityLocks: {} },
     ]
 
@@ -71,13 +77,36 @@ describe('Debate summary and affinity rules', () => {
       participants,
       deltas: { alpha: { beta: 0.5, moderator: 0.4 } },
       moderatorIntervention: true,
+      moderationTargets: ['beta'],
       moderationCooling: 0.15,
     })
 
     expect(result.changed).toBe(true)
     expect(result.participants[0].affinity).toEqual({ 1: 1, 2: -0.5 })
     expect(result.participants[1].affinity).toEqual({ 0: 0.25 })
+    expect(result.participants[2].affinity).toEqual({ 0: -0.8 })
     expect(result.participants[2]).toBe(participants[2])
+    expect(result.participants[3]).toBe(participants[3])
+  })
+
+  it('cools every participant explicitly targeted by a multi-person moderation', () => {
+    const participants = [
+      { id: 0, tag: 'alpha', affinity: { 1: 0.8, 2: 0.6 }, affinityLocks: {} },
+      { id: 1, tag: 'beta', affinity: { 0: 0.4 }, affinityLocks: {} },
+      { id: 2, tag: 'gamma', affinity: { 0: -0.8 }, affinityLocks: {} },
+      { id: 3, tag: 'moderator', isModerator: true, affinity: {}, affinityLocks: {} },
+    ]
+
+    const result = Debate.applyDynamicAffinityUpdates({
+      participants,
+      moderatorIntervention: true,
+      moderationTargets: ['beta', 'gamma'],
+      moderationCooling: 0.15,
+    })
+
+    expect(result.participants[0]).toBe(participants[0])
+    expect(result.participants[1].affinity).toEqual({ 0: 0.25 })
+    expect(result.participants[2].affinity).toEqual({ 0: -0.65 })
   })
 })
 
@@ -151,6 +180,23 @@ describe('Debate participant ordering', () => {
 })
 
 describe('Debate topic variations', () => {
+  it('keeps topic directives separate from transport roles', () => {
+    let sequence = 0
+    const initial = Debate.createInitialHistory({
+      injectTopic: 'Discuss renewable energy',
+      round: 0,
+      nextSeq: () => ++sequence,
+    })
+
+    expect(initial.history).toEqual([{
+      role: 'topic',
+      content: 'Discuss renewable energy',
+      turn: 0,
+      seq: 1,
+    }])
+    expect(initial.history[0]).not.toHaveProperty('ollamaRole')
+  })
+
   it('persists multiple queued variations without duplicating them', () => {
     const first = { role: 'interjection', content: 'Focus on costs', seq: 10, pending: true }
     const second = { role: 'interjection', content: 'Include environmental impact', seq: 11, pending: true }
@@ -163,5 +209,24 @@ describe('Debate topic variations', () => {
     ])
     expect(Debate.appendInterjection(withBoth, second)).toBe(withBoth)
     expect(Debate.getActiveTopicMessage(withBoth)?.content).toBe('Include environmental impact')
+  })
+})
+
+describe('Debate context windows', () => {
+  it('keeps messages from the actor previous turn through the current turn in chronological order', () => {
+    const history = [
+      { role: 'topic', content: 'Initial topic' },
+      { role: 'A', content: 'A opening' },
+      { role: 'B', content: 'B reply' },
+      { role: 'interjection', content: 'Focus on evidence' },
+      { role: 'A', content: 'A follow-up' },
+      { role: 'B', content: 'B latest reply' },
+      { role: 'participant_joined', content: '' },
+    ]
+
+    expect(Debate.getContextSincePreviousTurn(history, 'A')).toEqual([
+      { role: 'A', content: 'A follow-up' },
+      { role: 'B', content: 'B latest reply' },
+    ])
   })
 })

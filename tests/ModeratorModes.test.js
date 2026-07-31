@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Debate } from '../src/debate/Debate'
 
 const moderator = { id: 0, tag: 'M', isModerator: true, moderatorMode: 'containment' }
-const speaker = { id: 1, tag: 'A', isModerator: false }
+const speaker = { id: 1, tag: 'A', name: 'Alice', isModerator: false }
 const participants = [moderator, speaker]
 const historyWithContext = [{ role: 'A', content: 'An argument', turn: 1 }]
 
@@ -63,5 +63,30 @@ describe('shouldModeratorIntervene by mode', () => {
 
   it('active intervenes whenever there is context', () => {
     expect(decide('active').shouldIntervene).toBe(true)
+  })
+
+  it('reacts to a direct personal attack in every moderator style', () => {
+    const history = [{ role: 'A', content: 'Smettila, sei ridicola.', turn: 1 }]
+    for (const mode of Debate.MODERATOR_MODES) {
+      const result = Debate.shouldModeratorIntervene({
+        actor: { ...moderator, moderatorMode: mode },
+        history,
+        participants,
+        round: 0,
+        roundLimit: 6,
+      })
+      expect(result.shouldIntervene, mode).toBe(true)
+      expect(result.reactiveModeration, mode).toBe(true)
+      expect(result.scheduledFacilitation, mode).toBe(false)
+    }
+  })
+
+  it('uses permissiveness to distinguish explicit abuse from milder hostility', () => {
+    const mildHostility = [{ role: 'A', content: 'Alice, ma quale ragionamento stai facendo?', turn: 1 }]
+    const explicitAbuse = [{ role: 'A', content: 'Sei idiota.', turn: 1 }]
+
+    expect(Debate.hasDirectPersonalAttack(mildHostility, participants, 'M', 0)).toBe(false)
+    expect(Debate.hasDirectPersonalAttack(mildHostility, participants, 'M', 4)).toBe(true)
+    expect(Debate.hasDirectPersonalAttack(explicitAbuse, participants, 'M', 0)).toBe(true)
   })
 })

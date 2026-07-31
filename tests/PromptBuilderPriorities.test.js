@@ -48,6 +48,15 @@ describe('buildSystemPrompt priorities', () => {
     expect(prompt).not.toContain('Your relational affinity')
   })
 
+  it('keeps conversation transcript out of the system prompt', () => {
+    const prompt = build({}, {
+      history: [{ role: 'B', content: 'This belongs in the chat context.' }],
+    })
+
+    expect(prompt).not.toContain('Recent conversation:')
+    expect(prompt).not.toContain('This belongs in the chat context.')
+  })
+
   it('orders sections as override > global > personal > baseline conduct', () => {
     const prompt = build(
       {
@@ -109,6 +118,7 @@ describe('buildSystemPrompt moderator modes and hierarchy', () => {
   it('tells participants to respect the moderator hierarchy when a moderator exists', () => {
     const prompt = buildFor(withModerator[0])
     expect(prompt).toContain('A moderator holds procedural authority over this debate')
+    expect(prompt).toContain('Treat a moderator intervention as a binding procedural instruction')
   })
 
   it('omits the hierarchy rule when there is no moderator', () => {
@@ -137,5 +147,42 @@ describe('buildSystemPrompt moderator modes and hierarchy', () => {
     const prompt = buildFor(actor, { externalModerationTrigger: { needed: false, reason: '', scheduledFacilitation: false } })
     expect(prompt).toContain('Moderation style: ACTIVE')
     expect(prompt).not.toContain('output only moderation or process control')
+  })
+
+  it('prioritizes reactive moderation over scheduled facilitation', () => {
+    const actor = { ...withModerator[1], moderatorMode: 'facilitator' }
+    const prompt = buildFor(actor, {
+      externalModerationTrigger: {
+        needed: true,
+        reason: 'personal attack detected',
+        scheduledFacilitation: true,
+        reactiveModeration: true,
+      },
+    })
+    expect(prompt).toContain('moderate it now, regardless of the facilitation schedule')
+    expect(prompt).not.toContain('This turn is a scheduled facilitation turn')
+    expect(prompt).toContain('output only moderation or process control')
+  })
+
+  it('requires the active style to address a reactive attack', () => {
+    const actor = { ...withModerator[1], moderatorMode: 'active' }
+    const prompt = buildFor(actor, {
+      externalModerationTrigger: { needed: true, reason: 'attack', reactiveModeration: true },
+    })
+    expect(prompt).toContain('address the attack or escalating hostility first')
+  })
+
+  it('places the latest moderator intervention in a binding system-level block', () => {
+    const moderator = { id: 1, tag: 'M', name: 'Moderator', mood: 'none', isModerator: true, moderatorMode: 'containment' }
+    const prompt = buildSystemPrompt({
+      actor: participants[0],
+      allParticipants: [participants[0], moderator],
+      history: [{ role: 'M', content: 'Stop the personal attacks and answer the question.' }],
+      uiLang: 'en',
+      constants,
+    })
+    expect(prompt).toContain('Latest moderator intervention (binding procedural instruction)')
+    expect(prompt).toContain('Stop the personal attacks and answer the question.')
+    expect(prompt).toContain('do not treat it as a debatable participant position')
   })
 })

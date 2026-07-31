@@ -7,6 +7,11 @@ function moderatorModeOf(actor) {
   return actor?.moderatorAlwaysIntervene ? 'active' : 'containment'
 }
 
+function moderatorPermissivenessOf(actor) {
+  const value = Number(actor?.moderatorPermissiveness)
+  return Number.isFinite(value) ? Math.min(4, Math.max(0, Math.round(value))) : 2
+}
+
 function detectReasoningLangFromConstraints(constraints, languages) {
   const text = (constraints || []).map(constraintText).filter(Boolean).join(' ').toLowerCase()
   if (!text) return ''
@@ -61,15 +66,6 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     ? `Your relational affinity toward other participants, from -1.00 (strong conflict, distrust, hostility) to +1.00 (strong alignment, trust, support):\n${affinityEntries.join('\n')}\n\nLet these weights shape your tone toward each participant and how willing you are to agree with, build on, or push back against their arguments.`
     : ''
 
-  const recent = history
-    .filter(m => !['topic', 'interjection', 'error', 'participant_joined', 'participant_left'].includes(m.role) && m.content?.trim())
-    .slice(-8)
-    .map(m => {
-      if (m.role === 'user') return `[Moderator message]: ${m.content}`
-      return `${m.role}: ${m.content}`
-    })
-    .join('\n\n')
-
   const topicDirectives = history
     .filter(m => (m.role === 'topic' || m.role === 'interjection') && m.content?.trim())
     .map((m, index) => {
@@ -110,10 +106,20 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   const personalConstraints = participantConstraints.filter(entry => !entry.override)
 
   const debateHasModerator = allParticipants.some(p => p.isModerator && p.id !== actor.id)
+  const latestModeratorDirective = [...history]
+    .reverse()
+    .map(message => {
+      const moderator = allParticipants.find(participant => participant.tag === message.role && participant.isModerator)
+      return moderator && message.content?.trim() ? { moderator, content: message.content.trim() } : null
+    })
+    .find(Boolean)
 
   const baselineRules = [
     ...(!actor.isModerator && debateHasModerator
-      ? ['- A moderator holds procedural authority over this debate. If the moderator issues a process directive (de-escalation, topic redirection, turn assignment, format), comply with it in your next turn. You may keep defending your positions on content, but never ignore or overrule a moderator process directive.']
+      ? [
+          '- A moderator holds procedural authority over this debate. If the moderator issues a process directive (de-escalation, topic redirection, turn assignment, format), comply with it in your next turn. You may keep defending your positions on content, but never ignore or overrule a moderator process directive.',
+          '- Treat a moderator intervention as a binding procedural instruction, not as an ordinary peer argument. Do not debate, dismiss, reinterpret, or sidestep its directive; acknowledge it through your next response and follow its requested format or focus.',
+        ]
       : []),
     '- Avoid referring to other participants unless it is strictly necessary for the argument you are making.',
     '- Distinguish clearly between observed facts and your inferences. If a point is not directly supported by the topic, cited material, or the discussion itself, present it only as a tentative hypothesis or avoid it.',
@@ -145,12 +151,25 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     : ''
 
   const moderatorMode = actor.isModerator ? moderatorModeOf(actor) : null
+  const moderatorPermissiveness = actor.isModerator ? moderatorPermissivenessOf(actor) : null
+  const permissivenessGuidance = moderatorPermissiveness == null
+    ? ''
+    : [
+        'Very relaxed: intervene only for explicit abuse or severe hostility.',
+        'Relaxed: tolerate sharp disagreement, but stop direct insults.',
+        'Balanced: stop direct insults and repeated dismissive attacks.',
+        'Strict: also stop hostile personal framing and escalating taunts.',
+        'Very strict: intervene early when discourse becomes personally adversarial.',
+      ][moderatorPermissiveness]
+  const reactiveModeration = !!externalModerationTrigger?.reactiveModeration
   const moderatorStyleText = moderatorMode === 'active'
-    ? 'Moderation style: ACTIVE. You take part in the debate proactively: you may contribute opinions, arguments, interpretations, process guidance, fact-checking, and topic enforcement, always from your position of authority above the participants.'
+    ? `Moderation style: ACTIVE. You take part in the debate proactively: you may contribute opinions, arguments, interpretations, process guidance, fact-checking, and topic enforcement, always from your position of authority above the participants. ${reactiveModeration ? 'A reactive moderation trigger is present: address the attack or escalating hostility first with a clear corrective directive, then add any substantive contribution.' : 'In every style, respond immediately to personal attacks or escalating hostility.'}`
     : moderatorMode === 'facilitator'
       ? [
           'Moderation style: FACILITATOR. You never argue a position of your own.',
-          externalModerationTrigger?.scheduledFacilitation
+          reactiveModeration
+            ? 'A reactive moderation trigger is present: moderate it now, regardless of the facilitation schedule. Address the attack or escalating hostility, issue a clear corrective directive, and hand the floor back. Do not replace this intervention with a scheduled synthesis.'
+            : externalModerationTrigger?.scheduledFacilitation
             ? 'This turn is a scheduled facilitation turn: analyze the discussion so far instead of moderating. Synthesize what has emerged, map the concrete points of agreement and disagreement, and surface the blind spots — relevant angles, assumptions, or questions no participant has addressed yet. Close by steering the debate toward the most productive open question. Keep it compact.'
             : 'This is NOT a scheduled facilitation turn: intervene only for containment — personal attacks or insults, escalating hostility, complete topic derailment, or an explicit request for moderation. If none of these apply, output exactly [SKIP_TURN].',
         ].join(' ')
@@ -159,12 +178,17 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   const moderatorDecisionBlock = actor.isModerator
     ? [
         `Moderator mode: style=${moderatorMode}, enforce_topic=${actor.moderatorEnforceTopic ? 'true' : 'false'}, fact_check=${actor.moderatorFactCheck ? 'true' : 'false'}.`,
+        `Moderator permissiveness: level=${moderatorPermissiveness}/4. ${permissivenessGuidance}`,
         'You are the debate moderator, not a normal participant. You hold procedural authority over this debate: participants are instructed to comply with your process directives, and your rulings on process outrank their personal goals.',
         moderatorStyleText,
-        moderatorMode === 'active' || externalModerationTrigger?.scheduledFacilitation
+        moderatorMode === 'active' || (externalModerationTrigger?.scheduledFacilitation && !reactiveModeration)
           ? ''
           : 'When you do intervene, output only moderation or process control. Do not continue the debate as if you were another participant.',
       ].filter(Boolean).join(' ')
+    : ''
+
+  const moderatorDirectiveBlock = !actor.isModerator && latestModeratorDirective
+    ? `Latest moderator intervention (binding procedural instruction):\n${latestModeratorDirective.moderator.name || latestModeratorDirective.moderator.tag}: ${latestModeratorDirective.content}\n\nFollow this intervention in your next response. It governs process, tone, focus, and turn assignment; do not treat it as a debatable participant position.`
     : ''
 
   const defaultDeliveryStyle = 'Default delivery style: speak plainly and directly. Favor argumentative prose over performance. Avoid narrated gestures, stage directions, acted pauses, cinematic scene-setting, or theatrical framing unless they are explicitly required by a stronger instruction or by the participant\'s core identity.'
@@ -188,9 +212,9 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     sourcePriorityBlock,
     characterContext ? `Character context:\n${characterContext}` : '',
     roster ? `Other participants:\n${roster}` : '',
-    recent ? `Recent conversation:\n${recent}` : '',
     constraintsBlock ? `Constraints and behavior rules:\n${constraintsBlock}` : '',
     moderatorDecisionBlock,
+    moderatorDirectiveBlock,
     moderationBlock,
     docsBlock,
   ].filter(Boolean).join('\n\n')

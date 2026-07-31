@@ -11,6 +11,7 @@ import { RESPONSE_LENGTHS } from '../prompts/ResponseLengths'
 import { EDUCATION_LEVELS } from '../prompts/EducationLevels'
 import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
+import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
 
 export class Debate {
   static CONCLUSION_CONVERSATION_LIMIT = 8000
@@ -30,6 +31,8 @@ export class Debate {
   static MODERATOR_MODES = ['containment', 'facilitator', 'active']
 
   static DEFAULT_MODERATOR_MODE = 'containment'
+
+  static DEFAULT_MODERATOR_PERMISSIVENESS = DEFAULT_PERMISSIVENESS
 
   // Migrates the legacy moderatorAlwaysIntervene boolean into the mode select.
   static normalizeModeratorMode(participant) {
@@ -63,6 +66,7 @@ export class Debate {
       name: '',
       isModerator: false,
       moderatorMode: Debate.DEFAULT_MODERATOR_MODE,
+      moderatorPermissiveness: Debate.DEFAULT_MODERATOR_PERMISSIVENESS,
       moderatorDynamicAffinity: false,
       moderatorFactCheck: false,
       moderatorEnforceTopic: false,
@@ -184,12 +188,13 @@ export class Debate {
 
       const summary = String(parsed.summary ?? '').trim()
       const deltas = Debate.parseAffinityDeltas(JSON.stringify(parsed.affinity_deltas ?? {})) || {}
-      const moderation = parsed.moderation && typeof parsed.moderation === 'object'
-        ? {
-            needed: !!parsed.moderation.needed,
-            reason: String(parsed.moderation.reason || '').trim(),
-          }
-        : { needed: false, reason: '' }
+       const moderation = parsed.moderation && typeof parsed.moderation === 'object'
+         ? {
+             needed: !!parsed.moderation.needed,
+             reason: String(parsed.moderation.reason || '').trim(),
+             targets: Debate.normalizeModerationTargets(parsed.moderation.targets ?? parsed.moderation.target),
+           }
+         : { needed: false, reason: '', targets: [] }
 
       if (!summary) return null
       return { summary, deltas, moderation }
@@ -200,6 +205,17 @@ export class Debate {
 
   static getActiveTopicMessage(history = []) {
     return [...history].reverse().find(message => (message.role === 'interjection' || message.role === 'topic') && message.content?.trim()) || null
+  }
+
+  static normalizeModerationTargets(raw) {
+    const values = Array.isArray(raw) ? raw : raw ? [raw] : []
+    return [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))]
+  }
+
+  static getContextSincePreviousTurn(history = [], actorTag) {
+    const previousTurnIndex = history.findLastIndex(message => message.role === actorTag && message.content?.trim())
+    return history.slice(previousTurnIndex < 0 ? 0 : previousTurnIndex)
+      .filter(message => !['error', 'participant_joined', 'participant_left'].includes(message.role))
   }
 
   static appendInterjection(history = [], interjection) {
@@ -303,6 +319,7 @@ export class Debate {
       normalizeAffinityLocks: Debate.normalizeAffinityLocks,
       normalizeConstraints: Debate.normalizeParticipantConstraints,
       normalizeModeratorMode: Debate.normalizeModeratorMode,
+      normalizeModeratorPermissiveness,
     }
   }
 
@@ -321,6 +338,7 @@ export class Debate {
       name: participant.name,
       isModerator: !!participant.isModerator || participant.mood === 'moderator',
       moderatorMode: Debate.normalizeModeratorMode(participant),
+      moderatorPermissiveness: normalizeModeratorPermissiveness(participant.moderatorPermissiveness),
       moderatorDynamicAffinity: !!participant.moderatorDynamicAffinity,
       moderatorEnforceTopic: !!participant.moderatorEnforceTopic,
       moderatorFactCheck: !!participant.moderatorFactCheck,
@@ -430,6 +448,10 @@ export class Debate {
     return parts.find(participant => participant.model && participant.model !== Debate.USER_MODEL)?.model ?? parts[0]?.model ?? ''
   }
 
+  static hasConfiguredModel(participant, defaultModel = '') {
+    return Boolean(participant?.model || defaultModel)
+  }
+
   static buildLanguageLabel(uiLang, languages = []) {
     return languages.find(language => language.code === uiLang)?.label ?? uiLang
   }
@@ -450,12 +472,12 @@ export class Debate {
 
   static createInitialHistory({ history = [], injectTopic, round, nextSeq }) {
     if (history.length === 0) {
-      const topicMsg = { role: 'topic', ollamaRole: 'user', content: injectTopic ?? '', turn: 0, seq: nextSeq() }
+      const topicMsg = { role: 'topic', content: injectTopic ?? '', turn: 0, seq: nextSeq() }
       return { history: [topicMsg], round: 0, step: 0, seededMessages: [topicMsg] }
     }
 
     if (injectTopic) {
-      const userMsg = { role: 'interjection', ollamaRole: 'user', content: injectTopic, turn: round, seq: nextSeq() }
+      const userMsg = { role: 'interjection', content: injectTopic, turn: round, seq: nextSeq() }
       const nextHistory = [...history, userMsg]
       return { history: nextHistory, round, step: null, seededMessages: nextHistory }
     }
@@ -480,12 +502,14 @@ export class Debate {
     toSummarize = '',
   }) {
     const participantsList = parts.map(participant => `${participant.tag}: ${participant.name || participant.tag}`).join('\n')
+    const moderator = parts.find(participant => participant.isModerator)
+    const permissiveness = normalizeModeratorPermissiveness(moderator?.moderatorPermissiveness)
     const thresholdBytes = summaryAccumulateThreshold * 1024
     const summaryMode = summaryAccumulate && prevSummary
       ? `ACCUMULATE mode is ON. If previous_summary exceeds ${thresholdBytes} characters, compact it first, then append only a concise paragraph for new exchanges. Otherwise append directly.`
       : 'STANDARD mode: produce an updated concise summary including new exchanges.'
 
-    return `Return ONLY strict JSON (no markdown, no prose) with exact shape:\n{\n  "summary": "<updated summary text>",\n  "affinity_deltas": { "A": { "B": -0.20 }, "B": { "A": 0.15 } },\n  "moderation": { "needed": false, "reason": "" }\n}\n\nRules for affinity_deltas:\n- keys are participant TAGS only\n- values are round deltas in [-1.00, +1.00]\n- use 0 or omit when unsure\n- no self links\n- do not invent tags\n${moderatorInterventionThisRound ? '- A moderator intervened in this round: bias deltas toward de-escalation (reduce absolute affinity values unless strong evidence suggests otherwise).' : ''}\n\nRules for moderation:\n- Set moderation.needed=true only when moderation is concretely needed now (personal attacks, escalation, severe off-topic drift, unsupported speculation presented as fact, or explicit request for moderation).\n- Keep reason short and specific.\n\nSummary policy:\n${summaryMode}\n\nParticipants:\n${participantsList}\n\nPrevious summary:\n${prevSummary || '(none)'}\n\nNew exchanges in current round:\n${toSummarize}`
+    return `Return ONLY strict JSON (no markdown, no prose) with exact shape:\n{\n  "summary": "<updated summary text>",\n  "affinity_deltas": { "A": { "B": -0.20 }, "B": { "A": 0.15 } },\n  "moderation": { "needed": false, "reason": "", "targets": [] }\n}\n\nRules for affinity_deltas:\n- keys are participant TAGS only\n- values are round deltas in [-1.00, +1.00]\n- use meaningful magnitudes: ±0.10 is a weak signal, ±0.25 is noticeable, ±0.50 is strong, and ±0.75 or more is exceptional\n- represent genuine agreement with positive deltas as readily as disagreement with negative deltas; do not systematically keep positive affinity near zero\n- use 0 or omit when there is no meaningful change\n- no self links\n- do not invent tags\n${moderatorInterventionThisRound ? '- A moderator intervened in this round: bias deltas toward de-escalation (reduce absolute affinity values unless strong evidence suggests otherwise).' : ''}\n\nRules for moderation:\n- Set moderation.needed=true only when moderation is concretely needed now (personal attacks, escalation, severe off-topic drift, unsupported speculation presented as fact, or explicit request for moderation).\n- Moderator permissiveness level is ${permissiveness}/4, where 0 is very relaxed and 4 is very strict. Always flag explicit personal abuse; at higher levels also flag hostile personal framing and escalating taunts.\n- targets must contain the participant TAGS who should receive the corrective intervention; use [] when moderation is not needed or is only facilitation.\n- Keep reason short and specific.\n\nSummary policy:\n${summaryMode}\n\nParticipants:\n${participantsList}\n\nPrevious summary:\n${prevSummary || '(none)'}\n\nNew exchanges in current round:\n${toSummarize}`
   }
 
   static buildPromptConstants() {
@@ -514,7 +538,7 @@ export class Debate {
       await streamChat({
         baseUrl,
         model: actor.model,
-        messages: [{ ollamaRole: 'user', content: userMsg }],
+        messages: [{ role: 'user', content: userMsg }],
         systemPrompt,
         useTools: false,
         onToken: token => { result = token },
@@ -538,21 +562,64 @@ export class Debate {
     return (hasStructuredShape || hasActionVerb) && !looksLikeNarrativeSummary
   }
 
+  static getDirectPersonalAttackTargets(history = [], participants = [], moderatorTag = '', permissiveness = Debate.DEFAULT_MODERATOR_PERMISSIVENESS) {
+    const participantTags = new Set(participants.filter(participant => !participant.isModerator).map(participant => String(participant.tag || '').toLowerCase()).filter(Boolean))
+    const participantNames = participants
+      .filter(participant => !participant.isModerator && participant.name)
+      .map(participant => participant.name.trim().toLowerCase())
+    const level = normalizeModeratorPermissiveness(permissiveness)
+    const attackPatterns = [
+      { minLevel: 0, pattern: /\b(?:sei|siete|è|sono)\s+(?:un[ao]?\s+)?(?:idiot[aoie]|stupid[aoie]|patetic[aoie]|ignorant[ei]|disgustos[aoie]|incompetent[ei])\b/i },
+      { minLevel: 0, pattern: /\b(?:you(?:'re| are)|he'?s|she'?s)\s+(?:an?\s+)?(?:idiot|stupid|pathetic|ignorant|disgusting|incompetent)\b/i },
+      { minLevel: 0, pattern: /\b(?:fate schifo|shut up)\b/i },
+      { minLevel: 1, pattern: /\b(?:ridicol[aoie]|ridiculous)\b/i },
+      { minLevel: 2, pattern: /\b(?:smettila|smettetela|basta con|supercazzola|disco rotto|ma sei serio|are you serious)\b/i },
+      { minLevel: 3, pattern: /\b(?:non hai idea|non avete idea|state solo cercando|you have no idea|you are just)\b/i },
+      { minLevel: 4, pattern: /\b(?:smetti|smettiamola|ma quale|what are you talking about)\b/i },
+    ]
+
+    const lastModeratorIndex = moderatorTag
+      ? history.map(message => message.role).lastIndexOf(moderatorTag)
+      : -1
+    const pendingMessages = history.slice(lastModeratorIndex + 1)
+
+    return [...new Set(pendingMessages.flatMap(message => {
+      if (!message.content || !participantTags.has(String(message.role || '').toLowerCase())) return []
+      const text = String(message.content).trim()
+      if (!text) return []
+      const mentionsParticipant = [...participantTags, ...participantNames].some(label => {
+        if (!label) return false
+        return new RegExp(`\\b${Debate.escapeRegExp(label)}\\b`, 'i').test(text)
+      })
+      const matched = attackPatterns.some(({ minLevel, pattern }) => minLevel <= level && pattern.test(text))
+        && (mentionsParticipant || /\b(?:sei|siete|you|you're|smetti|smettila|smettetela|shut up)\b/i.test(text))
+      return matched ? [message.role] : []
+    }))]
+  }
+
+  static hasDirectPersonalAttack(history = [], participants = [], moderatorTag = '', permissiveness = Debate.DEFAULT_MODERATOR_PERMISSIVENESS) {
+    return Debate.getDirectPersonalAttackTargets(history, participants, moderatorTag, permissiveness).length > 0
+  }
+
   static updateConclusionConv(history, participants, conclusionConvRef) {
     conclusionConvRef.current = Debate.buildConclusionConversation(history, participants)
   }
 
-  static applyDynamicAffinityUpdates({ participants = [], deltas = {}, moderatorIntervention = false, moderationCooling = 0 }) {
-    if (!deltas || Object.keys(deltas).length === 0 || participants.length <= 1) {
+  static applyDynamicAffinityUpdates({ participants = [], deltas = {}, moderatorIntervention = false, moderationTargets = [], moderationCooling = 0 }) {
+    if (participants.length <= 1) {
       return { changed: false, participants }
     }
 
+    const safeDeltas = deltas && typeof deltas === 'object' ? deltas : {}
     const byTag = Object.fromEntries(participants.map(participant => [participant.tag, participant]))
+    const moderatedIds = new Set(moderationTargets
+      .map(target => byTag[target]?.id ?? participants.find(participant => String(participant.id) === String(target))?.id)
+      .filter(id => id != null))
     let changed = false
     const updated = participants.map(participant => {
       if (participant.isModerator && !participant.moderatorDynamicAffinity) return participant
 
-      const row = deltas[participant.tag]
+      const row = safeDeltas[participant.tag]
       const affinity = Debate.normalizeAffinity(participant.affinity)
       const locks = Debate.normalizeAffinityLocks(participant.affinityLocks)
       const touchedTargets = new Set()
@@ -579,7 +646,7 @@ export class Debate {
         }
       }
 
-      if (moderatorIntervention && (!participant.isModerator || participant.moderatorDynamicAffinity)) {
+      if (moderatorIntervention && moderatedIds.has(participant.id) && (!participant.isModerator || participant.moderatorDynamicAffinity)) {
         for (const target of participants) {
           if (target.id === participant.id) continue
           if (locks[target.id]) continue
@@ -607,6 +674,8 @@ export class Debate {
     const result = {
       shouldIntervene: false,
       scheduledFacilitation: false,
+      reactiveModeration: false,
+      moderationTargets: [],
     }
 
     if (!actor?.isModerator) return result
@@ -620,7 +689,21 @@ export class Debate {
     const hasContext = nonModeratorMsgs.length > 0
     if (!hasContext) return result
 
-    const moderationRequested = !!roundModerationSignal?.needed
+    const detectedAttackTargets = Debate.getDirectPersonalAttackTargets(
+      history,
+      participants,
+      actor.tag,
+      actor.moderatorPermissiveness,
+    )
+    const moderationTargets = detectedAttackTargets.length > 0
+      ? detectedAttackTargets
+      : Debate.normalizeModerationTargets(roundModerationSignal?.targets)
+        .map(target => participants.find(participant => String(participant.tag || '').toLowerCase() === target.toLowerCase() && !participant.isModerator)?.tag)
+        .filter(Boolean)
+    const detectedAttack = detectedAttackTargets.length > 0
+    const moderationRequested = !!roundModerationSignal?.needed || detectedAttack
+    result.reactiveModeration = moderationRequested
+    result.moderationTargets = moderationTargets
     const mode = Debate.normalizeModeratorMode(actor)
 
     if (mode === 'active') {
@@ -640,8 +723,8 @@ export class Debate {
       return result
     }
 
-    // containment: step in only when the round signal reports a concrete need
-    // (insults, escalation, complete derailment, explicit request).
+    // Containment steps in only when the model signal or local attack detector
+    // reports a concrete need (insults, escalation, derailment, or request).
     result.shouldIntervene = moderationRequested
     return result
   }
@@ -660,7 +743,6 @@ export class Debate {
       if (message.role === 'participant_joined' && !activeIds.has(id)) {
         messages.push({
           role: 'participant_left',
-          ollamaRole: 'system',
           content: '',
           turn,
           seq: nextSeq(),
@@ -682,7 +764,6 @@ export class Debate {
     if (hasChanged) {
       messages.push({
         role: 'participant_left',
-        ollamaRole: 'system',
         content: '',
         turn,
         seq: nextSeq(),
@@ -693,7 +774,6 @@ export class Debate {
     if (!previous || previous.role === 'participant_left' || hasChanged) {
       messages.push({
         role: 'participant_joined',
-        ollamaRole: 'system',
         content: '',
         turn,
         seq: nextSeq(),
@@ -732,6 +812,8 @@ export class Debate {
       summaryModelOverride,
       uiLang,
       handlePromptEstimate,
+      handleRequest,
+      handleResponse,
       characterContextRef,
       fetchedUrlsRef,
       setMessages,
@@ -770,6 +852,17 @@ export class Debate {
     const useSummary = useSummaryRef.current
     const docs = attachedDocs
     let docsForPrompt = docs
+    const transportCallbacks = (debugExchanges = null) => ({
+      onPayload: request => {
+        if (debugExchanges) debugExchanges.push({ request })
+        handleRequest(request)
+      },
+      onResponse: exchange => {
+        const debugExchange = debugExchanges?.find(entry => entry.request === exchange.request)
+        if (debugExchange) debugExchange.response = exchange.response
+        handleResponse(exchange)
+      },
+    })
 
     if (summarizeAttachments && docs.length > 0) {
       const summaryModel = Debate.pickOperationalModel(parts, summaryModelEnabled, summaryModelOverride)
@@ -785,8 +878,9 @@ export class Debate {
               useTools: false,
               timeoutMs,
               onEstimate: handlePromptEstimate,
+              ...transportCallbacks(),
               systemPrompt: docSystem,
-              messages: [{ ollamaRole: 'user', content: Debate.buildDocumentSummaryPrompt(doc) }],
+               messages: [{ role: 'user', content: Debate.buildDocumentSummaryPrompt(doc) }],
               onToken: token => { sum = token },
             })
             summarized.push({ ...doc, content: (sum || doc.content).trim() || doc.content })
@@ -811,6 +905,7 @@ export class Debate {
     let step = resumeRound?.step ?? 0
     let skipSummaryOnce = resumeRound?.skipSummary ?? false
     summaryRef.current = resumeSummary ?? ''
+    let lastModerationTargets = []
 
     const queuedInterjections = () => {
       const queued = interjectRef.current
@@ -862,7 +957,7 @@ export class Debate {
       if (stopRef.current) break
       if (roundLimit > 0 && round >= roundLimit && step === 0) break
 
-      let roundModerationSignal = { needed: false, reason: '' }
+       let roundModerationSignal = { needed: false, reason: '', targets: [] }
 
       {
         const isFirstTurn = Debate.isFirstDebateTurn(history)
@@ -871,13 +966,7 @@ export class Debate {
           const participantCount = parts.length
           const nonTopicMsgs = history.filter(message => message.role !== 'topic')
           const forSummary = nonTopicMsgs.slice(-participantCount)
-          const moderatorTags = new Set(parts.filter(participant => participant.isModerator).map(participant => participant.tag))
-          const moderatorInterventionThisRound = forSummary.some(message => {
-            if (!moderatorTags.has(message.role)) return false
-            const content = String(message.content || '').trim()
-            if (!content) return false
-            return Debate.isModerationDirectiveStyle(content)
-          })
+           const moderatorInterventionThisRound = lastModerationTargets.length > 0
           const toSummarize = forSummary.map(message => {
             if (message.role === 'user') return `[Moderator intervention]: ${message.content}`
             if (message.role === 'interjection') return `[Topic variation]: ${message.content}`
@@ -904,12 +993,12 @@ export class Debate {
             const result = await streamChat({
               baseUrl,
               model: summaryModel,
-              messages: [{ ollamaRole: 'user', content: prompt }],
+               messages: [{ role: 'user', content: prompt }],
               systemPrompt: summarySystem,
               useTools: false,
               onToken: () => {},
               onEstimate: handlePromptEstimate,
-              onPayload: debugMode ? (payload => payloadsOut.push(payload)) : null,
+              ...transportCallbacks(debugMode ? payloadsOut : null),
               timeoutMs,
             })
             if (debugMode) debugCalls.push({ kind, prompt, response: result })
@@ -929,11 +1018,12 @@ export class Debate {
             const combinedRaw = await summaryCall(combinedPrompt, debugPayloads, 'summary+affinity')
             const bundle = Debate.parseSummaryAffinityBundle(combinedRaw)
             if (!bundle) throw new Error('Invalid summary/affinity JSON payload')
-            const modelModerationSignal = bundle.moderation || { needed: false, reason: '' }
-            roundModerationSignal = {
-              needed: !!(roundModerationSignal?.needed || modelModerationSignal.needed),
-              reason: [roundModerationSignal?.reason || '', modelModerationSignal.reason || ''].filter(Boolean).join(' | '),
-            }
+             const modelModerationSignal = bundle.moderation || { needed: false, reason: '', targets: [] }
+             roundModerationSignal = {
+               needed: !!(roundModerationSignal?.needed || modelModerationSignal.needed),
+               reason: [roundModerationSignal?.reason || '', modelModerationSignal.reason || ''].filter(Boolean).join(' | '),
+               targets: Debate.normalizeModerationTargets(modelModerationSignal.targets),
+             }
 
             const trimmed = bundle.summary.trim()
             summaryRef.current = trimmed
@@ -943,7 +1033,8 @@ export class Debate {
               const affinityUpdate = Debate.applyDynamicAffinityUpdates({
                 participants: parts,
                 deltas: bundle.deltas,
-                moderatorIntervention: moderatorInterventionThisRound,
+                moderatorIntervention: lastModerationTargets.length > 0,
+                moderationTargets: lastModerationTargets,
                 moderationCooling,
               })
 
@@ -959,8 +1050,9 @@ export class Debate {
               for (let index = debugCalls.length - 1; index >= 0; index -= 1) {
                 if (debugCalls[index].kind === 'affinity') { affinityDebug = debugCalls[index]; break }
               }
-              setSummaryDebug({ payload: debugPayloads[debugPayloads.length - 1], debugPayloads, debugCalls, affinityDebug })
-            }
+               setSummaryDebug({ payload: debugPayloads[debugPayloads.length - 1], debugPayloads, debugCalls, affinityDebug })
+             }
+             lastModerationTargets = []
           } catch (err) {
             console.warn('[summary] fallita:', err.message)
           } finally {
@@ -1010,11 +1102,14 @@ export class Debate {
             roundLimit,
           })
           if (!moderationDecision.shouldIntervene) continue
+          if (moderationDecision.reactiveModeration) {
+            lastModerationTargets = moderationDecision.moderationTargets
+          }
         }
 
         if (actor.model !== Debate.USER_MODEL) {
           const seq = nextSeq()
-          const placeholder = { role: actor.tag, ollamaRole: 'assistant', content: '', turn: turnLabel, seq, participantSnapshot: { ...actor } }
+          const placeholder = { role: actor.tag, content: '', turn: turnLabel, seq, participantSnapshot: { ...actor } }
           history = [...history, placeholder]
           syncHistory()
           setStreamingSeq(seq)
@@ -1051,7 +1146,7 @@ export class Debate {
                 await streamChat({
                   baseUrl: actorBaseUrl,
                   model: actor.model,
-                  messages: [{ ollamaRole: 'user', content: `Summarize the following article in a concise, neutral and informative way (150-250 words). Focus on key facts, claims, and context. Do not editorialize.\n\nArticle content:\n${raw}` }],
+                  messages: [{ role: 'user', content: `Summarize the following article in a concise, neutral and informative way (150-250 words). Focus on key facts, claims, and context. Do not editorialize.\n\nArticle content:\n${raw}` }],
                   systemPrompt: 'You are a precise summarization assistant. Output only the summary, no preamble.',
                   useTools: false,
                   onToken: token => { summary = token },
@@ -1064,37 +1159,40 @@ export class Debate {
           }
         }
 
-        const pushMsg = async (ollamaRole, content) => {
-          contextMessages.push({ ollamaRole, content })
+        const pushMsg = async (role, content) => {
+          contextMessages.push({ role, content })
           await injectUrlsFrom(content)
         }
 
         const pushHistoryMsg = async message => {
           if (message.role === 'topic') {
-            await injectUrlsFrom(message.content)
+            await pushMsg('user', `[Topic]: ${message.content}`)
           } else if (message.role === 'participant_joined' || message.role === 'participant_left') {
             return
           } else if (message.role === 'user') {
             await pushMsg('user', `[Moderator]: ${message.content}`)
           } else if (message.role === 'interjection') {
-            await injectUrlsFrom(message.content)
+            await pushMsg('user', `[Topic update]: ${message.content}`)
           } else if (message.role === actor.tag) {
             if (message.content && message.content.trim().startsWith('<function_calls>')) return
-            contextMessages.push({ ollamaRole: 'assistant', content: message.content })
-          } else {
-            if (message.content && message.content.trim().startsWith('<function_calls>')) return
-            const other = parts.find(participant => participant.tag === message.role)
-            const otherName = other?.name || other?.tag || message.role
-            contextMessages.push({ ollamaRole: 'user', content: `${otherName} said: ${message.content}` })
-          }
+              contextMessages.push({ role: 'assistant', content: message.content })
+           } else {
+             if (message.content && message.content.trim().startsWith('<function_calls>')) return
+             const other = parts.find(participant => participant.tag === message.role)
+             const otherName = other?.name || other?.tag || message.role
+             const content = other?.isModerator
+               ? `[MODERATOR DIRECTIVE — PROCEDURAL AUTHORITY]\n${otherName}: ${message.content}\n\nThis is a binding process instruction. Follow it in your next response; do not debate or ignore it.`
+               : `${otherName} said: ${message.content}`
+             contextMessages.push({ role: 'user', content })
+           }
         }
 
         if (!useSummary) {
           for (const message of realHistory) await pushHistoryMsg(message)
         } else if (summaryRef.current) {
-          contextMessages.push({ ollamaRole: 'user', content: `[Conversation summary so far]\n${summaryRef.current}` })
-          const currentRoundMsgs = realHistory.filter(message => message.role === 'topic' || message.role === 'interjection' || message.turn === round + 1)
-          for (const message of currentRoundMsgs) await pushHistoryMsg(message)
+          contextMessages.push({ role: 'user', content: `[Conversation summary so far]\n${summaryRef.current}` })
+          const recentMessages = Debate.getContextSincePreviousTurn(realHistory, actor.tag)
+          for (const message of recentMessages) await pushHistoryMsg(message)
         } else {
           for (const message of realHistory) await pushHistoryMsg(message)
         }
@@ -1102,8 +1200,8 @@ export class Debate {
         // Chat templates (Gemma among others) produce empty output when the
         // payload carries no user turn at all — which is exactly the shape of
         // the very first turn, where the topic lives in the system prompt.
-        if (!contextMessages.some(message => message.ollamaRole === 'user')) {
-          contextMessages.push({ ollamaRole: 'user', content: 'The debate starts now. Give your opening statement on the active topic, staying in character and following your system instructions.' })
+        if (!contextMessages.some(message => message.role === 'user')) {
+          contextMessages.push({ role: 'user', content: 'The debate starts now. Give your opening statement on the active topic, staying in character and following your system instructions.' })
         }
 
         const sourceUrls = [...new Set(
@@ -1124,9 +1222,10 @@ export class Debate {
           history: history.slice(0, -1),
           externalModerationTrigger: actor.isModerator
             ? {
-                needed: !!roundModerationSignal?.needed,
-                reason: roundModerationSignal?.reason || '',
+                needed: !!moderationDecision?.reactiveModeration,
+                reason: roundModerationSignal?.reason || (moderationDecision?.reactiveModeration ? 'personal attack or escalating hostility detected' : ''),
                 scheduledFacilitation: !!moderationDecision?.scheduledFacilitation,
+                reactiveModeration: !!moderationDecision?.reactiveModeration,
               }
             : null,
           characterContext,
@@ -1148,7 +1247,7 @@ export class Debate {
             })
             userInputRejectRef.current = null
             if (userText !== null) {
-              const userMsg = { role: actor.tag, ollamaRole: 'assistant', content: userText, turn: turnLabel, seq: nextSeq(), participantSnapshot: { ...actor } }
+              const userMsg = { role: actor.tag, content: userText, turn: turnLabel, seq: nextSeq(), participantSnapshot: { ...actor } }
                 history = [...history, userMsg]
                 syncHistory()
             }
@@ -1163,7 +1262,6 @@ export class Debate {
 
         try {
           const debugPayloads = []
-          const payload = { model: actor.model, systemPrompt, messages: contextMessages }
           const full = await streamChat({
             baseUrl: actorBaseUrl,
             model: actor.model,
@@ -1172,7 +1270,7 @@ export class Debate {
             useTools: true,
             sourceUrls,
             onEstimate: handlePromptEstimate,
-            onPayload: debugMode ? (p => debugPayloads.push(p)) : null,
+            ...transportCallbacks(debugMode ? debugPayloads : null),
             onToken: text => {
               history = history.map((message, index) => index === history.length - 1 ? { ...message, content: text } : message)
                syncHistory()
@@ -1180,7 +1278,11 @@ export class Debate {
             timeoutMs,
           })
           const finalContent = full && full.trim() ? full : (history[history.length - 1]?.content ?? '')
-          const shouldSkipModeratorTurn = actor.isModerator && moderatorMode !== 'active' && !roundModerationSignal?.needed && /^\s*\[SKIP_TURN\]\s*$/i.test(finalContent)
+          const shouldSkipModeratorTurn = actor.isModerator
+            && moderatorMode !== 'active'
+            && !moderationDecision?.scheduledFacilitation
+            && !moderationDecision?.reactiveModeration
+            && /^\s*\[SKIP_TURN\]\s*$/i.test(finalContent)
           if (shouldSkipModeratorTurn) {
             history = history.slice(0, -1)
              syncHistory()
@@ -1192,7 +1294,7 @@ export class Debate {
           // Directive-style rewrite only applies to containment interventions:
           // active moderators contribute content, and scheduled facilitation
           // turns are analytical by design — rewriting would destroy both.
-          const skipModeratorRewrite = moderatorMode === 'active' || !!moderationDecision?.scheduledFacilitation
+          const skipModeratorRewrite = moderatorMode === 'active' || (moderationDecision?.scheduledFacilitation && !moderationDecision?.reactiveModeration)
           if (actor.isModerator && finalContent.trim() && !skipModeratorRewrite && !Debate.isModerationDirectiveStyle(finalContent)) {
             let rewrite = ''
             try {
@@ -1202,9 +1304,10 @@ export class Debate {
                 useTools: false,
                 timeoutMs,
                 onEstimate: handlePromptEstimate,
+                ...transportCallbacks(),
                 systemPrompt: `You are a strict process moderator. Do not summarize positions. Output only operational moderation in ${Debate.buildLanguageLabel(uiLang, LANGUAGES)} (language code: ${uiLang}).`,
                 messages: [{
-                  ollamaRole: 'user',
+                  role: 'user',
                   content: `Rewrite this moderator draft as a REAL moderation intervention (not a recap, not a synthesis).\n\nDraft:\n${finalContent}\n\nOutput format (mandatory, 3 short lines, in the user's language):\n1) <brief reason for intervention now>\n2) <directive: what must change immediately>\n3) <next turn: who should answer and with what focus>\n\nUse labels naturally in that language. Avoid the word "trigger".\nMax 5 total sentences. No preamble.`,
                 }],
                 onToken: token => { rewrite = token },
@@ -1217,13 +1320,16 @@ export class Debate {
             }
           }
           if (moderatedContent.trim()) {
-            history = history.map((message, index) => index === history.length - 1 ? { ...message, content: moderatedContent, ...(debugMode ? { payload, debugPayloads } : {}) } : message)
+            history = history.map((message, index) => index === history.length - 1 ? {
+              ...message,
+              content: moderatedContent,
+              ...(debugMode && debugPayloads.length > 0 ? { payload: debugPayloads.at(-1), debugPayloads } : {}),
+            } : message)
           } else if (actor.isModerator) {
             history = history.slice(0, -1)
           } else {
             const emptyMsg = {
               role: 'error',
-              ollamaRole: null,
               nonFatal: true,
               content: `⚠ ${actor.name || actor.tag}: empty response from ${actor.model} — skipping this turn.`,
               turn: turnLabel,
@@ -1235,7 +1341,6 @@ export class Debate {
         } catch (err) {
           const errMsg = {
             role: 'error',
-            ollamaRole: null,
             content: `⚠ ${err.message} — use the Resume button to retry from this point.`,
             turn: turnLabel,
             seq: nextSeq(),
