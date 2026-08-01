@@ -255,6 +255,20 @@ export function GlobalStyles() {
 			@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
 			@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 			.balloon-group:hover .float-btn { opacity: 1 !important; }
+			input[type="number"] {
+				color-scheme: dark;
+				accent-color: #8b7cf6;
+				-moz-appearance: textfield;
+				appearance: textfield;
+			}
+			input[type="number"]:focus {
+				border-color: #555 !important;
+				box-shadow: 0 0 0 2px #8b7cf622;
+			}
+			input[type="number"]::-webkit-inner-spin-button,
+			input[type="number"]::-webkit-outer-spin-button {
+				display: none;
+			}
 			a { color: #a78bfa; }
 			a:visited { color: #c4b5fd; }
 		`}</style>
