@@ -17,9 +17,13 @@ export default function PromptSettingsModal({
   onInterfaceLangChange,
   moodSelectStyles,
   updateCheck,
+  timeoutSec,
+  onTimeoutSecChange,
+  running,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.promptSettingsModal
+  const appUi = UI_STRINGS.app
   const common = UI_STRINGS.common
   const topMenuUi = UI_STRINGS.topMenu
   const [text, setText] = useState(value)
@@ -149,8 +153,17 @@ export default function PromptSettingsModal({
             )}
 
             {activeTab === 'advanced' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-                <button onClick={onClearSettings} style={{ background: 'transparent', border: '1px solid #5a2e2e', color: '#f87171', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{topMenuUi.clearSavedSettings}</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start', minHeight: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>{appUi.timeout}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="number" min={10} max={600} value={timeoutSec} onChange={e => onTimeoutSecChange(Math.max(10, Number(e.target.value)))} disabled={running} style={{ width: 80, background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 13, textAlign: 'center' }} />
+                    <span style={{ fontSize: 11, color: '#666' }}>{appUi.seconds}</span>
+                  </div>
+                </div>
+                <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid #2e2e2e', width: '100%' }}>
+                  <button onClick={onClearSettings} style={{ background: 'transparent', border: '1px solid #5a2e2e', color: '#f87171', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{topMenuUi.clearSavedSettings}</button>
+                </div>
               </div>
             )}
           </div>

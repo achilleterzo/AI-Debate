@@ -1,5 +1,7 @@
 export default {
+  modes: { free: 'フリー', brainstorm: 'ブレインストーミング', fact_check: 'ファクトチェック', design_review: 'デザインレビュー', decision: '意思決定', negotiation: '交渉', red_team: 'レッドチーム', socratic: 'ソクラテス式', peer_review: 'ピアレビュー', consensus: '合意形成' },
   common: {
+    debateMode: '議論モード',
     cancel: 'キャンセル',
     close: '閉じる',
     save: '保存',
@@ -43,9 +45,11 @@ export default {
   },
   confirmModal: { defaultConfirm: '確認' },
   endpointModal: {
-    title: '参加者のカスタムエンドポイント',
+    title: 'Endpoint override',
     clearTitle: 'カスタムエンドポイントを削除',
     emptyHint: '一般のエンドポイントを使用する場合は空欄のままにしてください。',
+    history: '以前に使用',
+    removeFromHistory: '履歴から削除',
   },
   promptSettingsModal: {
     title: '設定',
@@ -181,15 +185,14 @@ export default {
     summarizeAttachmentsTitleOff: '要約モデルによる添付ファイルの分析的な要約を有効にする',
     accumulateSummaryOn: threshold => `要約の蓄積：オン (${threshold} KB)`,
     accumulateSummaryOff: threshold => `要約の蓄積：オフ (${threshold} KB)`,
-    accumulateSummaryCompact: threshold => `蓄積 (${threshold} KB)`,
-    accumulateSummary: '要約の蓄積',
+    accumulateSummaryCompact: threshold => `コンテキスト (${threshold} KB)`,
+    accumulateSummary: 'コンテキスト',
     summaryModel: '要約モデル',
     summaryModelTitleOn: '要約専用モデルを使用（クリックで無効化）',
     summaryModelTitleOff: '要約専用モデルを有効にする',
     round: 'ラウンド数',
     timeout: 'タイムアウト',
     seconds: '秒',
-    lastK: '直近K件',
     debugOn: 'デバッグ：オン',
     debugOff: 'デバッグ：オフ',
     debugLabel: 'デバッグ',

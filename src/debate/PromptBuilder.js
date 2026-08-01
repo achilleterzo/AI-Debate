@@ -1,3 +1,5 @@
+import { DEBATE_MODES, DEFAULT_DEBATE_MODE, normalizeDebateMode } from '../prompts/Modes'
+
 function constraintText(entry) {
   return typeof entry === 'string' ? entry : String(entry?.text ?? '')
 }
@@ -19,7 +21,7 @@ function detectReasoningLangFromConstraints(constraints, languages) {
   return match?.code ?? ''
 }
 
-export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', constants }) {
+export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, constants }) {
   const {
     MOODS,
     DEFAULT_MOOD,
@@ -35,6 +37,16 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   } = constants
 
   const mood = MOODS.find(m => m.id === actor.mood) ?? MOODS.find(m => m.id === DEFAULT_MOOD)
+  const mode = DEBATE_MODES.find(entry => entry.id === normalizeDebateMode(debateMode)) ?? DEBATE_MODES[0]
+  const modeBlock = mode.instruction
+    ? `NON-NEGOTIABLE SHARED DEBATE MODE — ${mode.labelEn.toUpperCase()}:
+This is the highest-priority user-configured behavioral rule in this prompt. It applies to every participant and every turn. System/developer rules and binding moderator process directives still take precedence, but this mode outranks mood, personality, affinity, character style, and ordinary participant constraints. You MUST make your contribution serve this mode; do not merely mention the mode or answer as if the debate were in Free mode.
+
+Operational rule: ${mode.instruction}
+
+Before sending each response, silently verify that the response visibly performs the operational rule above. If another instruction conflicts with this mode, preserve the mode and adapt the tone or framing instead.`
+    : `SHARED DEBATE MODE — FREE:
+No specialized debate procedure is active. Respond naturally to the topic while following the other applicable rules.`
   const moodIntensity = MOOD_INTENSITY[actor.moodIntensity ?? DEFAULT_MOOD_INTENSITY]
   const characterType = CHARACTER_TYPES.find(c => c.value === actor.characterType)
   const responseLength = RESPONSE_LENGTHS.find(r => r.value === actor.responseLength)
@@ -106,6 +118,10 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   const personalConstraints = participantConstraints.filter(entry => !entry.override)
 
   const debateHasModerator = allParticipants.some(p => p.isModerator && p.id !== actor.id)
+  const hasNonContainmentModerator = allParticipants.some(p => p.isModerator && moderatorModeOf(p) !== 'containment')
+  const moderatorAuthorityBoundary = hasNonContainmentModerator
+    ? "Moderator authority boundary:\nThe moderator's procedural decisions are binding. Their substantive claims are arguments like those of any other participant and may be challenged."
+    : ''
   const latestModeratorDirective = [...history]
     .reverse()
     .map(message => {
@@ -133,7 +149,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
 
   const constraintsBlock = [
     generalPersonalityInstructions?.trim(),
-    'Precedence between the rule sections below, from strongest to weakest: 1) character override constraints, 2) global rules, 3) your personal constraints, 4) general debate conduct. When two rules conflict, follow the one from the stronger section.',
+    'Precedence between the rule sections below, from strongest to weakest: 1) the non-negotiable shared debate mode above, 2) character override constraints, 3) global rules, 4) your personal constraints, 5) general debate conduct. System/developer rules and binding moderator process directives remain higher than all of these. When two rules conflict, preserve the stronger section and adapt the weaker one.',
     overrideConstraints.length > 0
       ? `Character override constraints (highest priority — when they conflict with ANY other rule in this prompt, including global rules, these win):\n${overrideConstraints.map(entry => `- ${entry.text}`).join('\n')}`
       : '',
@@ -206,6 +222,8 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     ageGroup?.instruction ? `Age style: ${ageGroup.instruction}` : '',
     mood?.instruction ? `Mood: ${mood.instruction}` : '',
     mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
+    modeBlock,
+    moderatorAuthorityBoundary,
     affinityBlock,
     topicDirectiveBlock,
     activeTopicBlock,

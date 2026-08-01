@@ -11,6 +11,7 @@ import { RESPONSE_LENGTHS } from '../prompts/ResponseLengths'
 import { EDUCATION_LEVELS } from '../prompts/EducationLevels'
 import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
+import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
 
 export class Debate {
@@ -210,6 +211,27 @@ export class Debate {
   static normalizeModerationTargets(raw) {
     const values = Array.isArray(raw) ? raw : raw ? [raw] : []
     return [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))]
+  }
+
+  /**
+   * Caps the assembled context to a character budget, always applied whether
+   * or not a summary is running: without one it is the only thing keeping the
+   * payload bounded. The newest exchanges are kept, since they carry the turn
+   * the participant has to answer; the last message always survives.
+   */
+  static capContextMessages(messages = [], maxChars = 0) {
+    if (!Array.isArray(messages) || messages.length === 0) return []
+    if (!Number.isFinite(maxChars) || maxChars <= 0) return [...messages]
+
+    const kept = []
+    let total = 0
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const size = String(messages[index]?.content ?? '').length
+      if (kept.length > 0 && total + size > maxChars) break
+      kept.unshift(messages[index])
+      total += size
+    }
+    return kept
   }
 
   static getContextSincePreviousTurn(history = [], actorTag) {
@@ -443,8 +465,17 @@ export class Debate {
     return !!result && (leakedReasoning || wrongLangHint)
   }
 
-  static pickOperationalModel(parts = [], overrideEnabled = false, overrideValue = '') {
-    if (overrideEnabled && overrideValue) return overrideValue
+  /**
+   * Model used for side work: summaries, conclusions and suggestions.
+   *
+   * The dedicated model wins when set, then the default model. Falling back to
+   * a participant's model last matters because participants may now follow the
+   * default and carry no model of their own, which used to resolve to an empty
+   * string and silently skip the summary altogether.
+   */
+  static pickOperationalModel(parts = [], overrideValue = '', defaultModel = '') {
+    if (overrideValue) return overrideValue
+    if (defaultModel) return defaultModel
     return parts.find(participant => participant.model && participant.model !== Debate.USER_MODEL)?.model ?? parts[0]?.model ?? ''
   }
 
@@ -496,7 +527,6 @@ export class Debate {
   static buildRoundSummaryPrompt({
     parts = [],
     prevSummary = '',
-    summaryAccumulate = false,
     summaryAccumulateThreshold = 8,
     moderatorInterventionThisRound = false,
     toSummarize = '',
@@ -505,7 +535,7 @@ export class Debate {
     const moderator = parts.find(participant => participant.isModerator)
     const permissiveness = normalizeModeratorPermissiveness(moderator?.moderatorPermissiveness)
     const thresholdBytes = summaryAccumulateThreshold * 1024
-    const summaryMode = summaryAccumulate && prevSummary
+    const summaryMode = prevSummary
       ? `ACCUMULATE mode is ON. If previous_summary exceeds ${thresholdBytes} characters, compact it first, then append only a concise paragraph for new exchanges. Otherwise append directly.`
       : 'STANDARD mode: produce an updated concise summary including new exchanges.'
 
@@ -525,6 +555,8 @@ export class Debate {
       DEFAULT_AGE_GROUP: Debate.DEFAULT_AGE_GROUP,
       LANGUAGES,
       REASONING_LANG_FROM_CONSTRAINT: Debate.REASONING_LANG_FROM_CONSTRAINT,
+      DEBATE_MODES,
+      DEFAULT_DEBATE_MODE,
     }
   }
 
@@ -808,8 +840,8 @@ export class Debate {
       useSummaryRef,
       attachedDocs,
       summarizeAttachments,
-      summaryModelEnabled,
       summaryModelOverride,
+      summaryEndpointOverride,
       uiLang,
       handlePromptEstimate,
       handleRequest,
@@ -821,7 +853,6 @@ export class Debate {
       nextSeq,
       seqRef,
       summaryRef,
-      summaryAccumulate,
       summaryAccumulateThreshold,
       debugMode,
       setSummaryInProgress,
@@ -834,6 +865,7 @@ export class Debate {
       setStreamingRole,
       globalConstraints,
       generalPersonalityInstructions,
+      debateMode,
       userInputRejectRef,
       setUserInputPending,
       turnRef,
@@ -849,6 +881,9 @@ export class Debate {
     const maxRounds = maxTurnsRef.current
     const timeoutMs = timeoutSecRef.current * 1000
     const baseUrl = baseUrlRef.current
+    // Summaries may run on their own backend; falling back to the general one
+    // keeps the setting optional.
+    const summaryBaseUrl = summaryEndpointOverride?.trim() || baseUrl
     const useSummary = useSummaryRef.current
     const docs = attachedDocs
     let docsForPrompt = docs
@@ -865,7 +900,7 @@ export class Debate {
     })
 
     if (summarizeAttachments && docs.length > 0) {
-      const summaryModel = Debate.pickOperationalModel(parts, summaryModelEnabled, summaryModelOverride)
+      const summaryModel = Debate.pickOperationalModel(parts, summaryModelOverride, defaultModel)
       if (summaryModel) {
         try {
           const docSystem = Debate.buildDocumentSummarySystemPrompt(uiLang, LANGUAGES)
@@ -873,7 +908,7 @@ export class Debate {
           for (const doc of docs) {
             let sum = ''
             await streamChat({
-              baseUrl,
+              baseUrl: summaryBaseUrl,
               model: summaryModel,
               useTools: false,
               timeoutMs,
@@ -984,14 +1019,14 @@ export class Debate {
             }
           }
 
-          const summaryModel = Debate.pickOperationalModel(parts, summaryModelEnabled, summaryModelOverride)
+          const summaryModel = Debate.pickOperationalModel(parts, summaryModelOverride, defaultModel)
           const summarySystem = Debate.buildRoundSummarySystemPrompt(uiLang, LANGUAGES)
           const debugPayloads = []
           const debugCalls = []
 
           const summaryCall = async (prompt, payloadsOut, kind = 'summary') => {
             const result = await streamChat({
-              baseUrl,
+              baseUrl: summaryBaseUrl,
               model: summaryModel,
                messages: [{ role: 'user', content: prompt }],
               systemPrompt: summarySystem,
@@ -1010,8 +1045,7 @@ export class Debate {
             const combinedPrompt = Debate.buildRoundSummaryPrompt({
               parts,
               prevSummary,
-              summaryAccumulate,
-              summaryAccumulateThreshold,
+                      summaryAccumulateThreshold,
               moderatorInterventionThisRound,
               toSummarize,
             })
@@ -1187,14 +1221,22 @@ export class Debate {
            }
         }
 
-        if (!useSummary) {
-          for (const message of realHistory) await pushHistoryMsg(message)
-        } else if (summaryRef.current) {
-          contextMessages.push({ role: 'user', content: `[Conversation summary so far]\n${summaryRef.current}` })
+        const hasSummary = useSummary && !!summaryRef.current
+        if (hasSummary) {
           const recentMessages = Debate.getContextSincePreviousTurn(realHistory, actor.tag)
           for (const message of recentMessages) await pushHistoryMsg(message)
         } else {
           for (const message of realHistory) await pushHistoryMsg(message)
+        }
+
+        // The context size always applies: with a summary it bounds the recent
+        // exchanges, without one it is the only thing keeping the payload sane.
+        const cappedContext = Debate.capContextMessages(contextMessages, summaryAccumulateThreshold * 1024)
+        contextMessages.splice(0, contextMessages.length, ...cappedContext)
+
+        // Pinned outside the cap: dropping the summary would defeat its purpose.
+        if (hasSummary) {
+          contextMessages.unshift({ role: 'user', content: `[Conversation summary so far]\n${summaryRef.current}` })
         }
 
         // Chat templates (Gemma among others) produce empty output when the
@@ -1233,6 +1275,7 @@ export class Debate {
           attachedDocs: docsForPrompt,
           globalConstraints,
           generalPersonalityInstructions,
+          debateMode: normalizeDebateMode(debateMode),
           constants: Debate.buildPromptConstants(),
         })
         if (urlContextBlocks.length > 0) {

@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { Session } from '../data/Session'
 import { Debate } from '../debate/Debate'
+import { normalizeDebateMode } from '../prompts/Modes'
 
 export function useSnapshots({
   state,
@@ -26,10 +27,10 @@ export function useSnapshots({
         }
         if (Array.isArray(data.globalConstraints)) actions.setGlobalConstraints(data.globalConstraints.filter(Boolean))
         if (typeof data.generalPersonalityInstructions === 'string') actions.setGeneralPersonalityInstructions(data.generalPersonalityInstructions)
+        if (typeof data.debateMode === 'string') actions.setDebateMode(normalizeDebateMode(data.debateMode))
         if (typeof data.customConclusionPrompt === 'string') actions.setCustomConclusionPrompt(data.customConclusionPrompt)
         if (typeof data.standardConclusionPrompt === 'string') actions.setStandardConclusionPrompt(data.standardConclusionPrompt)
         if (data.maxTurns != null) actions.setMaxTurns(data.maxTurns)
-        if (data.recentK != null) actions.setRecentK(data.recentK)
         if (data.timeoutSec != null) actions.setTimeoutSec(data.timeoutSec)
         if (data.moderationCooling != null) {
           const value = Number(data.moderationCooling)

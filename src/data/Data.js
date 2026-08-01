@@ -1,6 +1,12 @@
 import { marked } from 'marked'
 import { topicToSlug } from '../utils/Slug'
 import { buildOrderedItems } from '../utils/Sorting'
+import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
+
+function debateModeInfo(value) {
+  const id = normalizeDebateMode(value ?? DEFAULT_DEBATE_MODE)
+  return DEBATE_MODES.find(mode => mode.id === id) ?? DEBATE_MODES[0]
+}
 
 export class Data {
   static triggerDownload(content, filename, mime) {
@@ -29,6 +35,7 @@ export class Data {
     baseUrl,
     conclusions = [],
     topic = '',
+    debateMode = DEFAULT_DEBATE_MODE,
     constants,
   }) {
     const {
@@ -45,6 +52,7 @@ export class Data {
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const md = s => marked.parse(s || '', { breaks: true })
     const now = new Date().toLocaleString('it-IT')
+    const mode = debateModeInfo(debateMode)
 
     const CONCLUSION_COLORS = {
       summary: '#4a9eff',
@@ -191,6 +199,7 @@ export class Data {
 </head>
 <body>
   <h1>AI Debate — Chat Export</h1>
+  <div class="meta"><strong>Debate mode:</strong> ${esc(mode.labelEn)}</div>
   <div class="meta">Endpoint: ${esc(baseUrl)} &nbsp;·&nbsp; ${esc(now)}<br>${partRows}</div>
   <div class="msgs">
   ${body}
@@ -202,7 +211,7 @@ export class Data {
     Data.triggerDownload(html, filename, 'text/html;charset=utf-8')
   }
 
-  static exportMD({ messages, participants, baseUrl, conclusions = [], topic = '', constants }) {
+  static exportMD({ messages, participants, baseUrl, conclusions = [], topic = '', debateMode = DEFAULT_DEBATE_MODE, constants }) {
     const {
       MOODS,
       MOOD_INTENSITY,
@@ -215,6 +224,7 @@ export class Data {
     } = constants
 
     const now = new Date().toLocaleString('it-IT')
+    const mode = debateModeInfo(debateMode)
     const slug = Data.buildExportSlug(topic)
     const CONCLUSION_TYPE_LABEL = {
       summary: 'Summary',
@@ -246,6 +256,7 @@ export class Data {
     }).join('\n')
 
     let out = '# AI Debate — Export\n\n'
+    out += `**Debate mode:** ${mode.labelEn}\n\n`
     out += `**Data:** ${now}  \n**Endpoint:** ${baseUrl}\n\n`
     out += `## Participants\n${partList}\n\n---\n\n`
 
@@ -289,7 +300,7 @@ export class Data {
     Data.triggerDownload(out, `${slug}.md`, 'text/markdown;charset=utf-8')
   }
 
-  static exportJSON({ messages, participants, baseUrl, conclusions = [], summary = '', topic = '', constants }) {
+  static exportJSON({ messages, participants, baseUrl, conclusions = [], summary = '', topic = '', debateMode = DEFAULT_DEBATE_MODE, constants }) {
     const {
       MOODS,
       MOOD_INTENSITY,
@@ -302,8 +313,11 @@ export class Data {
     } = constants
 
     const slug = Data.buildExportSlug(topic)
+    const mode = debateModeInfo(debateMode)
     const data = {
       exported: new Date().toISOString(),
+      debateMode: mode.id,
+      debateModeLabel: mode.labelEn,
       baseUrl,
       summary: summary || null,
       participants: participants.map(p => {

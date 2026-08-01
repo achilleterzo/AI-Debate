@@ -1,5 +1,7 @@
 export default {
+  modes: { free: 'Frei', brainstorm: 'Brainstorming', fact_check: 'Faktencheck', design_review: 'Design-Review', decision: 'Entscheidung', negotiation: 'Verhandlung', red_team: 'Red Team', socratic: 'Sokratisch', peer_review: 'Peer-Review', consensus: 'Konsens' },
   common: {
+    debateMode: 'Debattenmodus',
     cancel: 'Abbrechen',
     close: 'Schließen',
     save: 'Speichern',
@@ -47,9 +49,11 @@ export default {
   },
   confirmModal: { defaultConfirm: 'Bestätigen' },
   endpointModal: {
-    title: 'Benutzerdefinierter Endpoint des Teilnehmers',
+    title: 'Endpoint override',
     clearTitle: 'Benutzerdefinierten Endpoint entfernen',
     emptyHint: 'Leer lassen, um den allgemeinen Endpoint zu verwenden.',
+    history: 'Zuvor verwendet',
+    removeFromHistory: 'Aus dem Verlauf entfernen',
   },
   promptSettingsModal: {
     title: 'Einstellungen',
@@ -189,8 +193,8 @@ export default {
       'Analytische Zusammenfassung von Anhängen mit dem Zusammenfassungsmodell aktivieren',
     accumulateSummaryOn: threshold => `Zusammenfassung akkumulieren aktiv (${threshold} KB)`,
     accumulateSummaryOff: threshold => `Zusammenfassung akkumulieren inaktiv (${threshold} KB)`,
-    accumulateSummaryCompact: threshold => `Akkumulieren (${threshold} KB)`,
-    accumulateSummary: 'Zusammenfassung akkumulieren',
+    accumulateSummaryCompact: threshold => `Kontext (${threshold} KB)`,
+    accumulateSummary: 'Kontext',
     summaryModel: 'Zusammenfassungsmodell',
     summaryModelTitleOn:
       'Dediziertes Modell für Zusammenfassungen verwenden (zum Deaktivieren klicken)',
@@ -198,7 +202,6 @@ export default {
     round: 'Runden',
     timeout: 'Timeout',
     seconds: 'Sek.',
-    lastK: 'Letzte K',
     debugOn: 'Debug aktiv',
     debugOff: 'Debug inaktiv',
     debugLabel: 'Debug',

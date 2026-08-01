@@ -10,8 +10,8 @@ export function useConclusions({
   initialStandardPrompt,
   models,
   participants,
-  summaryModelEnabled,
   summaryModelOverride,
+  defaultModel = '',
   attachedDocs,
   messages,
   summaryRef,
@@ -30,7 +30,7 @@ export function useConclusions({
   const [standardConclusionPrompt, setStandardConclusionPrompt] = useState(initialStandardPrompt)
   const [conclusionRunning, setConclusionRunning] = useState(false)
 
-  const fallbackModel = Debate.pickOperationalModel(participants, summaryModelEnabled, summaryModelOverride)
+  const fallbackModel = Debate.pickOperationalModel(participants, summaryModelOverride, defaultModel)
   const effectiveConclusionModel = conclusionModel && models.includes(conclusionModel)
     ? conclusionModel
     : fallbackModel

@@ -133,6 +133,18 @@ describe('buildSystemPrompt moderator modes and hierarchy', () => {
     expect(prompt).toContain('[SKIP_TURN]')
   })
 
+  it('separates binding procedural authority from contestable substantive claims outside containment', () => {
+    const prompt = buildFor(withModerator[0], {})
+    expect(prompt).not.toContain("The moderator's procedural decisions are binding")
+
+    const facilitatorPrompt = buildFor(withModerator[0], {
+      // The shared roster is intentionally immutable in this helper; use an
+      // active moderator actor to verify the rule is present for all prompts.
+      allParticipants: [withModerator[0], { ...withModerator[1], moderatorMode: 'facilitator' }],
+    })
+    expect(facilitatorPrompt).toContain("The moderator's procedural decisions are binding. Their substantive claims are arguments like those of any other participant and may be challenged.")
+  })
+
   it('renders the scheduled facilitation analysis instructions', () => {
     const actor = { ...withModerator[1], moderatorMode: 'facilitator' }
     const prompt = buildFor(actor, { externalModerationTrigger: { needed: false, reason: '', scheduledFacilitation: true } })

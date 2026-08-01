@@ -1,5 +1,7 @@
 export default {
+  modes: { free: 'Libero', brainstorm: 'Brainstorming', fact_check: 'Fact-checking', design_review: 'Revisione del design', decision: 'Decisione', negotiation: 'Negoziazione', red_team: 'Red Team', socratic: 'Socratico', peer_review: 'Peer review', consensus: 'Consenso' },
   common: {
+    debateMode: 'Modalità di dibattito',
     cancel: 'Annulla',
     close: 'Chiudi',
     save: 'Salva',
@@ -47,9 +49,11 @@ export default {
   },
   confirmModal: { defaultConfirm: 'Conferma' },
   endpointModal: {
-    title: 'Endpoint personalizzato del partecipante',
+    title: 'Endpoint override',
     clearTitle: 'Rimuovi endpoint personalizzato',
     emptyHint: "Lascia vuoto per usare l'endpoint generale.",
+    history: 'Usati in precedenza',
+    removeFromHistory: 'Rimuovi dalla cronologia',
   },
   promptSettingsModal: {
     title: 'Impostazioni',
@@ -189,15 +193,14 @@ export default {
       'Attiva il riassunto analitico degli allegati con il modello di riepilogo',
     accumulateSummaryOn: threshold => `Accumulo riepilogo attivo (${threshold} KB)`,
     accumulateSummaryOff: threshold => `Accumulo riepilogo disattivo (${threshold} KB)`,
-    accumulateSummaryCompact: threshold => `Accumulo (${threshold} KB)`,
-    accumulateSummary: 'Accumulo riepilogo',
+    accumulateSummaryCompact: threshold => `Contesto (${threshold} KB)`,
+    accumulateSummary: 'Contesto',
     summaryModel: 'Modello di riepilogo',
     summaryModelTitleOn: 'Usa un modello dedicato per i riepiloghi (clicca per disattivare)',
     summaryModelTitleOff: 'Attiva un modello dedicato per i riepiloghi',
     round: 'Round',
     timeout: 'Timeout',
     seconds: 'sec',
-    lastK: 'Ultimi K',
     debugOn: 'Debug attivo',
     debugOff: 'Debug disattivo',
     debugLabel: 'Debug',

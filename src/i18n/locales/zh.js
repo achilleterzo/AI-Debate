@@ -1,5 +1,7 @@
 export default {
+  modes: { free: '自由', brainstorm: '头脑风暴', fact_check: '事实核查', design_review: '设计评审', decision: '决策', negotiation: '谈判', red_team: '红队', socratic: '苏格拉底式', peer_review: '同行评审', consensus: '共识' },
   common: {
+    debateMode: '辩论模式',
     cancel: '取消',
     close: '关闭',
     save: '保存',
@@ -43,9 +45,11 @@ export default {
   },
   confirmModal: { defaultConfirm: '确认' },
   endpointModal: {
-    title: '参与者自定义端点',
+    title: 'Endpoint override',
     clearTitle: '移除自定义端点',
     emptyHint: '留空以使用通用端点。',
+    history: '最近使用',
+    removeFromHistory: '从历史中移除',
   },
   promptSettingsModal: {
     title: '设置',
@@ -179,15 +183,14 @@ export default {
     summarizeAttachmentsTitleOff: '开启使用总结模型对附件进行分析式总结',
     accumulateSummaryOn: threshold => `摘要累积已开启（${threshold} KB）`,
     accumulateSummaryOff: threshold => `摘要累积已关闭（${threshold} KB）`,
-    accumulateSummaryCompact: threshold => `累积（${threshold} KB）`,
-    accumulateSummary: '摘要累积',
+    accumulateSummaryCompact: threshold => `上下文（${threshold} KB）`,
+    accumulateSummary: '上下文',
     summaryModel: '总结模型',
     summaryModelTitleOn: '使用专用模型生成总结（点击关闭）',
     summaryModelTitleOff: '开启专用总结模型',
     round: '轮次',
     timeout: '超时',
     seconds: '秒',
-    lastK: '最近 K 条',
     debugOn: '调试已开启',
     debugOff: '调试已关闭',
     debugLabel: '调试',

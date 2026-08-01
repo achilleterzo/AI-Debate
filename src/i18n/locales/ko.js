@@ -1,5 +1,7 @@
 export default {
+  modes: { free: '자유', brainstorm: '브레인스토밍', fact_check: '팩트 체크', design_review: '디자인 검토', decision: '의사결정', negotiation: '협상', red_team: '레드팀', socratic: '소크라테스식', peer_review: '동료 검토', consensus: '합의' },
   common: {
+    debateMode: '토론 모드',
     cancel: '취소',
     close: '닫기',
     save: '저장',
@@ -47,9 +49,11 @@ export default {
   },
   confirmModal: { defaultConfirm: '확인' },
   endpointModal: {
-    title: '참가자 사용자 지정 엔드포인트',
+    title: 'Endpoint override',
     clearTitle: '사용자 지정 엔드포인트 제거',
     emptyHint: '일반 엔드포인트를 사용하려면 비워 두세요.',
+    history: '이전에 사용함',
+    removeFromHistory: '기록에서 삭제',
   },
   promptSettingsModal: {
     title: '설정',
@@ -185,15 +189,14 @@ export default {
     summarizeAttachmentsTitleOff: '요약 모델을 이용한 첨부파일 분석 요약 활성화',
     accumulateSummaryOn: threshold => `요약 누적 켜짐 (${threshold} KB)`,
     accumulateSummaryOff: threshold => `요약 누적 꺼짐 (${threshold} KB)`,
-    accumulateSummaryCompact: threshold => `누적 (${threshold} KB)`,
-    accumulateSummary: '요약 누적',
+    accumulateSummaryCompact: threshold => `컨텍스트 (${threshold} KB)`,
+    accumulateSummary: '컨텍스트',
     summaryModel: '요약 모델',
     summaryModelTitleOn: '요약 전용 모델 사용 (클릭하여 비활성화)',
     summaryModelTitleOff: '요약 전용 모델 활성화',
     round: '라운드',
     timeout: '제한 시간',
     seconds: '초',
-    lastK: '최근 K개',
     debugOn: '디버그 켜짐',
     debugOff: '디버그 꺼짐',
     debugLabel: '디버그',

@@ -63,17 +63,17 @@ export class Session {
     })
   }
 
-  static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, customConclusionPrompt, standardConclusionPrompt, maxTurns, recentK, timeoutSec, baseUrl, moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, constants }) {
+  static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, debateMode, customConclusionPrompt, standardConclusionPrompt, maxTurns, timeoutSec, baseUrl, moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, constants }) {
     return {
       version: 2,
       savedAt: new Date().toISOString(),
       participants: participants.map(participant => Session.serializeParticipant(participant, constants)),
       globalConstraints,
       generalPersonalityInstructions,
+      debateMode,
       customConclusionPrompt,
       standardConclusionPrompt,
       maxTurns,
-      recentK,
       timeoutSec,
       baseUrl,
       moderationCooling,

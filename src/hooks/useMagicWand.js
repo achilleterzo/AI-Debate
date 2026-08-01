@@ -33,7 +33,6 @@ export function useMagicWand({
   baseUrl,
   defaultModel,
   participants,
-  summaryModelEnabled,
   summaryModelOverride,
   messages,
   topic,
@@ -50,7 +49,7 @@ export function useMagicWand({
   // The user asked for the default model; fall back to whatever the debate is
   // already able to run so the wand still works when no default is configured.
   const model = defaultModel
-    || Debate.pickOperationalModel(participants, summaryModelEnabled, summaryModelOverride)
+    || Debate.pickOperationalModel(participants, summaryModelOverride)
 
   // Suggestions go through the general endpoint, so there is nothing the wand
   // can do while that endpoint is unreachable or still being probed.

@@ -11,16 +11,14 @@ export function useDebateController({
   setSummaryDebug,
   setSummaryInProgress,
   maxTurns,
-  recentK,
   timeoutSec,
   baseUrl,
   defaultModel,
   useSummary,
   attachedDocs,
   summarizeAttachments,
-  summaryModelEnabled,
   summaryModelOverride,
-  summaryAccumulate,
+  summaryEndpointOverride,
   summaryAccumulateThreshold,
   uiLang,
   debugMode,
@@ -28,6 +26,7 @@ export function useDebateController({
   moderationCooling,
   globalConstraints,
   generalPersonalityInstructions,
+  debateMode,
   setLastPromptEstimate,
   setLastRequest,
   setStopping,
@@ -47,7 +46,6 @@ export function useDebateController({
 
   const participantsRef = useRef(participants)
   const maxTurnsRef = useRef(maxTurns)
-  const recentKRef = useRef(recentK)
   const timeoutSecRef = useRef(timeoutSec)
   const baseUrlRef = useRef(baseUrl)
   const useSummaryRef = useRef(useSummary)
@@ -70,7 +68,6 @@ export function useDebateController({
 
   useEffect(() => { participantsRef.current = participants }, [participants])
   useEffect(() => { maxTurnsRef.current = maxTurns }, [maxTurns])
-  useEffect(() => { recentKRef.current = recentK }, [recentK])
   useEffect(() => { timeoutSecRef.current = timeoutSec }, [timeoutSec])
   useEffect(() => { baseUrlRef.current = baseUrl }, [baseUrl])
   useEffect(() => { useSummaryRef.current = useSummary }, [useSummary])
@@ -87,8 +84,8 @@ export function useDebateController({
     useSummaryRef,
     attachedDocs,
     summarizeAttachments,
-    summaryModelEnabled,
-    summaryModelOverride,
+      summaryModelOverride,
+    summaryEndpointOverride,
     uiLang,
     handlePromptEstimate: info => setLastPromptEstimate(info),
     handleRequest: request => setLastRequest({ request }),
@@ -100,8 +97,7 @@ export function useDebateController({
     nextSeq,
     seqRef,
     summaryRef,
-    summaryAccumulate,
-    summaryAccumulateThreshold,
+      summaryAccumulateThreshold,
     debugMode,
     setSummaryInProgress,
     setSummary,
@@ -113,6 +109,7 @@ export function useDebateController({
     setStreamingRole,
     globalConstraints,
     generalPersonalityInstructions,
+    debateMode,
     userInputRejectRef,
     setUserInputPending,
     turnRef,
@@ -124,6 +121,7 @@ export function useDebateController({
     defaultModel,
     dynamicAffinity,
     generalPersonalityInstructions,
+    debateMode,
     globalConstraints,
     moderationCooling,
     nextSeq,
@@ -140,10 +138,9 @@ export function useDebateController({
     setSummaryInProgress,
     setUserInputPending,
     summarizeAttachments,
-    summaryAccumulate,
-    summaryAccumulateThreshold,
-    summaryModelEnabled,
-    summaryModelOverride,
+      summaryAccumulateThreshold,
+      summaryModelOverride,
+    summaryEndpointOverride,
     uiLang,
   ])
 

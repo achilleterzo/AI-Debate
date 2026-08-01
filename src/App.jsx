@@ -19,12 +19,14 @@ import DebateLimitsSettings from './components/DebateLimitsSettings'
 import SummaryPanel from './components/SummaryPanel'
 import HeaderTop from './components/HeaderTop'
 import InputActionButtons from './components/InputActionButtons'
+import RoundsInput from './components/RoundsInput'
 import AppModals from './components/AppModals'
 import ScrollToBottomButton from './components/ScrollToBottomButton'
 import SummaryProgressBadge from './components/SummaryProgressBadge'
 import PromptEstimateBadge from './components/PromptEstimateBadge'
 import { PALETTE } from './dataset/Palette'
 import { MOODS, MOOD_OPTIONS } from './prompts/Moods'
+import { DEBATE_MODE_OPTIONS } from './prompts/Modes'
 import { RESPONSE_LENGTHS } from './prompts/ResponseLengths'
 import { CHARACTER_TYPES } from './dataset/CharacterTypes'
 import { EDUCATION_LEVELS } from './prompts/EducationLevels'
@@ -72,14 +74,16 @@ function AppInner({ settings }) {
 
   // ── conversation ──
   const [globalConstraintHistory, setGlobalConstraintHistory] = useState(Storage.loadGlobalConstraintsHistory)
+  const [endpointHistory, setEndpointHistory] = useState(Storage.loadEndpointHistory)
   const { attachedDocs, inputRef: docInputRef, addFiles, removeAttachment } = useAttachments()
   const {
     saved, endpointInput, setEndpointInput, baseUrl, setBaseUrl, participants, setParticipants,
-    globalConstraints, setGlobalConstraints, generalPersonalityInstructions, setGeneralPersonalityInstructions,
-    maxTurns, setMaxTurns, recentK, setRecentK, useSummary, setUseSummary,
+    globalConstraints, setGlobalConstraints, generalPersonalityInstructions, setGeneralPersonalityInstructions, debateMode, setDebateMode,
+    maxTurns, setMaxTurns, useSummary, setUseSummary,
     dynamicAffinity, setDynamicAffinity, moderationCooling, setModerationCooling,
-    summaryModelEnabled, setSummaryModelEnabled, summaryModelOverride, setSummaryModelOverride,
-    summaryAccumulate, setSummaryAccumulate, summaryAccumulateThreshold, setSummaryAccumulateThreshold,
+    summaryModelOverride, setSummaryModelOverride,
+    summaryEndpointOverride, setSummaryEndpointOverride,
+    summaryAccumulateThreshold, setSummaryAccumulateThreshold,
     summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
@@ -129,21 +133,21 @@ function AppInner({ settings }) {
     setSummaryDebug,
     setSummaryInProgress,
     maxTurns,
-    recentK,
     timeoutSec,
     baseUrl,
     defaultModel,
     useSummary,
     attachedDocs,
     summarizeAttachments,
-    summaryModelEnabled,
     summaryModelOverride,
+    summaryEndpointOverride,
     uiLang,
     debugMode,
     dynamicAffinity,
     moderationCooling,
     globalConstraints,
     generalPersonalityInstructions,
+    debateMode,
     setLastPromptEstimate,
     setLastRequest,
     setStopping,
@@ -151,7 +155,6 @@ function AppInner({ settings }) {
     setStreamingSeq,
     setStreamingRole,
     setUserInputPending,
-    summaryAccumulate,
     summaryAccumulateThreshold,
   })
 
@@ -196,8 +199,8 @@ function AppInner({ settings }) {
     initialStandardPrompt: saved?.standardConclusionPrompt ?? '',
     models,
     participants,
-    summaryModelEnabled,
     summaryModelOverride,
+    defaultModel,
     attachedDocs,
     messages,
     summaryRef,
@@ -213,7 +216,6 @@ function AppInner({ settings }) {
     baseUrl,
     defaultModel,
     participants,
-    summaryModelEnabled,
     summaryModelOverride,
     messages,
     topic,
@@ -300,13 +302,26 @@ function AppInner({ settings }) {
     const p = participants[idx]
     if (!p) return
     const label = p.name?.trim() ? `${p.name} (${p.tag})` : p.tag
-    setEndpointModal({ idx, initialValue: p.endpointOverride ?? '', participantLabel: label })
+    setEndpointModal({ target: 'participant', idx, initialValue: p.endpointOverride ?? '', participantLabel: label })
   }
 
-  const handleSaveParticipantEndpoint = (rawValue) => {
+  const handleConfigureSummaryEndpoint = () => {
+    setEndpointModal({
+      target: 'summary',
+      initialValue: summaryEndpointOverride ?? '',
+      participantLabel: ui.contextSummary,
+    })
+  }
+
+  const handleSaveEndpoint = (rawValue) => {
     if (!endpointModal) return
     const normalized = (rawValue ?? '').trim().replace(/\/$/, '')
-    setParticipants(prev => prev.map((p, i) => i === endpointModal.idx ? { ...p, endpointOverride: normalized } : p))
+    if (normalized) setEndpointHistory(Storage.saveEndpointToHistory(normalized))
+    if (endpointModal.target === 'summary') {
+      setSummaryEndpointOverride(normalized)
+    } else {
+      setParticipants(prev => prev.map((p, i) => i === endpointModal.idx ? { ...p, endpointOverride: normalized } : p))
+    }
     setEndpointModal(null)
   }
 
@@ -422,6 +437,8 @@ function AppInner({ settings }) {
   const handleConnect = () => {
     const url = endpointInput.trim().replace(/\/$/, '')
     if (!url) return
+    // Remember it too, so the override picker offers the endpoints actually used.
+    setEndpointHistory(Storage.saveEndpointToHistory(url))
     fetchModels(url)
   }
 
@@ -462,11 +479,11 @@ function AppInner({ settings }) {
       participants,
       globalConstraints,
       generalPersonalityInstructions,
+      debateMode,
       customConclusionPrompt,
       standardConclusionPrompt,
       maxTurns,
-      recentK,
-      timeoutSec,
+        timeoutSec,
       baseUrl,
       moderationCooling,
       summarizeAttachments,
@@ -479,10 +496,10 @@ function AppInner({ settings }) {
       setParticipants,
       setGlobalConstraints,
       setGeneralPersonalityInstructions,
+      setDebateMode,
       setCustomConclusionPrompt,
       setStandardConclusionPrompt,
       setMaxTurns,
-      setRecentK,
       setTimeoutSec,
       setModerationCooling,
       setUseSummary,
@@ -514,6 +531,7 @@ function AppInner({ settings }) {
       messages,
       participants,
        baseUrl,
+       debateMode,
        conclusions,
        summary,
        topic: (messages.find(m => m.role === 'topic')?.content || '').trim(),
@@ -529,7 +547,7 @@ function AppInner({ settings }) {
       },
     }),
     onAfterExport: null,
-  }), [messages, participants, baseUrl, conclusions, summary, topMenuUi.exportHtml, topMenuUi.exportMarkdown, topMenuUi.exportJson])
+  }), [messages, participants, baseUrl, debateMode, conclusions, summary, topMenuUi.exportHtml, topMenuUi.exportMarkdown, topMenuUi.exportJson])
 
   const handleClearSettings = useCallback(() => {
     Session.requestClearSettings({
@@ -596,6 +614,9 @@ function AppInner({ settings }) {
           moodSelectStyles={moodSelectStyles}
           defaultModel={defaultModel}
           onDefaultModelChange={setDefaultModel}
+          debateMode={debateMode}
+          onDebateModeChange={setDebateMode}
+          debateModeOptions={DEBATE_MODE_OPTIONS}
         />
 
         <AffinitySettings
@@ -611,26 +632,19 @@ function AppInner({ settings }) {
           onUseSummaryChange={setUseSummary}
           summarizeAttachments={summarizeAttachments}
           onSummarizeAttachmentsChange={setSummarizeAttachments}
-          summaryAccumulate={summaryAccumulate}
-          onSummaryAccumulateChange={setSummaryAccumulate}
           summaryAccumulateThreshold={summaryAccumulateThreshold}
           onSummaryAccumulateThresholdChange={setSummaryAccumulateThreshold}
-          summaryModelEnabled={summaryModelEnabled}
-          onSummaryModelEnabledChange={setSummaryModelEnabled}
           summaryModelOverride={summaryModelOverride}
           onSummaryModelOverrideChange={setSummaryModelOverride}
           models={models}
           modelSelectStyles={modelSelectStyles}
           running={running}
+          defaultModel={defaultModel}
+          summaryEndpointOverride={summaryEndpointOverride}
+          onConfigureEndpoint={handleConfigureSummaryEndpoint}
         />
 
         <DebateLimitsSettings
-          maxTurns={maxTurns}
-          onMaxTurnsChange={setMaxTurns}
-          timeoutSec={timeoutSec}
-          onTimeoutSecChange={setTimeoutSec}
-          recentK={recentK}
-          onRecentKChange={setRecentK}
           useSummary={useSummary}
           debugMode={debugMode}
           onDebugModeChange={next => { localStorage.setItem('debugMode', next); setDebugMode(next) }}
@@ -790,6 +804,12 @@ function AppInner({ settings }) {
           wand={wand}
         />
 
+        <RoundsInput
+          maxTurns={maxTurns}
+          onMaxTurnsChange={setMaxTurns}
+          running={running}
+        />
+
         <InputActionButtons
           globalConstraints={globalConstraints}
           onAddGlobalConstraint={handleAddGlobalConstraint}
@@ -826,7 +846,9 @@ function AppInner({ settings }) {
         onDeleteGlobalSuggestion={handleDeleteGlobalSuggestion}
         endpointModal={endpointModal}
         onCloseEndpointModal={() => setEndpointModal(null)}
-        onConfirmEndpoint={handleSaveParticipantEndpoint}
+        onConfirmEndpoint={handleSaveEndpoint}
+        endpointHistory={endpointHistory}
+        onDeleteEndpointHistoryEntry={entry => setEndpointHistory(Storage.deleteEndpointFromHistory(entry))}
         promptSettingsModal={promptSettingsModal}
         generalPersonalityInstructions={generalPersonalityInstructions}
         onClosePromptSettings={() => setPromptSettingsModal(false)}
@@ -839,6 +861,9 @@ function AppInner({ settings }) {
         onCancelConfirmModal={handleCancelConfirmModal}
         onConfirmModal={handleConfirmModal}
         updateCheck={updateCheck}
+        timeoutSec={timeoutSec}
+        onTimeoutSecChange={setTimeoutSec}
+        running={running}
       />
       </div>
     </div>

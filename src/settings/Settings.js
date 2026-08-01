@@ -1,6 +1,5 @@
 export const DEFAULT_URL = 'http://localhost:11434'
 export const DEFAULT_MAX_TURNS = 6
-export const DEFAULT_RECENT_K = 0
 export const DEFAULT_USE_SUMMARY = true
 export const DEFAULT_DYNAMIC_AFFINITY = true
 export const DEFAULT_SUMMARY_MODEL_ENABLED = false

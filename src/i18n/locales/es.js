@@ -1,5 +1,7 @@
 export default {
+  modes: { free: 'Libre', brainstorm: 'Lluvia de ideas', fact_check: 'Verificación de hechos', design_review: 'Revisión de diseño', decision: 'Decisión', negotiation: 'Negociación', red_team: 'Red Team', socratic: 'Socrático', peer_review: 'Revisión por pares', consensus: 'Consenso' },
   common: {
+    debateMode: 'Modo de debate',
     cancel: 'Cancelar',
     close: 'Cerrar',
     save: 'Guardar',
@@ -47,9 +49,11 @@ export default {
   },
   confirmModal: { defaultConfirm: 'Confirmar' },
   endpointModal: {
-    title: 'Endpoint personalizado del participante',
+    title: 'Endpoint override',
     clearTitle: 'Quitar endpoint personalizado',
     emptyHint: 'Deja vacío para usar el endpoint general.',
+    history: 'Usados anteriormente',
+    removeFromHistory: 'Quitar del historial',
   },
   promptSettingsModal: {
     title: 'Ajustes',
@@ -189,15 +193,14 @@ export default {
       'Activar el resumen analítico de adjuntos con el modelo de resumen',
     accumulateSummaryOn: threshold => `Acumulación de resumen activada (${threshold} KB)`,
     accumulateSummaryOff: threshold => `Acumulación de resumen desactivada (${threshold} KB)`,
-    accumulateSummaryCompact: threshold => `Acumular (${threshold} KB)`,
-    accumulateSummary: 'Acumulación de resumen',
+    accumulateSummaryCompact: threshold => `Contexto (${threshold} KB)`,
+    accumulateSummary: 'Contexto',
     summaryModel: 'Modelo de resumen',
     summaryModelTitleOn: 'Usar un modelo dedicado para los resúmenes (clic para desactivar)',
     summaryModelTitleOff: 'Activar un modelo dedicado para los resúmenes',
     round: 'Rondas',
     timeout: 'Tiempo de espera',
     seconds: 'seg',
-    lastK: 'Últimos K',
     debugOn: 'Depuración activada',
     debugOff: 'Depuración desactivada',
     debugLabel: 'Depuración',

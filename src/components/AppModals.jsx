@@ -16,6 +16,8 @@ export default function AppModals({
   endpointModal,
   onCloseEndpointModal,
   onConfirmEndpoint,
+  endpointHistory = [],
+  onDeleteEndpointHistoryEntry,
   promptSettingsModal,
   generalPersonalityInstructions,
   onClosePromptSettings,
@@ -28,6 +30,9 @@ export default function AppModals({
   onCancelConfirmModal,
   onConfirmModal,
   updateCheck,
+  timeoutSec,
+  onTimeoutSecChange,
+  running,
 }) {
   return (
     <>
@@ -47,6 +52,8 @@ export default function AppModals({
           state={endpointModal}
           onClose={onCloseEndpointModal}
           onConfirm={onConfirmEndpoint}
+          history={endpointHistory}
+          onDeleteHistoryEntry={onDeleteEndpointHistoryEntry}
         />
       )}
       {promptSettingsModal && (
@@ -60,6 +67,9 @@ export default function AppModals({
           onInterfaceLangChange={onInterfaceLangChange}
           moodSelectStyles={moodSelectStyles}
           updateCheck={updateCheck}
+          timeoutSec={timeoutSec}
+          onTimeoutSecChange={onTimeoutSecChange}
+          running={running}
         />
       )}
       {confirmModal && (

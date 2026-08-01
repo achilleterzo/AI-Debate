@@ -7,7 +7,6 @@ import {
   DEFAULT_FALLBACK_MODEL,
   DEFAULT_MAX_TURNS,
   DEFAULT_MODERATION_COOLING,
-  DEFAULT_RECENT_K,
   DEFAULT_SUMMARY_ACCUMULATE,
   DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD,
   DEFAULT_SUMMARY_MODEL_ENABLED,
@@ -19,6 +18,7 @@ import {
   normalizeModerationCooling,
 } from '../settings/Settings'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from '../prompts/DefaultGeneralPersonalityInstructions'
+import { DEFAULT_DEBATE_MODE, normalizeDebateMode } from '../prompts/Modes'
 
 export function useAppSettings() {
   const saved = Storage.loadSettings()
@@ -30,13 +30,11 @@ export function useAppSettings() {
   const [globalConstraints, setGlobalConstraints] = useState(() => saved?.globalConstraints ?? [])
   const [generalPersonalityInstructions, setGeneralPersonalityInstructions] = useState(() => saved?.generalPersonalityInstructions ?? DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS)
   const [maxTurns, setMaxTurns] = useState(saved?.maxTurns ?? DEFAULT_MAX_TURNS)
-  const [recentK, setRecentK] = useState(saved?.recentK ?? DEFAULT_RECENT_K)
   const [useSummary, setUseSummary] = useState(saved?.useSummary ?? DEFAULT_USE_SUMMARY)
   const [dynamicAffinity, setDynamicAffinity] = useState(saved?.dynamicAffinity ?? DEFAULT_DYNAMIC_AFFINITY)
   const [moderationCooling, setModerationCooling] = useState(() => normalizeModerationCooling(saved?.moderationCooling ?? DEFAULT_MODERATION_COOLING))
-  const [summaryModelEnabled, setSummaryModelEnabled] = useState(saved?.summaryModelEnabled ?? DEFAULT_SUMMARY_MODEL_ENABLED)
   const [summaryModelOverride, setSummaryModelOverride] = useState(saved?.summaryModelOverride ?? DEFAULT_SUMMARY_MODEL_OVERRIDE)
-  const [summaryAccumulate, setSummaryAccumulate] = useState(saved?.summaryAccumulate ?? DEFAULT_SUMMARY_ACCUMULATE)
+  const [summaryEndpointOverride, setSummaryEndpointOverride] = useState(saved?.summaryEndpointOverride ?? '')
   const [summaryAccumulateThreshold, setSummaryAccumulateThreshold] = useState(saved?.summaryAccumulateThreshold ?? DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD)
   const [summarizeAttachments, setSummarizeAttachments] = useState(saved?.summarizeAttachments ?? DEFAULT_SUMMARIZE_ATTACHMENTS)
   const [debugMode, setDebugMode] = useState(() => localStorage.getItem(DEBUG_MODE_STORAGE_KEY) === 'true')
@@ -44,6 +42,7 @@ export function useAppSettings() {
   const [interfaceLang, setInterfaceLang] = useState(saved?.interfaceLang ?? Debate.detectBrowserLang())
   const [timeoutSec, setTimeoutSec] = useState(saved?.timeoutSec ?? DEFAULT_TIMEOUT_SEC)
   const [defaultModel, setDefaultModel] = useState(saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL)
+  const [debateMode, setDebateMode] = useState(() => normalizeDebateMode(saved?.debateMode ?? DEFAULT_DEBATE_MODE))
 
   return {
     saved,
@@ -51,35 +50,39 @@ export function useAppSettings() {
     participants, setParticipants,
     globalConstraints, setGlobalConstraints,
     generalPersonalityInstructions, setGeneralPersonalityInstructions,
-    maxTurns, setMaxTurns, recentK, setRecentK, useSummary, setUseSummary,
+    maxTurns, setMaxTurns, useSummary, setUseSummary,
     dynamicAffinity, setDynamicAffinity, moderationCooling, setModerationCooling,
-    summaryModelEnabled, setSummaryModelEnabled, summaryModelOverride, setSummaryModelOverride,
-    summaryAccumulate, setSummaryAccumulate, summaryAccumulateThreshold, setSummaryAccumulateThreshold,
+    summaryModelOverride, setSummaryModelOverride,
+    summaryEndpointOverride, setSummaryEndpointOverride,
+    summaryAccumulateThreshold, setSummaryAccumulateThreshold,
     summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
+    debateMode, setDebateMode,
   }
 }
 
 export function usePersistedAppSettings({ settings, conclusions }) {
   const {
-    participants, maxTurns, recentK, timeoutSec, baseUrl, useSummary, dynamicAffinity,
-    moderationCooling, summaryModelEnabled, summaryModelOverride, summaryAccumulate,
+    participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity,
+    moderationCooling, summaryModelOverride, summaryEndpointOverride,
     summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, globalConstraints,
     generalPersonalityInstructions, defaultModel,
+    debateMode,
   } = settings
   const { conclusionModel, customConclusionPrompt, standardConclusionPrompt } = conclusions
   useEffect(() => {
     Storage.saveSettings({
       participants: Debate.serializeParticipantsForSession(participants),
-      maxTurns, recentK, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling,
-      summaryModelEnabled, summaryModelOverride, summaryAccumulate, summaryAccumulateThreshold,
+      maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling,
+      summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold,
       summarizeAttachments, uiLang, interfaceLang, defaultModel,
       conclusionModel,
       customConclusionPrompt: customConclusionPrompt ?? '',
       standardConclusionPrompt: standardConclusionPrompt ?? '',
       globalConstraints: globalConstraints ?? [],
       generalPersonalityInstructions: generalPersonalityInstructions ?? DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS,
+      debateMode: normalizeDebateMode(debateMode),
     })
-  }, [participants, maxTurns, recentK, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryAccumulate, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions])
+  }, [participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode])
 }

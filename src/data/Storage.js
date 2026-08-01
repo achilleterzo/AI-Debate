@@ -5,6 +5,32 @@ export class Storage {
 
   static LS_GLOBAL_CONSTRAINTS_HISTORY_KEY = 'pap_global_constraints_history'
 
+  static LS_ENDPOINTS_HISTORY_KEY = 'pap_endpoints_history'
+
+  static loadEndpointHistory() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(Storage.LS_ENDPOINTS_HISTORY_KEY) || '[]')
+      return Array.isArray(arr) ? arr.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim()) : []
+    } catch {
+      return []
+    }
+  }
+
+  static saveEndpointToHistory(url) {
+    const trimmed = String(url || '').trim().replace(/\/$/, '')
+    if (!trimmed) return Storage.loadEndpointHistory()
+    const prev = Storage.loadEndpointHistory().filter(item => item !== trimmed)
+    const next = [trimmed, ...prev].slice(0, 10)
+    localStorage.setItem(Storage.LS_ENDPOINTS_HISTORY_KEY, JSON.stringify(next))
+    return next
+  }
+
+  static deleteEndpointFromHistory(url) {
+    const next = Storage.loadEndpointHistory().filter(item => item !== url)
+    localStorage.setItem(Storage.LS_ENDPOINTS_HISTORY_KEY, JSON.stringify(next))
+    return next
+  }
+
   static loadTopics() {
     try {
       return JSON.parse(localStorage.getItem(Storage.LS_TOPICS_KEY)) ?? []
