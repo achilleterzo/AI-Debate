@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   SUGGESTION_MODE,
+  MAX_CONSTRAINT_CHARS,
   buildParticipantPrompt,
   buildSuggestionPrompt,
   buildSuggestionSystemPrompt,
@@ -35,6 +36,18 @@ describe('buildSuggestionPrompt', () => {
     expect(prompt).toContain('waste is the issue')
     expect(prompt).toContain('prompts the user could send next')
     expect(prompt).toContain('Do not answer the debate yourself')
+  })
+
+  it('includes the shared debate mode in generated prompt proposals', () => {
+    const prompt = buildSuggestionPrompt({
+      mode: SUGGESTION_MODE.STEER,
+      debateMode: 'fact_check',
+      debateModeLabel: 'Fact Check',
+      debateModeInstruction: 'Verify important claims before accepting them.',
+      ...context,
+    })
+    expect(prompt).toContain('Shared debate mode: Fact Check (fact_check).')
+    expect(prompt).toContain('Verify important claims before accepting them.')
   })
 
   it('asks for analyst guidance in conclusion mode', () => {
@@ -144,6 +157,37 @@ describe('buildParticipantPrompt', () => {
     expect(prompt).toContain('No other participants yet')
   })
 
+  it('includes the shared debate mode in character proposals', () => {
+    const prompt = buildParticipantPrompt({
+      characterTypeLabel: 'Person',
+      debateMode: 'red_team',
+      debateModeLabel: 'Red Team',
+      debateModeInstruction: 'Attack the strongest proposal and expose failure modes.',
+    })
+    expect(prompt).toContain('Shared debate mode: Red Team (red_team).')
+    expect(prompt).toContain('Attack the strongest proposal and expose failure modes.')
+  })
+
+  it('asks for facilitation traits when the participant is a moderator', () => {
+    const prompt = buildParticipantPrompt({
+      characterTypeLabel: 'Person',
+      isModerator: true,
+      moderatorMode: 'facilitator',
+    })
+    expect(prompt).toContain('marked as the debate moderator')
+    expect(prompt).toContain('impartial facilitation')
+    expect(prompt).toContain('facilitator moderation style')
+    expect(prompt).toContain('primarily as an advocate')
+    expect(prompt).toContain('Prefer "null (Free) for this moderator"')
+  })
+
+  it('passes the constraint limit to character generation', () => {
+    const prompt = buildParticipantPrompt({ characterTypeLabel: 'Person' })
+    expect(prompt).toContain(`at most ${MAX_CONSTRAINT_CHARS} characters`)
+    expect(prompt).toContain('use additional trait entries instead of truncating it')
+    expect(prompt).toContain('Prefer "short"')
+  })
+
   it('never asks for a model, endpoint or affinity', () => {
     const prompt = buildParticipantPrompt({ characterType: null, characterTypeLabel: 'Person' })
     for (const forbidden of ['model', 'endpoint', 'affinity']) {
@@ -173,6 +217,7 @@ describe('parseParticipantDrafts', () => {
       traits: ['You argue from laboratory evidence.', 'You distrust unfounded speculation.'],
       ageGroup: 3,
       educationLevel: 'expert',
+      responseLength: 'short',
       mood: 'analytical',
       moodIntensity: 3,
       reasoningLang: 'it',
@@ -182,6 +227,7 @@ describe('parseParticipantDrafts', () => {
       traits: ['You argue from laboratory evidence.', 'You distrust unfounded speculation.'],
       ageGroup: 3,
       educationLevel: 'expert',
+      responseLength: 'short',
       mood: 'analytical',
       moodIntensity: 3,
       reasoningLang: 'it',
@@ -238,7 +284,7 @@ describe('parseParticipantDrafts', () => {
     expect(parseParticipantDrafts(raw).map(d => d.name)).toEqual(['Dup'])
   })
 
-  it('keeps at most three traits and discards fragments', () => {
+  it('keeps generated traits and discards fragments', () => {
     const raw = JSON.stringify([{
       name: 'D',
       traits: ['ok', 'A proper trait sentence.', 'Another proper trait.', 'A third proper trait.', 'A fourth one here.'],
@@ -247,7 +293,18 @@ describe('parseParticipantDrafts', () => {
       'A proper trait sentence.',
       'Another proper trait.',
       'A third proper trait.',
+      'A fourth one here.',
     ])
+  })
+
+  it('splits an oversized generated constraint without truncating it', () => {
+    const first = 'You argue from evidence. '.repeat(60)
+    const raw = JSON.stringify([{ name: 'Long Persona', traits: [first] }])
+    const traits = parseParticipantDrafts(raw)[0].traits
+
+    expect(traits.length).toBeGreaterThan(1)
+    expect(traits.every(trait => trait.length <= MAX_CONSTRAINT_CHARS)).toBe(true)
+    expect(traits.join(' ')).toBe(first.trim())
   })
 
   it('returns nothing for unusable answers', () => {

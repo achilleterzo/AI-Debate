@@ -26,7 +26,6 @@ export default function ParticipantsPanel({
   models,
   palette,
   mkParticipant,
-  randomName,
   running,
   onResetAffinities,
   onAddConstraint,
@@ -81,6 +80,7 @@ export default function ParticipantsPanel({
       ...(draft.educationLevel ? { educationLevel: draft.educationLevel } : {}),
       ...(draft.mood ? { mood: draft.mood } : {}),
       ...(draft.moodIntensity != null ? { moodIntensity: draft.moodIntensity } : {}),
+      ...(Object.prototype.hasOwnProperty.call(draft, 'responseLength') ? { responseLength: draft.responseLength } : {}),
       ...(draft.reasoningLang ? { reasoningLang: draft.reasoningLang } : {}),
     }
   }))
@@ -274,15 +274,6 @@ export default function ParticipantsPanel({
                       >{ct.label}</button>
                     )
                   })}
-                  {wand && (
-                    <MagicWand
-                      wand={wand}
-                      mode={participantMode(idx)}
-                      placement="bottom"
-                      describeItem={describeDraft}
-                      onPick={draft => applyDraft(idx, draft)}
-                    />
-                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 3 }}>
                   <span style={{ fontSize: 10, color: '#666', alignSelf: 'center', whiteSpace: 'nowrap', marginRight: 3 }}>{ui.verbosity}:</span>
@@ -315,14 +306,14 @@ export default function ParticipantsPanel({
                   title={ui.fantasyName}
                   spellCheck={false}
                 />
-              <button
-                style={{ ...styles.connectBtn(false), padding: '2px 7px', fontSize: 13, lineHeight: 1, flexShrink: 0 }}
-                title={ui.randomName}
-                onClick={() => setParticipants(prev => {
-                  const usedNames = prev.map(x => x.name).filter(Boolean)
-                  return prev.map((x, i) => i === idx ? { ...x, name: randomName(usedNames) } : x)
-                })}
-              >⚄</button>
+              {wand && p.model !== userModel && (
+                <MagicWand
+                  wand={wand}
+                  mode={participantMode(idx)}
+                  describeItem={describeDraft}
+                  onPick={draft => applyDraft(idx, draft)}
+                />
+              )}
               <div style={{ flex: 1 }}>
                 <ReactSelect
                   styles={modelSelectStyles}

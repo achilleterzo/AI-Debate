@@ -7,12 +7,13 @@ import { streamChat } from './Stream'
 import { Web } from '../services/Web'
 import { MOODS } from '../prompts/Moods'
 import { MOOD_INTENSITY } from '../prompts/MoodIntensity'
-import { RESPONSE_LENGTHS } from '../prompts/ResponseLengths'
+import { DEFAULT_RESPONSE_LENGTH, RESPONSE_LENGTHS } from '../prompts/ResponseLengths'
 import { EDUCATION_LEVELS } from '../prompts/EducationLevels'
 import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
+import { createConversationToolExecutor } from '../tools'
 
 export class Debate {
   static CONCLUSION_CONVERSATION_LIMIT = 8000
@@ -78,7 +79,7 @@ export class Debate {
       affinity: {},
       affinityLocks: {},
       characterType: null,
-      responseLength: null,
+      responseLength: DEFAULT_RESPONSE_LENGTH,
       educationLevel: Debate.DEFAULT_EDUCATION_LEVEL,
       ageGroup: Debate.DEFAULT_AGE_GROUP,
       constraints: [],
@@ -369,7 +370,7 @@ export class Debate {
       reasoningLang: participant.reasoningLang ?? '',
       reasoningLangSkipTranslation: !!participant.reasoningLangSkipTranslation,
       characterType: participant.characterType ?? null,
-      responseLength: participant.responseLength ?? null,
+      responseLength: participant.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : participant.responseLength,
       educationLevel: participant.educationLevel ?? Debate.DEFAULT_EDUCATION_LEVEL,
       ageGroup: participant.ageGroup ?? Debate.DEFAULT_AGE_GROUP,
       affinity: Debate.normalizeAffinity(participant.affinity),
@@ -941,6 +942,7 @@ export class Debate {
     let skipSummaryOnce = resumeRound?.skipSummary ?? false
     summaryRef.current = resumeSummary ?? ''
     let lastModerationTargets = []
+    let pendingModeratorRequest = null
 
     const queuedInterjections = () => {
       const queued = interjectRef.current
@@ -1096,16 +1098,21 @@ export class Debate {
         skipSummaryOnce = false
       }
 
-      for (let s = step; s < parts.length; s += 1) {
+      for (let s = step; s < parts.length || pendingModeratorRequest; s += 1) {
+        const requestedModeratorTurn = pendingModeratorRequest
+        pendingModeratorRequest = null
+        const extraModeratorTurn = !!requestedModeratorTurn
         step = 0
         if (stopRef.current) break outer
 
         consumeQueuedInterjection()
 
         parts = participantsRef.current
-        if (s >= parts.length) break
-
-        const rawActor = parts[s]
+        const cursorIndex = s < parts.length ? s : 0
+        const rawActor = requestedModeratorTurn
+          ? parts.find(participant => participant.isModerator)
+          : parts[cursorIndex]
+        if (!rawActor) break
         const actor = rawActor.model ? rawActor : { ...rawActor, model: defaultModel || rawActor.model }
         const actorBaseUrl = actor.endpointOverride?.trim() || baseUrl
         const turnLabel = round + 1
@@ -1127,16 +1134,24 @@ export class Debate {
 
         let moderationDecision = null
         if (actor.isModerator) {
-          moderationDecision = Debate.shouldModeratorIntervene({
-            actor,
-            history: realHistory,
-            participants: parts,
-            roundModerationSignal,
-            round,
-            roundLimit,
-          })
+          moderationDecision = extraModeratorTurn
+            ? {
+                shouldIntervene: true,
+                scheduledFacilitation: true,
+                reactiveModeration: false,
+                moderationTargets: requestedModeratorTurn.participantTags || [],
+                reason: [requestedModeratorTurn.reason, requestedModeratorTurn.focus].filter(Boolean).join(' — ') || 'A participant requested direct moderator intervention.',
+              }
+            : Debate.shouldModeratorIntervene({
+                actor,
+                history: realHistory,
+                participants: parts,
+                roundModerationSignal,
+                round,
+                roundLimit,
+              })
           if (!moderationDecision.shouldIntervene) continue
-          if (moderationDecision.reactiveModeration) {
+          if (moderationDecision.reactiveModeration || extraModeratorTurn) {
             lastModerationTargets = moderationDecision.moderationTargets
           }
         }
@@ -1150,8 +1165,10 @@ export class Debate {
         }
         setStreamingRole(actor.tag)
 
-        const nextStep = s + 1 < parts.length ? s + 1 : 0
-        const nextRound = s + 1 < parts.length ? round : round + 1
+        const nextStep = extraModeratorTurn
+          ? (requestedModeratorTurn.afterStep ?? 0)
+          : (cursorIndex + 1 < parts.length ? cursorIndex + 1 : 0)
+        const nextRound = extraModeratorTurn || cursorIndex + 1 < parts.length ? round : round + 1
         turnRef.current = { round: nextRound, step: nextStep }
 
         if (stopRef.current) {
@@ -1305,12 +1322,35 @@ export class Debate {
 
         try {
           const debugPayloads = []
+          const conversationToolExecutor = createConversationToolExecutor({
+            getMessages: () => history,
+            requestModeratorIntervention: args => {
+              const moderatorAvailable = parts.some(participant => participant.isModerator)
+              if (actor.isModerator || !moderatorAvailable || pendingModeratorRequest) {
+                return { accepted: false, reason: actor.isModerator ? 'The moderator cannot request an extra moderator turn.' : 'A moderator intervention is already pending or unavailable.' }
+              }
+              pendingModeratorRequest = {
+                reason: String(args?.reason || '').trim(),
+                focus: String(args?.focus || '').trim(),
+                participantTags: Array.isArray(args?.participantTags) ? args.participantTags : [],
+                afterStep: cursorIndex + 1 < parts.length ? cursorIndex + 1 : 0,
+              }
+              return { accepted: true, message: 'Moderator intervention scheduled as an extra turn outside the standard round.' }
+            },
+          })
           const full = await streamChat({
             baseUrl: actorBaseUrl,
             model: actor.model,
             messages: contextMessages,
             systemPrompt,
             useTools: true,
+            executeTool: conversationToolExecutor,
+            onToolInvocation: invocation => {
+              history = history.map((message, index) => index === history.length - 1
+                ? { ...message, toolInvocations: [...(message.toolInvocations || []), invocation] }
+                : message)
+              syncHistory()
+            },
             sourceUrls,
             onEstimate: handlePromptEstimate,
             ...transportCallbacks(debugMode ? debugPayloads : null),

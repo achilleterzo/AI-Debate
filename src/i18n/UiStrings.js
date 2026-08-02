@@ -313,6 +313,7 @@ export const UI_STRINGS = {
     wandLoadingParticipant: 'Creating characters…',
     wandEmpty: 'No usable suggestion came back.',
     wandRetry: 'Retry',
+    wandRegenerate: 'Generate more',
     backToBottom: 'Back to bottom',
     docTruncated: 'Document truncated',
     topicQueued: 'Queued',

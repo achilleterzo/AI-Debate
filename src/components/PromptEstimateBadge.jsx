@@ -1,17 +1,17 @@
 import { useUiStrings } from '../i18n/UiStringsContext'
 
-export default function PromptEstimateBadge({ estimate, request, onInspectRequest }) {
+export default function PromptEstimateBadge({ estimate, request, onInspectRequest, compact = false }) {
   const UI_STRINGS = useUiStrings()
   if (!estimate) return null
   const ui = UI_STRINGS.app
 
   return (
     <button
-      onClick={request ? onInspectRequest : undefined}
+      onClick={request ? event => { event.stopPropagation(); onInspectRequest() } : undefined}
       disabled={!request}
       style={{
-      marginTop: 4,
-      alignSelf: 'flex-end',
+      marginTop: compact ? 0 : 4,
+      alignSelf: compact ? 'auto' : 'flex-end',
       fontSize: 10,
       color: '#f59e0b',
       border: '1px solid #4a3a12',

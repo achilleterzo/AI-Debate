@@ -4,6 +4,7 @@ import { streamChat } from '../debate/Stream'
 import { UI_LANGUAGE_OPTIONS } from '../i18n/UiStrings'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { MOODS } from '../prompts/Moods'
+import { DEBATE_MODES } from '../prompts/Modes'
 import {
   DEFAULT_SUGGESTION_COUNT,
   buildParticipantPrompt,
@@ -38,6 +39,7 @@ export function useMagicWand({
   topic,
   summaryRef,
   uiLang,
+  debateMode = 'free',
   timeoutSec,
   setLastPromptEstimate,
   setLastRequest,
@@ -78,6 +80,12 @@ export function useMagicWand({
     const participantIndex = forParticipant ? Number(String(mode).split(':')[1]) : -1
     const languageCodes = UI_LANGUAGE_OPTIONS.map(entry => entry.code)
     const moodIds = MOODS.map(entry => entry.id)
+    const selectedDebateMode = DEBATE_MODES.find(entry => entry.id === debateMode) ?? DEBATE_MODES[0]
+    const debateModeContext = {
+      debateMode: selectedDebateMode.id,
+      debateModeLabel: selectedDebateMode.labelEn,
+      debateModeInstruction: selectedDebateMode.instruction || '',
+    }
 
     let systemPrompt
     let userPrompt
@@ -85,10 +93,14 @@ export function useMagicWand({
       const target = participants[participantIndex]
       const characterType = target?.characterType ?? null
       const characterTypeLabel = CHARACTER_TYPES.find(entry => entry.value === characterType)?.labelEn ?? 'person'
+      const isModerator = !!target?.isModerator || target?.mood === 'moderator'
       systemPrompt = buildParticipantSystemPrompt({ language, uiLang })
       userPrompt = buildParticipantPrompt({
         characterType,
         characterTypeLabel,
+        isModerator,
+        moderatorMode: isModerator ? Debate.normalizeModeratorMode(target) : 'containment',
+        ...debateModeContext,
         topic: topicText,
         others: participants
           .filter((_, index) => index !== participantIndex)
@@ -105,6 +117,7 @@ export function useMagicWand({
       systemPrompt = buildSuggestionSystemPrompt({ language, uiLang })
       userPrompt = buildSuggestionPrompt({
         mode,
+        ...debateModeContext,
         topic: topicText,
         conversation: Debate.buildConclusionConversation(messages, participants, {
           limit: WAND_CONVERSATION_LIMIT,
@@ -141,14 +154,14 @@ export function useMagicWand({
     inFlightRef.current = null
 
     const suggestions = forParticipant
-      ? parseParticipantDrafts(raw, { max: PARTICIPANT_DRAFT_COUNT, languageOptions: languageCodes, moodOptions: moodIds })
+      ? parseParticipantDrafts(raw, { max: PARTICIPANT_DRAFT_COUNT, languageOptions: languageCodes, moodOptions: moodIds, defaultResponseLength: participants[participantIndex]?.isModerator ? null : 'short' })
       : parseSuggestions(raw, { max: DEFAULT_SUGGESTION_COUNT })
     setState(suggestions.length > 0
       ? { mode, status: WAND_STATUS.READY, suggestions, error: null }
       : { mode, status: WAND_STATUS.ERROR, suggestions: [], error: null })
   }, [
     baseUrl, messages, model, online, participants, setLastPromptEstimate, setLastRequest,
-    summaryRef, timeoutSec, topic, uiLang,
+    summaryRef, timeoutSec, topic, uiLang, debateMode,
   ])
 
   return {

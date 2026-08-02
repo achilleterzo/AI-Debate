@@ -227,6 +227,7 @@ export default {
     wandLoadingParticipant: 'Sto creando i personaggi…',
     wandEmpty: 'Nessun suggerimento utilizzabile.',
     wandRetry: 'Riprova',
+    wandRegenerate: 'Genera altre proposte',
     backToBottom: 'Torna in fondo',
     docTruncated: 'Documento troncato',
     topicQueued: 'In coda',

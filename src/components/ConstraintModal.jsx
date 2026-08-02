@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ReactSelect from 'react-select'
 import { useUiStrings } from '../i18n/UiStringsContext'
+import { MAX_CONSTRAINT_CHARS } from '../services/Suggestions'
 
 export default function ConstraintModal({ state, onClose, onConfirm, globalSuggestions = [], selectStyles, onDeleteGlobalSuggestion }) {
   const UI_STRINGS = useUiStrings()
@@ -35,6 +36,7 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
               <textarea
                 value={text}
                 onChange={e => setText(e.target.value)}
+                maxLength={MAX_CONSTRAINT_CHARS}
                 autoFocus
                 rows={4}
                 onKeyDown={e => {

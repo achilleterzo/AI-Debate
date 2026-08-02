@@ -7,21 +7,6 @@ export class Web {
 
   static URL_RE = /https?:\/\/[^\s"'<>)]+/g
 
-  static WEB_SEARCH_TOOL = {
-    type: 'function',
-    function: {
-      name: 'web_search',
-      description: 'Search the web for up-to-date information to better answer the question.',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'Search query in English or Italian' },
-        },
-        required: ['query'],
-      },
-    },
-  }
-
   static clearCaches() {
     Web.webSearchCache.clear()
     Web.pageCache.clear()

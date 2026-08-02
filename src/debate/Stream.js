@@ -1,5 +1,6 @@
 import { Web } from '../services/Web'
 import { getProvider } from '../providers/index.js'
+import { LLM_TOOLS } from '../tools'
 
 function trimText(txt, maxChars) {
   const s = String(txt || '')
@@ -32,6 +33,8 @@ export async function streamChat({
   onEstimate = null,
   noResultsMessage = query => `No results for: ${query}`,
   sourceUrls = [],
+  executeTool = null,
+  onToolInvocation = null,
   provider = getProvider(),
 }) {
   const label = `[${provider.id}] ${model}`
@@ -69,7 +72,7 @@ export async function streamChat({
       baseUrl,
       model,
       messages: payloadMessages,
-      tools: wantsTools ? [Web.WEB_SEARCH_TOOL] : null,
+      tools: wantsTools ? LLM_TOOLS : null,
     })
     const debugRequest = {
       provider: provider.id,
@@ -220,8 +223,14 @@ export async function streamChat({
       toolRound++
       apiMessages = [...apiMessages, { role: 'assistant', content: full || '', tool_calls: toolCalls }]
       for (const toolCall of toolCalls) {
-        if (toolCall.function?.name === 'web_search') {
-          const query = toolCall.function.arguments?.query ?? toolCall.function.arguments
+        const toolName = toolCall.function?.name
+        let toolArgs = toolCall.function?.arguments ?? {}
+        if (typeof toolArgs === 'string') {
+          try { toolArgs = JSON.parse(toolArgs) } catch { toolArgs = { value: toolArgs } }
+        }
+        onToolInvocation?.({ name: toolName, arguments: toolArgs })
+        if (toolName === 'web_search') {
+          const query = toolArgs?.query ?? toolArgs
           const queryStr = typeof query === 'string' ? query : JSON.stringify(query)
           const cachedResult = Web.getCachedSearchResult(queryStr)
           if (cachedResult) {
@@ -237,6 +246,11 @@ export async function streamChat({
             onToken((full || '') + `\n\n*🔍 Web search: "${queryStr}"...*`)
             const result = await Web.search(queryStr, { noResultsMessage: noResultsMessage(queryStr) })
             apiMessages = [...apiMessages, { role: 'tool', content: result, name: 'web_search' }]
+          }
+        } else if (typeof executeTool === 'function') {
+          const result = await executeTool(toolName, toolArgs)
+          if (result != null) {
+            apiMessages = [...apiMessages, { role: 'tool', content: String(result), name: toolName }]
           }
         }
       }

@@ -1,4 +1,5 @@
 import { topicToSlug } from '../utils/Slug'
+import { DEFAULT_RESPONSE_LENGTH } from '../prompts/ResponseLengths'
 
 export class Session {
   static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness }) {
@@ -18,7 +19,7 @@ export class Session {
       reasoningLang: p.reasoningLang ?? '',
       reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
       characterType: p.characterType ?? null,
-      responseLength: p.responseLength ?? null,
+      responseLength: p.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : p.responseLength,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,
       ageGroup: p.ageGroup ?? DEFAULT_AGE_GROUP,
       tag: p.tag,
@@ -44,7 +45,7 @@ export class Session {
       reasoningLang: p.reasoningLang ?? '',
       reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
       characterType: p.characterType ?? null,
-      responseLength: p.responseLength ?? null,
+      responseLength: p.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : p.responseLength,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,
       ageGroup: p.ageGroup ?? DEFAULT_AGE_GROUP,
       affinity: normalizeAffinity(p.affinity),

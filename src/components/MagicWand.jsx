@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { WAND_STATUS } from '../hooks/useMagicWand'
 import { SUGGESTION_MODE, isParticipantMode } from '../services/Suggestions'
 
 const ACCENT = '#c084fc'
-const POPOVER_MAX_WIDTH = 420
-const POPOVER_MIN_WIDTH = 220
-const POPOVER_MARGIN = 12
+const MODAL_WIDTH = 420
 
 /** The same working spinner the chat uses, so "busy" looks the same everywhere. */
 function SpinnerIcon({ size = 15 }) {
@@ -37,40 +35,20 @@ function WandIcon({ size = 15 }) {
  * `mode` identifies which caller opened it, so two wands can share one hook
  * without showing each other's results.
  */
-export default function MagicWand({ wand, mode, onPick, placement = 'top', disabled = false, describeItem = null }) {
+export default function MagicWand({ wand, mode, onPick, disabled = false, describeItem = null }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
-  const wrapRef = useRef(null)
   const isActive = wand.mode === mode
   const isOpen = isActive && wand.status !== WAND_STATUS.IDLE
-  const [box, setBox] = useState({ align: 'right', width: POPOVER_MAX_WIDTH })
 
   useEffect(() => {
     if (!isOpen) return
     const handler = event => {
-      if (wrapRef.current && !wrapRef.current.contains(event.target)) wand.close()
+      if (event.key === 'Escape') wand.close()
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
   }, [isOpen, wand])
-
-  // The wand can sit anywhere from a narrow participant row to the composer,
-  // so the popover picks the side with more room and never exceeds it.
-  useEffect(() => {
-    if (!isOpen) return
-    const measure = () => {
-      const anchor = wrapRef.current?.getBoundingClientRect()
-      if (!anchor) return
-      const roomLeft = anchor.right - POPOVER_MARGIN
-      const roomRight = window.innerWidth - anchor.left - POPOVER_MARGIN
-      const align = roomRight >= roomLeft ? 'left' : 'right'
-      const room = align === 'left' ? roomRight : roomLeft
-      setBox({ align, width: Math.max(POPOVER_MIN_WIDTH, Math.min(POPOVER_MAX_WIDTH, room)) })
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  }, [isOpen])
 
   const unavailable = disabled || !wand.available
   const title = wand.unavailableReason === 'offline' ? ui.wandOffline
@@ -78,7 +56,7 @@ export default function MagicWand({ wand, mode, onPick, placement = 'top', disab
     : ui.wandTitle
 
   return (
-    <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
+    <div style={{ position: 'relative', flexShrink: 0 }}>
       <button
         type="button"
         onClick={() => (isOpen ? wand.close() : wand.generate(mode))}
@@ -104,21 +82,19 @@ export default function MagicWand({ wand, mode, onPick, placement = 'top', disab
       </button>
 
       {isOpen && (
-        <div style={{
-          position: 'absolute',
-          [placement === 'top' ? 'bottom' : 'top']: '100%',
-          ...(box.align === 'left' ? { left: 0 } : { right: 0 }),
-          zIndex: 300,
-          marginBottom: placement === 'top' ? 6 : 0,
-          marginTop: placement === 'top' ? 0 : 6,
-          width: box.width,
-          background: '#1a1622',
-          border: `1px solid ${ACCENT}55`,
-          borderRadius: 10,
-          boxShadow: '0 6px 24px #000a',
-          overflow: 'hidden',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 10px', borderBottom: '1px solid #2e2438' }}>
+        <div
+          role="presentation"
+          onMouseDown={event => { if (event.target === event.currentTarget) wand.close() }}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#00000066', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={isParticipantMode(mode) ? ui.wandParticipantTitle : mode === SUGGESTION_MODE.CONCLUSION ? ui.wandConclusionTitle : ui.wandSteerTitle}
+            onMouseDown={event => event.stopPropagation()}
+            style={{ width: MODAL_WIDTH, maxWidth: 'calc(100vw - 24px)', maxHeight: 'calc(100vh - 24px)', background: '#1a1622', border: `1px solid ${ACCENT}55`, borderRadius: 10, boxShadow: '0 6px 24px #000a', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+          >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 10px', borderBottom: '1px solid #2e2438', flexShrink: 0 }}>
             <span style={{ fontSize: 10, color: ACCENT, letterSpacing: 0.6, textTransform: 'uppercase', fontWeight: 700 }}>
               {isParticipantMode(mode) ? ui.wandParticipantTitle
                 : mode === SUGGESTION_MODE.CONCLUSION ? ui.wandConclusionTitle
@@ -147,8 +123,9 @@ export default function MagicWand({ wand, mode, onPick, placement = 'top', disab
           )}
 
           {wand.status === WAND_STATUS.READY && (
-            <div style={{ maxHeight: 260, overflowY: 'auto' }}>
-              {wand.suggestions.map((suggestion, index) => {
+            <>
+              <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+                {wand.suggestions.map((suggestion, index) => {
                 // Steer/conclusion yield plain strings; participant mode yields
                 // a persona draft that needs its own summary line.
                 const isDraft = typeof suggestion === 'object' && suggestion !== null
@@ -189,9 +166,19 @@ export default function MagicWand({ wand, mode, onPick, placement = 'top', disab
                     ) : suggestion}
                   </button>
                 )
-              })}
-            </div>
+                })}
+              </div>
+              <div style={{ padding: '7px 10px', borderTop: '1px solid #2e2438' }}>
+                <button
+                  type="button"
+                  onClick={() => wand.generate(mode)}
+                  disabled={wand.isLoading}
+                  style={{ width: '100%', background: '#241d30', border: '1px solid #4a3a5c', color: ACCENT, borderRadius: 6, padding: '5px 8px', cursor: wand.isLoading ? 'default' : 'pointer', fontSize: 11 }}
+                >{ui.wandRegenerate}</button>
+              </div>
+            </>
           )}
+          </div>
         </div>
       )}
     </div>

@@ -15,7 +15,6 @@ import GlobalConstraintsChips from './components/GlobalConstraintsChips'
 import ConnectionSettings from './components/ConnectionSettings'
 import AffinitySettings from './components/AffinitySettings'
 import SummarySettings from './components/SummarySettings'
-import DebateLimitsSettings from './components/DebateLimitsSettings'
 import SummaryPanel from './components/SummaryPanel'
 import HeaderTop from './components/HeaderTop'
 import InputActionButtons from './components/InputActionButtons'
@@ -23,7 +22,6 @@ import RoundsInput from './components/RoundsInput'
 import AppModals from './components/AppModals'
 import ScrollToBottomButton from './components/ScrollToBottomButton'
 import SummaryProgressBadge from './components/SummaryProgressBadge'
-import PromptEstimateBadge from './components/PromptEstimateBadge'
 import { PALETTE } from './dataset/Palette'
 import { MOODS, MOOD_OPTIONS } from './prompts/Moods'
 import { DEBATE_MODE_OPTIONS } from './prompts/Modes'
@@ -221,6 +219,7 @@ function AppInner({ settings }) {
     topic,
     summaryRef,
     uiLang,
+    debateMode,
     timeoutSec,
     setLastPromptEstimate,
     setLastRequest,
@@ -257,10 +256,8 @@ function AppInner({ settings }) {
     setConnecting,
     setConnectError,
     setModels,
-    setParticipants,
     setBaseUrl,
     setOllamaOk,
-    defaultModel,
   })
 
   const handleStop = () => stopDebate()
@@ -644,13 +641,6 @@ function AppInner({ settings }) {
           onConfigureEndpoint={handleConfigureSummaryEndpoint}
         />
 
-        <DebateLimitsSettings
-          useSummary={useSummary}
-          debugMode={debugMode}
-          onDebugModeChange={next => { localStorage.setItem('debugMode', next); setDebugMode(next) }}
-          running={running}
-        />
-
         {/* participant selection */}
         <ParticipantsPanel
           participants={participants}
@@ -672,7 +662,6 @@ function AppInner({ settings }) {
           models={models}
           palette={PALETTE}
           mkParticipant={Debate.mkParticipant}
-          randomName={Debate.randomName}
           onResetAffinities={handleResetAffinities}
           onAddConstraint={handleAddParticipantConstraint}
           onEditConstraint={handleEditParticipantConstraint}
@@ -698,6 +687,9 @@ function AppInner({ settings }) {
         onToggleVisible={() => setSummaryVisible(v => !v)}
         debugMode={debugMode}
         summaryDebug={summaryDebug}
+        lastPromptEstimate={lastPromptEstimate}
+        lastRequest={debugMode ? lastRequest : null}
+        onInspectRequest={() => setPayloadModal(lastRequest)}
         onInspectPayload={() => {
           const payloadBlock = summaryDebug.debugPayloads?.length > 1
             ? { rounds: summaryDebug.debugPayloads }
@@ -833,7 +825,6 @@ function AppInner({ settings }) {
           onReset={handleReset}
         />
         </div>{/* end controls row */}
-        <PromptEstimateBadge estimate={lastPromptEstimate} request={lastRequest} onInspectRequest={() => setPayloadModal(lastRequest)} />
         </div>{/* end column wrapper */}
       </div>
       <AppModals
@@ -863,6 +854,8 @@ function AppInner({ settings }) {
         updateCheck={updateCheck}
         timeoutSec={timeoutSec}
         onTimeoutSecChange={setTimeoutSec}
+        debugMode={debugMode}
+        onDebugModeChange={next => { localStorage.setItem('debugMode', next); setDebugMode(next) }}
         running={running}
       />
       </div>

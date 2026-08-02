@@ -141,6 +141,8 @@ No specialized debate procedure is active. Respond naturally to the topic while 
     '- Distinguish clearly between observed facts and your inferences. If a point is not directly supported by the topic, cited material, or the discussion itself, present it only as a tentative hypothesis or avoid it.',
     '- Do not attribute internal motives, traffic strategy, business incentives, hidden intent, or undocumented decision-making to the subject unless such claims are explicitly supported by available evidence.',
     '- If you need up-to-date external information, you may use the available web search capability. Do not claim that you cannot browse, search the web, or verify information unless a tool call has actually failed or no relevant result is available.',
+    '- If the available context does not contain exchanges you need, use get_recent_messages with a small limit; you may filter it by participantTags and searchTerm when reviewing specific participants or claims.',
+    '- If you need a direct procedural intervention from the moderator, use request_moderator_intervention instead of merely asking in prose; it schedules one extra moderator turn outside the standard round.',
     '- If you think moderator intervention is needed, ask for it naturally in plain language. Do not use coded markers or special trigger syntax.',
     '- Treat the active topic as the primary obligation. Source material, cited links, and examples are supporting context only.',
     '- If the active topic asks for an opinion on a project, site, person, or initiative as a whole, do not pivot into discussing individual articles, games, side examples, or analogies unless you explicitly connect them back to that overall evaluation.',

@@ -19,6 +19,8 @@ export default function PromptSettingsModal({
   updateCheck,
   timeoutSec,
   onTimeoutSecChange,
+  debugMode,
+  onDebugModeChange,
   running,
 }) {
   const UI_STRINGS = useUiStrings()
@@ -161,8 +163,18 @@ export default function PromptSettingsModal({
                     <span style={{ fontSize: 11, color: '#666' }}>{appUi.seconds}</span>
                   </div>
                 </div>
-                <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid #2e2e2e', width: '100%' }}>
+                <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid #2e2e2e', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <button onClick={onClearSettings} style={{ background: 'transparent', border: '1px solid #5a2e2e', color: '#f87171', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{topMenuUi.clearSavedSettings}</button>
+                  <div
+                    onClick={() => onDebugModeChange(!debugMode)}
+                    title={debugMode ? appUi.debugOn : appUi.debugOff}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: debugMode ? '#f59e0b' : '#444', transition: 'background 0.2s' }}>
+                      <div style={{ position: 'absolute', top: 2, left: debugMode ? 18 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                    </div>
+                    <span style={{ fontSize: 12, color: debugMode ? '#f59e0b' : '#aaa' }}>{appUi.debugLabel}</span>
+                  </div>
                 </div>
               </div>
             )}

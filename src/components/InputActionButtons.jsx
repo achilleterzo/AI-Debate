@@ -105,7 +105,7 @@ export default function InputActionButtons({
       </button>
 
       {!running && messages.length === 0 && (
-        <button style={{ ...styles.connectBtn(!canStart), minHeight: 44, alignSelf: 'stretch' }} onClick={onStart} disabled={!canStart}>
+        <button style={{ ...styles.connectBtn(!canStart), minHeight: 44, alignSelf: 'stretch', cursor: canStart ? 'pointer' : 'default' }} onClick={onStart} disabled={!canStart}>
           {ui.start}
         </button>
       )}

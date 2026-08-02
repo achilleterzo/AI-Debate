@@ -2,6 +2,7 @@ import { marked } from 'marked'
 import { styles } from './Style'
 import { buildOrderedItems } from '../utils/Sorting'
 import { useUiStrings } from '../i18n/UiStringsContext'
+import { TOOL_ICONS } from '../tools'
 
 function normalizeMathShorthands(text) {
   let out = String(text || '')
@@ -21,6 +22,17 @@ function looksLikeModerationIntervention(text) {
   if (/\b(intervento|intervention)\s*:/.test(t)) return true
   if (/\b1\)|2\)|3\)/.test(t) && /\b(deve|must|should|focus|focalizza)\b/.test(t)) return true
   return false
+}
+
+function describeToolInvocation(invocation) {
+  const args = invocation?.arguments || {}
+  if (invocation?.name === 'web_search') return args.query || ''
+  if (invocation?.name === 'get_recent_messages') {
+    return [args.searchTerm, Array.isArray(args.participantTags) && args.participantTags.length ? `@${args.participantTags.join(', @')}` : null]
+      .filter(Boolean).join(' · ')
+  }
+  if (invocation?.name === 'request_moderator_intervention') return args.reason || args.focus || ''
+  return Object.values(args).filter(value => typeof value === 'string').join(' · ')
 }
 
 export default function ChatTimeline({
@@ -271,6 +283,16 @@ export default function ChatTimeline({
               )}
             </div>
           )}
+          {msg.toolInvocations?.map((invocation, toolIndex) => (
+            <div
+              key={`${invocation.name}-${toolIndex}`}
+              style={{ alignSelf: 'stretch', marginTop: 4, padding: '4px 8px', border: '1px solid #30303a', borderRadius: 7, color: '#888', fontSize: 10, lineHeight: 1.35, background: '#15151c' }}
+            >
+              <span style={{ marginRight: 5 }}>{TOOL_ICONS[invocation.name] || '🛠️'}</span>
+              <span style={{ color: '#aaa' }}>{invocation.name}</span>
+              {describeToolInvocation(invocation) && <span style={{ color: '#666' }}> · {describeToolInvocation(invocation)}</span>}
+            </div>
+          ))}
         </div>
       </div>
     )

@@ -25,6 +25,24 @@ export default function RoundsInput({ maxTurns, onMaxTurnsChange, running }) {
       }}
     >
       <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap', userSelect: 'none' }}>{ui.round}</span>
+      <button
+        type="button"
+        onClick={() => onMaxTurnsChange(Math.max(0, maxTurns - 1))}
+        disabled={running || maxTurns <= 0}
+        title={`${ui.round} − 1`}
+        aria-label={`${ui.round} − 1`}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 20, height: 26, padding: 0,
+          background: 'transparent', border: 'none', borderRadius: 4,
+          color: running || maxTurns <= 0 ? '#3a3a3a' : '#888',
+          cursor: running || maxTurns <= 0 ? 'default' : 'pointer',
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M7.5 2.5 4 6l3.5 3.5" />
+        </svg>
+      </button>
       <input
         type="number"
         min={0}
@@ -43,6 +61,24 @@ export default function RoundsInput({ maxTurns, onMaxTurnsChange, running }) {
           fontFamily: 'inherit',
         }}
       />
+      <button
+        type="button"
+        onClick={() => onMaxTurnsChange(maxTurns + 1)}
+        disabled={running}
+        title={`${ui.round} + 1`}
+        aria-label={`${ui.round} + 1`}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 20, height: 26, padding: 0,
+          background: 'transparent', border: 'none', borderRadius: 4,
+          color: running ? '#3a3a3a' : '#888',
+          cursor: running ? 'default' : 'pointer',
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m4.5 2.5 3.5 3.5-3.5 3.5" />
+        </svg>
+      </button>
     </div>
   )
 }

@@ -26,6 +26,7 @@ export function isParticipantMode(mode) {
 
 export const DEFAULT_SUGGESTION_COUNT = 4
 
+export const MAX_CONSTRAINT_CHARS = 1000
 const MAX_SUGGESTION_CHARS = 220
 
 export function buildSuggestionSystemPrompt({ language, uiLang }) {
@@ -39,6 +40,9 @@ export function buildSuggestionSystemPrompt({ language, uiLang }) {
 
 export function buildSuggestionPrompt({
   mode,
+  debateMode = 'free',
+  debateModeLabel = debateMode,
+  debateModeInstruction = '',
   topic = '',
   conversation = '',
   summary = '',
@@ -70,6 +74,7 @@ export function buildSuggestionPrompt({
       ].join(' ')
 
   return [
+    `Shared debate mode: ${debateModeLabel} (${debateMode}).${debateModeInstruction ? ` ${debateModeInstruction}` : ''}`,
     context || 'The debate has just started and has no exchanges yet.',
     task,
     `Each suggestion must be a single sentence, under ${MAX_SUGGESTION_CHARS} characters, self-contained and immediately usable.`,
@@ -93,6 +98,11 @@ export function buildParticipantSystemPrompt({ language, uiLang }) {
 export function buildParticipantPrompt({
   characterTypeLabel,
   characterType = null,
+  debateMode = 'free',
+  debateModeLabel = debateMode,
+  debateModeInstruction = '',
+  isModerator = false,
+  moderatorMode = 'containment',
   topic = '',
   others = [],
   count = 3,
@@ -118,17 +128,27 @@ export function buildParticipantPrompt({
     ? `"mood": the debating attitude that best fits this persona, one of [${moodOptions.join(', ')}].`
     : '"mood": null.'
 
+  const moderatorTask = isModerator
+    ? `This participant is marked as the debate moderator, using the ${moderatorMode} moderation style. Generate traits useful for moderating: impartial facilitation, turn and topic management, clarification of claims, constructive intervention, and enforcement of debate rules. Do not characterize this participant primarily as an advocate for a substantive position.`
+    : ''
+  const candidateTask = isModerator
+    ? 'Prioritize candidates with strong facilitation judgment, calm communication, and the ability to manage disagreement. Never duplicate an existing participant.'
+    : 'Pick candidates that add friction and coverage the table is missing: a different discipline, generation, or stance. Never duplicate an existing participant.'
+
   return [
+    `Shared debate mode: ${debateModeLabel} (${debateMode}).${debateModeInstruction ? ` ${debateModeInstruction}` : ''}`,
+    moderatorTask,
     topic.trim() ? `Debate topic:\n${topic.trim()}` : 'No debate topic has been set yet.',
     roster ? `Participants already at the table:\n${roster}` : 'No other participants yet.',
     `Propose ${count} distinct candidates for a new participant. ${identityTask}`,
-    'Pick candidates that add friction and coverage the table is missing: a different discipline, generation, or stance. Never duplicate an existing participant.',
+    candidateTask,
     [
       'Each object must have exactly these keys:',
       '"name": the participant name, no title or honorific.',
-      '"traits": 2 or 3 short instruction sentences describing stance, expertise and rhetorical habits. Write them addressed to the participant ("You argue from…").',
+      `"traits": 2 or 3 instruction sentences describing stance, expertise and rhetorical habits. Each trait must be at most ${MAX_CONSTRAINT_CHARS} characters; if the characterization needs more space, use additional trait entries instead of truncating it. Write them addressed to the participant ("You argue from…").`,
       '"ageGroup": one of 0 (child), 1 (teenager), 2 (adult), 3 (mature), 4 (elder).',
       '"educationLevel": one of "street", "primary", "proficient", "academic", "expert", or null when unremarkable.',
+      `"responseLength": one of "short", "medium", "detailed", or null (Free). Prefer "${isModerator ? 'null (Free) for this moderator' : 'short'}"; choose a longer value only when the persona genuinely needs more room to explain nuanced reasoning.`,
       moodHint,
       '"moodIntensity": how strongly that attitude shows, one of 0 (low), 1 (light), 2 (balanced), 3 (strong), 4 (extreme).',
       languageHint,
@@ -139,6 +159,7 @@ export function buildParticipantPrompt({
 
 const AGE_ALIASES = { child: 0, teenager: 1, teen: 1, adult: 2, mature: 3, elder: 4, elderly: 4, senior: 4 }
 const EDUCATION_VALUES = ['street', 'primary', 'proficient', 'academic', 'expert']
+const RESPONSE_LENGTH_VALUES = ['short', 'medium', 'detailed']
 
 function normalizeAgeGroup(value) {
   if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4) return value
@@ -184,7 +205,7 @@ function normalizeLang(value, allowed) {
  * selectors can actually represent. Anything unrecognised becomes null so the
  * current setting is left untouched rather than overwritten with junk.
  */
-export function parseParticipantDrafts(raw, { max = 3, languageOptions = [], moodOptions = [] } = {}) {
+export function parseParticipantDrafts(raw, { max = 3, languageOptions = [], moodOptions = [], defaultResponseLength = 'short' } = {}) {
   const text = stripFences(raw)
   const start = text.indexOf('[')
   const end = text.lastIndexOf(']')
@@ -209,15 +230,16 @@ export function parseParticipantDrafts(raw, { max = 3, languageOptions = [], moo
     seen.add(key)
 
     const traits = (Array.isArray(entry.traits) ? entry.traits : [entry.traits])
-      .map(trait => cleanEntry(trait).slice(0, MAX_SUGGESTION_CHARS))
+      .flatMap(trait => splitConstraintText(cleanEntry(trait), MAX_CONSTRAINT_CHARS))
       .filter(trait => trait.length >= 8)
-      .slice(0, 3)
+      .slice(0, 6)
 
     drafts.push({
       name,
       traits,
       ageGroup: normalizeAgeGroup(entry.ageGroup),
       educationLevel: normalizeEducation(entry.educationLevel),
+      responseLength: normalizeResponseLength(entry.responseLength, defaultResponseLength),
       mood: normalizeMood(entry.mood, moodOptions),
       moodIntensity: normalizeIntensity(entry.moodIntensity),
       reasoningLang: normalizeLang(entry.reasoningLang, languageOptions),
@@ -225,6 +247,30 @@ export function parseParticipantDrafts(raw, { max = 3, languageOptions = [], moo
     if (drafts.length >= max) break
   }
   return drafts
+}
+
+function normalizeResponseLength(value, fallback = 'short') {
+  if (value == null) return fallback
+  const text = String(value).trim().toLowerCase()
+  if (text === 'free' || text === 'null') return fallback
+  return RESPONSE_LENGTH_VALUES.includes(text) ? text : fallback
+}
+
+/** Keeps generated constraints usable even when a model ignores the limit. */
+export function splitConstraintText(value, maxLength = MAX_CONSTRAINT_CHARS) {
+  const text = String(value ?? '').trim()
+  if (!text || text.length <= maxLength) return text ? [text] : []
+
+  const chunks = []
+  let remaining = text
+  while (remaining.length > maxLength) {
+    let cut = remaining.lastIndexOf(' ', maxLength)
+    if (cut < Math.floor(maxLength * 0.6)) cut = maxLength
+    chunks.push(remaining.slice(0, cut).trim())
+    remaining = remaining.slice(cut).trim()
+  }
+  if (remaining) chunks.push(remaining)
+  return chunks
 }
 
 function stripFences(raw) {

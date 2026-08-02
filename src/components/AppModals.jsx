@@ -32,6 +32,8 @@ export default function AppModals({
   updateCheck,
   timeoutSec,
   onTimeoutSecChange,
+  debugMode,
+  onDebugModeChange,
   running,
 }) {
   return (
@@ -69,6 +71,8 @@ export default function AppModals({
           updateCheck={updateCheck}
           timeoutSec={timeoutSec}
           onTimeoutSecChange={onTimeoutSecChange}
+          debugMode={debugMode}
+          onDebugModeChange={onDebugModeChange}
           running={running}
         />
       )}
