@@ -73,6 +73,7 @@ export async function streamChat({
   tools = LLM_TOOLS,
   onPayload = null,
   onResponse = null,
+  onComplete = null,
   onEstimate = null,
   noResultsMessage = query => `No results for: ${query}`,
   sourceUrls = [],
@@ -177,9 +178,10 @@ export async function streamChat({
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     const parser = provider.createStreamParser()
-    let full = ''
-    let tokenCount = 0
-    let toolCalls = []
+  let full = ''
+  let tokenCount = 0
+  let toolCalls = []
+  let doneReason = null
 
     const handleEvent = event => {
       switch (event.type) {
@@ -205,6 +207,7 @@ export async function streamChat({
           break
         }
         case 'done':
+          doneReason = event.doneReason ?? doneReason
           if (event.content && !full) {
             full = event.content
             const visible = separateToolRounds
@@ -239,6 +242,8 @@ export async function streamChat({
 
     clearTimeout(timer)
 
+    const rawStreamContent = full
+    const rawVisibleContent = cleanVisibleText(rawStreamContent)
     full = separateToolRounds
       ? cleanToolContinuationText(full, previousToolSegment)
       : cleanVisibleText(full)
@@ -281,8 +286,16 @@ export async function streamChat({
         contentLength: full.length,
         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
       },
+      ...(doneReason ? { done_reason: doneReason } : {}),
     }
     onResponse?.({ request: debugRequest, response: debugResponse })
+    onComplete?.({
+      rawContent: rawStreamContent,
+      visibleContent: stripInlineToolSyntax(rawVisibleContent, tools),
+      content: full,
+      doneReason,
+      toolCalls,
+    })
     console.log('← response', { model, ...debugResponse })
 
     if (toolCalls.length > 0 && toolRound < MAX_TOOL_ROUNDS) {

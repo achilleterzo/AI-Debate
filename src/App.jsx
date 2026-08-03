@@ -451,11 +451,13 @@ function AppInner({ settings }) {
     setSummaryDebug(null)
     summaryRef.current = ''
     setConclusions([])
+    setMemory([])
+    memoryRef.current = []
     seqRef.current = 0
     if (resetAffinities) {
       setParticipants(prev => prev.map(resetUnlockedAffinities))
     }
-  }, [setConclusions, setMessages, setParticipants, setSummary, setSummaryDebug, setTopicValue, seqRef, summaryRef])
+  }, [setConclusions, setMemory, setMessages, setParticipants, setSummary, setSummaryDebug, setTopicValue, memoryRef, seqRef, summaryRef])
 
   const handleReset = () => {
     if (running) return

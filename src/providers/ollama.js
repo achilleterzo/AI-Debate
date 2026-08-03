@@ -37,7 +37,7 @@ function parseLine(line, events) {
     events.push({ type: 'delta', text: json.message.content })
   }
   if (json.done) {
-    events.push({ type: 'done', content: json.message?.content ?? '' })
+    events.push({ type: 'done', content: json.message?.content ?? '', doneReason: json.done_reason ?? null })
   }
 }
 

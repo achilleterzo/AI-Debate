@@ -19,6 +19,66 @@ function normalizeForDuplicateCheck(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
 }
 
+function continuationOverlap(previous, current) {
+  const left = normalizeForDuplicateCheck(previous)
+  const right = normalizeForDuplicateCheck(current)
+  if (!left || !right) return 0
+  const max = Math.min(left.length, right.length)
+  for (let length = max; length >= 20; length -= 1) {
+    if (left.slice(-length) === right.slice(0, length)) return length
+  }
+  return 0
+}
+
+function reconcileToolContinuation(history, previousSeq, currentSeq, currentContent) {
+  const previousIndex = history.findIndex(message => message.seq === previousSeq)
+  const currentIndex = history.findIndex(message => message.seq === currentSeq)
+  if (previousIndex < 0 || currentIndex < 0) return { history, activeSeq: currentSeq, content: currentContent }
+
+  const previousContent = history[previousIndex].content || ''
+  const previous = normalizeForDuplicateCheck(previousContent)
+  const current = normalizeForDuplicateCheck(currentContent)
+  if (!previous || !current) return { history, activeSeq: currentSeq, content: currentContent }
+
+  // A repeated or shorter continuation contains no new information.
+  if (current === previous || previous.includes(current)) {
+    return {
+      history: history.filter(message => message.seq !== currentSeq),
+      activeSeq: previousSeq,
+      content: previousContent,
+    }
+  }
+
+  // If the model repeats the previous segment and then continues, keep the
+  // complete union in the first message instead of showing a fragile suffix.
+  if (current.startsWith(previous)) {
+    const merged = currentContent.trim()
+    return {
+      history: history
+        .map(message => message.seq === previousSeq ? { ...message, content: merged } : message)
+        .filter(message => message.seq !== currentSeq),
+      activeSeq: previousSeq,
+      content: merged,
+    }
+  }
+
+  // Also remove only a substantial suffix/prefix overlap; short common words
+  // are deliberately not treated as duplication.
+  const overlap = continuationOverlap(previousContent, currentContent)
+  if (overlap > 0) {
+    const merged = `${previousContent.trim()} ${currentContent.trim().slice(overlap).trimStart()}`.trim()
+    return {
+      history: history
+        .map(message => message.seq === previousSeq ? { ...message, content: merged } : message)
+        .filter(message => message.seq !== currentSeq),
+      activeSeq: previousSeq,
+      content: merged,
+    }
+  }
+
+  return { history, activeSeq: currentSeq, content: currentContent }
+}
+
 export class Debate {
   static CONCLUSION_CONVERSATION_LIMIT = 8000
 
@@ -1387,6 +1447,8 @@ export class Debate {
         try {
           let previousToolMessageSeq = null
           let hasToolContinuation = false
+          let rawResponseContent = ''
+          let completionReason = null
           const debugPayloads = []
           const conversationToolExecutor = createConversationToolExecutor({
             getMessages: () => history,
@@ -1467,7 +1529,7 @@ export class Debate {
               if (!content?.trim()) return
               previousToolMessageSeq = activeMessageSeq
               history = history.map(message => message.seq === activeMessageSeq
-                ? { ...message, content: content.trim() }
+                ? { ...message, content: content.trim(), rawContent: rawResponseContent || content.trim(), completionReason }
                 : message)
               activeMessageSeq = nextSeq()
               history = [...history, {
@@ -1482,6 +1544,10 @@ export class Debate {
             },
             sourceUrls,
             onEstimate: handlePromptEstimate,
+            onComplete: ({ visibleContent, doneReason }) => {
+              rawResponseContent = visibleContent || ''
+              completionReason = doneReason || null
+            },
             ...transportCallbacks(debugMode ? debugPayloads : null),
             onToken: text => {
               history = history.map(message => message.seq === activeMessageSeq ? { ...message, content: text } : message)
@@ -1490,23 +1556,15 @@ export class Debate {
             timeoutMs,
           })
           let finalContent = full && full.trim()
-            ? full
+            ? (rawResponseContent.trim() || full)
             : (history.find(message => message.seq === activeMessageSeq)?.content ?? '')
           if (hasToolContinuation && previousToolMessageSeq != null && finalContent.trim()) {
-            const previousToolContent = history.find(message => message.seq === previousToolMessageSeq)?.content ?? ''
-            const normalizedCurrent = normalizeForDuplicateCheck(finalContent)
-            const normalizedPrevious = normalizeForDuplicateCheck(previousToolContent)
-            if (normalizedPrevious && normalizedCurrent === normalizedPrevious) {
-              history = history.filter(message => message.seq !== activeMessageSeq)
-              activeMessageSeq = previousToolMessageSeq
-              setStreamingSeq(activeMessageSeq)
-              syncHistory()
-              finalContent = previousToolContent
-            } else if (normalizedPrevious && normalizedCurrent.startsWith(normalizedPrevious)) {
-              finalContent = finalContent.slice(previousToolContent.length).trimStart()
-              history = history.map(message => message.seq === activeMessageSeq ? { ...message, content: finalContent } : message)
-              syncHistory()
-            }
+            const reconciled = reconcileToolContinuation(history, previousToolMessageSeq, activeMessageSeq, finalContent)
+            history = reconciled.history
+            activeMessageSeq = reconciled.activeSeq
+            setStreamingSeq(activeMessageSeq)
+            finalContent = reconciled.content
+            syncHistory()
           }
           if (!finalContent.trim() && hasToolContinuation && previousToolMessageSeq != null) {
             history = history.filter(message => message.seq !== activeMessageSeq)
@@ -1588,6 +1646,8 @@ export class Debate {
             history = history.map(message => message.seq === activeMessageSeq ? {
               ...message,
               content: moderatedContent,
+              ...(rawResponseContent ? { rawContent: rawResponseContent } : {}),
+              ...(completionReason ? { completionReason } : {}),
               ...(isProceduralModerationTurn ? { messageType: 'moderation' } : {}),
               ...(debugMode && debugPayloads.length > 0 ? { payload: debugPayloads.at(-1), debugPayloads } : {}),
             } : message)
