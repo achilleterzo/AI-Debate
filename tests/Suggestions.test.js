@@ -29,13 +29,16 @@ describe('buildSuggestionPrompt', () => {
     count: 4,
   }
 
-  it('asks for user-sendable prompts in steer mode', () => {
+  it('asks for topic refinements when a prompt is already present', () => {
     const prompt = buildSuggestionPrompt({ mode: SUGGESTION_MODE.STEER, ...context })
     expect(prompt).toContain('Nuclear power')
-    expect(prompt).toContain('Participants: Alice, B')
+    expect(prompt).toContain('Participants at the table (context only; suggestions must address the debate as a whole): Alice, B')
     expect(prompt).toContain('waste is the issue')
-    expect(prompt).toContain('prompts the user could send next')
-    expect(prompt).toContain('Do not answer the debate yourself')
+    expect(prompt).toContain('refinements or alternative phrasings of the current topic prompt')
+    expect(prompt).toContain('Do not answer the topic')
+    expect(prompt).toContain('general topic instructions for every participant')
+    expect(prompt).toContain('debate as a whole')
+    expect(prompt).toContain('add or redefine a participant')
   })
 
   it('includes the shared debate mode in generated prompt proposals', () => {
@@ -48,6 +51,30 @@ describe('buildSuggestionPrompt', () => {
     })
     expect(prompt).toContain('Shared debate mode: Fact Check (fact_check).')
     expect(prompt).toContain('Verify important claims before accepting them.')
+  })
+
+  it('keeps Role Play steering inside the shared fiction', () => {
+    const prompt = buildSuggestionPrompt({
+      mode: SUGGESTION_MODE.STEER,
+      debateMode: 'role_play',
+      debateModeLabel: 'Role Play',
+      debateModeInstruction: 'Advance the shared fiction.',
+      ...context,
+    })
+    expect(prompt).toContain('shared scene premises')
+    expect(prompt).toContain('all participants act inside the fiction')
+    expect(prompt).toContain('never suggest meta-analysis')
+  })
+
+  it('uses attached documents as source material for shared topic suggestions', () => {
+    const prompt = buildSuggestionPrompt({
+      mode: SUGGESTION_MODE.STEER,
+      topic: '',
+      attachedDocs: [{ name: 'brief.md', content: 'The proposal has a high operating cost.' }],
+    })
+    expect(prompt).toContain('Attached documents (use these as source material for the shared topic)')
+    expect(prompt).toContain('The proposal has a high operating cost.')
+    expect(prompt).toContain('refinements or alternative phrasings')
   })
 
   it('asks for analyst guidance in conclusion mode', () => {

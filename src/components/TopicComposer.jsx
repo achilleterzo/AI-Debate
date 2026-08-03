@@ -13,6 +13,7 @@ export default function TopicComposer({
   topicHistory,
   running,
   messages,
+  attachedDocs = [],
   canStart,
   allModelsSet,
   ollamaOk,
@@ -32,7 +33,7 @@ export default function TopicComposer({
     <div ref={topicWrapRef} style={{ position: 'relative', flex: 1, display: 'flex' }}>
       <textarea
         ref={textareaRef}
-        style={{ ...styles.textarea, flex: 1, ...(wand && messages.length > 0 ? { paddingRight: 42 } : {}) }}
+        style={{ ...styles.textarea, flex: 1, ...(wand && (topic.trim() || messages.length > 0 || attachedDocs.length > 0) ? { paddingRight: 42 } : {}) }}
         defaultValue={topic}
         onChange={event => {
           topicRef.current = event.target.value
@@ -62,9 +63,9 @@ export default function TopicComposer({
         placeholder={running ? ui.topicQueued : messages.length > 0 ? ui.topicContinue : ui.topicInitial}
         rows={1}
       />
-      {/* The wand needs a debate to reason about, so it appears once the
-          conversation has started — i.e. in continue / steer mode. */}
-      {wand && messages.length > 0 && (
+      {/* The wand can use either the existing debate or attached documents as
+          source material for a shared topic / continuation suggestion. */}
+      {wand && (topic.trim() || messages.length > 0 || attachedDocs.length > 0) && (
         <div style={{ position: 'absolute', right: 8, top: 6 }}>
           <MagicWand
             wand={wand}

@@ -14,8 +14,22 @@ export const DEBATE_MODES = [
   { id: 'socratic', label: UI_OPTION_LABELS.modes.socratic, labelEn: 'Socratic', emoji: '🏛️', instruction: 'On every turn, lead with precise questions that test definitions, assumptions, evidence, implications, and contradictions. Do not rush to assert a conclusion when a question would reveal more.' },
   { id: 'peer_review', label: UI_OPTION_LABELS.modes.peerReview, labelEn: 'Peer Review', emoji: '📚', instruction: 'On every turn, give rigorous but constructive peer review: assess reasoning, evidence, clarity, completeness, and reproducibility, then identify specific revisions rather than offering vague approval or rejection.' },
   { id: 'consensus', label: UI_OPTION_LABELS.modes.consensus, labelEn: 'Consensus', emoji: '🌐', instruction: 'On every turn, explicitly separate agreements from unresolved disagreements, reconcile compatible views, and propose the smallest precise common position the group could accept. Never manufacture agreement.' },
-  { id: 'role_play', label: UI_OPTION_LABELS.modes.rolePlay, labelEn: 'Role Play', emoji: '🎭', instruction: 'Treat the debate as a shared role-playing scene. Stay in character, make concrete choices, describe consequences through the fiction, and defer world adjudication and narration to the moderator acting as Master / Narrator.' },
+  { id: 'role_play', label: UI_OPTION_LABELS.modes.rolePlay, labelEn: 'Role Play', emoji: '🎭', instruction: 'Treat the debate as a shared role-playing scene. Every turn must advance the fiction through an in-character action, dialogue, decision, or concrete reaction. Never replace participation with critique or meta-debate; defer world adjudication and narration to the moderator acting as Master / Narrator.' },
 ]
+
+export const DEBATE_MODE_CONCLUSION_INSTRUCTIONS = {
+  free: 'Summarize the discussion neutrally and preserve important nuance without forcing a decision.',
+  brainstorm: 'Preserve the breadth of ideas, group related possibilities, and defer ranking or rejection unless the discussion explicitly established criteria.',
+  fact_check: 'Classify material claims as verified, unsupported, disputed, or uncertain. Identify evidence gaps and do not turn unresolved facts into a confident verdict.',
+  design_review: 'Organize the result around goals, constraints, strengths, risks, trade-offs, and concrete improvements or tests.',
+  decision: 'Compare the options against explicit criteria and give a recommendation when justified. If not, name the precise uncertainty or missing evidence blocking the decision.',
+  negotiation: 'Separate positions, underlying interests, concessions, agreements, and unresolved terms. Prefer a workable trade-off over declaring a winner.',
+  red_team: 'Focus on the strongest proposal’s assumptions, vulnerabilities, counterexamples, and failure modes. Distinguish fatal flaws from fixable weaknesses and include mitigations where available.',
+  socratic: 'Prioritize the key unanswered questions, definitions, assumptions, and evidence gaps. Keep any conclusion provisional when a question remains decisive.',
+  peer_review: 'Separate strengths, major issues, minor issues, evidence quality, reproducibility, and specific revisions. Do not reduce the review to vague approval or rejection.',
+  consensus: 'Clearly separate genuine agreements, unresolved disagreements, and the smallest precise common position. Never manufacture consensus.',
+  role_play: 'Stay inside the fiction: recap consequential events, current character/world state, established facts, open situations, and possible narrative hooks. Do not judge the moderator, analyze the debate from outside the fiction, or invent outcomes not established in the scene.',
+}
 
 export const DEFAULT_DEBATE_MODE = 'free'
 export const DEBATE_MODE_OPTIONS = DEBATE_MODES.map(mode => ({ value: mode.id, label: mode.label, emoji: mode.emoji }))

@@ -212,7 +212,7 @@ export default {
     wandTitle: '提案',
     wandNoModel: '利用可能なモデルがありません',
     wandOffline: 'エンドポイント未接続',
-    wandSteerTitle: '続け方の候補',
+    wandSteerTitle: '提案',
     wandParticipantTitle: '参加者の候補',
     wandConclusionTitle: '推奨する指示',
     wandLoading: '討論を読んでいます…',

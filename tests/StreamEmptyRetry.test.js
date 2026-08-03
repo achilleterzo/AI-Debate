@@ -212,6 +212,91 @@ describe('streamChat content assembly through the provider seam', () => {
 
     expect(result).toBe('visible')
   })
+
+  it('preserves text emitted before a tool call when continuing the stream', async () => {
+    let call = 0
+    const fetchMock = vi.fn(async () => {
+      call += 1
+      const lines = call === 1
+        ? [
+            JSON.stringify({ message: { content: 'The scene begins.' } }) + '\n',
+            JSON.stringify({ message: { tool_calls: [{ function: { name: 'roll_dice', arguments: { count: 1, sides: 6 } } }] } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+        : [
+            JSON.stringify({ message: { content: 'The result changes everything.' } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+            controller.close()
+          },
+        }),
+      }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const tokens = []
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'continue' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'roll_dice' } }],
+      executeTool: async () => 'rolled: 4',
+      onToken: token => tokens.push(token),
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result).toBe('The scene begins.\n\nThe result changes everything.')
+    expect(tokens).not.toContain('')
+    expect(tokens.at(-1)).toBe(result)
+  })
+
+  it('can expose tool continuations as separate response segments', async () => {
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const lines = call === 1
+        ? [
+            JSON.stringify({ message: { content: 'First moderator segment.' } }) + '\n',
+            JSON.stringify({ message: { tool_calls: [{ function: { name: 'request_moderator_intervention', arguments: {} } }] } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+        : [
+            JSON.stringify({ message: { content: 'Second segment.' } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+            controller.close()
+          },
+        }),
+      }
+    }))
+
+    const segments = []
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'continue' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'request_moderator_intervention' } }],
+      executeTool: async () => 'accepted',
+      onToolRound: segment => segments.push(segment),
+      onToken: () => {},
+    })
+
+    expect(segments).toHaveLength(1)
+    expect(segments[0].content).toBe('First moderator segment.')
+    expect(result).toBe('Second segment.')
+  })
 })
 
 describe('streamChat empty response handling', () => {

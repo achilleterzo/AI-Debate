@@ -37,6 +37,7 @@ export function useMagicWand({
   summaryModelOverride,
   messages,
   topic,
+  attachedDocs = [],
   summaryRef,
   uiLang,
   debateMode = 'free',
@@ -75,7 +76,9 @@ export function useMagicWand({
     setState({ mode, status: WAND_STATUS.LOADING, suggestions: [], error: null })
 
     const language = UI_LANGUAGE_OPTIONS.find(entry => entry.code === uiLang)?.label ?? uiLang
-    const topicText = messages.find(message => message.role === 'topic')?.content || topic || ''
+    // The text currently being drafted is the user's active instruction. On
+    // resume, prefer it over the original topic stored in the conversation.
+    const topicText = topic.trim() || messages.find(message => message.role === 'topic')?.content || ''
     const forParticipant = isParticipantMode(mode)
     const participantIndex = forParticipant ? Number(String(mode).split(':')[1]) : -1
     const languageCodes = UI_LANGUAGE_OPTIONS.map(entry => entry.code)
@@ -119,6 +122,7 @@ export function useMagicWand({
         mode,
         ...debateModeContext,
         topic: topicText,
+        attachedDocs,
         conversation: Debate.buildConclusionConversation(messages, participants, {
           limit: WAND_CONVERSATION_LIMIT,
           messageLimit: WAND_MESSAGE_LIMIT,
@@ -160,7 +164,7 @@ export function useMagicWand({
       ? { mode, status: WAND_STATUS.READY, suggestions, error: null }
       : { mode, status: WAND_STATUS.ERROR, suggestions: [], error: null })
   }, [
-    baseUrl, messages, model, online, participants, setLastPromptEstimate, setLastRequest,
+    attachedDocs, baseUrl, messages, model, online, participants, setLastPromptEstimate, setLastRequest,
     summaryRef, timeoutSec, topic, uiLang, debateMode,
   ])
 

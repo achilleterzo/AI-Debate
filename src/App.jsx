@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Data } from './data/Data'
 import { Session } from './data/Session'
 import { Storage } from './data/Storage'
@@ -102,6 +102,7 @@ function AppInner({ settings }) {
   const [summaryDebug, setSummaryDebug] = useState(null) // { payload, debugPayloads } from the latest summary
   const [summaryVisible, setSummaryVisible] = useState(false)
   const [summaryInProgress, setSummaryInProgress] = useState(false)
+  const conclusionsRef = useRef([])
   const [lastPromptEstimate, setLastPromptEstimate] = useState(null) // { model, messageCount, totalChars, estimatedTokens }
   const [lastRequest, setLastRequest] = useState(null)
   const [userInputPending, setUserInputPending] = useState(null) // { resolve, tag }
@@ -146,6 +147,7 @@ function AppInner({ settings }) {
     globalConstraints,
     generalPersonalityInstructions,
     debateMode,
+    conclusionsRef,
     setLastPromptEstimate,
     setLastRequest,
     setStopping,
@@ -206,6 +208,7 @@ function AppInner({ settings }) {
     baseUrl,
     uiLang,
     timeoutSec,
+    debateMode,
     nextSeq,
     setLastPromptEstimate,
     setLastRequest,
@@ -217,6 +220,7 @@ function AppInner({ settings }) {
     summaryModelOverride,
     messages,
     topic,
+    attachedDocs,
     summaryRef,
     uiLang,
     debateMode,
@@ -233,6 +237,9 @@ function AppInner({ settings }) {
     standardConclusionPrompt,
     setStandardConclusionPrompt,
   } = conclusionsState
+  useEffect(() => {
+    conclusionsRef.current = conclusions
+  }, [conclusions])
 
   usePersistedAppSettings({ settings, conclusions: conclusionsState })
 
@@ -783,6 +790,7 @@ function AppInner({ settings }) {
           topicHistory={topicHistory}
           running={running}
           messages={messages}
+          attachedDocs={attachedDocs}
           canStart={canStart}
           allModelsSet={allModelsSet}
           ollamaOk={ollamaOk}

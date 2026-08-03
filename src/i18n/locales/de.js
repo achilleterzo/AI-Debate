@@ -221,7 +221,7 @@ export default {
     wandTitle: 'Vorschlagen',
     wandNoModel: 'Kein Modell verfügbar',
     wandOffline: 'Endpoint nicht verbunden',
-    wandSteerTitle: 'Wege zum Weitermachen',
+    wandSteerTitle: 'Vorschläge',
     wandParticipantTitle: 'Ideen für Teilnehmer',
     wandConclusionTitle: 'Vorgeschlagene Hinweise',
     wandLoading: 'Debatte wird gelesen…',

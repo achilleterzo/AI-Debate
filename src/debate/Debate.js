@@ -11,7 +11,7 @@ import { DEFAULT_RESPONSE_LENGTH, RESPONSE_LENGTHS } from '../prompts/ResponseLe
 import { EDUCATION_LEVELS } from '../prompts/EducationLevels'
 import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
-import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
+import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
 import { createConversationToolExecutor, formatDiceRoll, ROLE_PLAY_TOOLS, rollDice } from '../tools'
 
@@ -438,9 +438,15 @@ export class Debate {
     type,
     model,
     customPrompt,
+    debateMode = DEFAULT_DEBATE_MODE,
   }) {
+    const selectedMode = DEBATE_MODES.find(mode => mode.id === normalizeDebateMode(debateMode)) ?? DEBATE_MODES[0]
     const docsForConclusion = Debate.buildConclusionAttachments(attachedDocs)
     return {
+      debate_mode: selectedMode.id,
+      debate_mode_label: selectedMode.labelEn,
+      debate_mode_instruction: selectedMode.instruction || '',
+      debate_mode_conclusion_instruction: DEBATE_MODE_CONCLUSION_INSTRUCTIONS[selectedMode.id] || DEBATE_MODE_CONCLUSION_INSTRUCTIONS[DEFAULT_DEBATE_MODE],
       conversation,
       attachments: docsForConclusion.length > 0 ? docsForConclusion : null,
       summary: Debate.getLatestConclusionByType(conclusions, 'summary') || summary || null,
@@ -455,9 +461,13 @@ export class Debate {
   static buildConclusionPrompt({ conclusionType, context, customPrompt = '', standardPrompt = '' }) {
     const ctxJson = JSON.stringify(context, null, 2)
     const baseConclusionPrompt = conclusionType.prompt(ctxJson, customPrompt)
-    return conclusionType.id !== 'custom' && standardPrompt
-      ? `${baseConclusionPrompt}\n\nAdditional guidance (HIGH PRIORITY):\n${standardPrompt}\n\nThis guidance must strongly steer the output to better match the target objective for this conclusion type.`
-      : baseConclusionPrompt
+    const modeGuidance = context.debate_mode_conclusion_instruction
+      ? `Shared debate mode (HIGH PRIORITY): ${context.debate_mode_label || context.debate_mode || DEFAULT_DEBATE_MODE}. ${context.debate_mode_conclusion_instruction}`
+      : ''
+    const additionalGuidance = conclusionType.id !== 'custom' && standardPrompt
+      ? `Additional guidance (HIGH PRIORITY):\n${standardPrompt}\n\nThis guidance must strongly steer the output to better match the target objective for this conclusion type.`
+      : ''
+    return [baseConclusionPrompt, modeGuidance, additionalGuidance].filter(Boolean).join('\n\n')
   }
 
   static shouldRewriteConclusionResult(result, uiLang) {
@@ -872,6 +882,7 @@ export class Debate {
       turnRef,
       interjectRef,
       conclusionConvRef,
+      conclusionsRef,
     } = runtime
 
     stopRef.current = false
@@ -889,6 +900,50 @@ export class Debate {
     const useSummary = useSummaryRef.current
     const docs = attachedDocs
     let docsForPrompt = docs
+
+    // Publish the topic or resume variation before optional attachment
+    // summarization, so the UI does not wait for another LLM call.
+    let history = resumeMessages ?? []
+    let round = resumeRound?.round ?? 0
+    let step = resumeRound?.step ?? 0
+    let skipSummaryOnce = resumeRound?.skipSummary ?? false
+    summaryRef.current = resumeSummary ?? ''
+    if (history.length === 0) {
+      seqRef.current = 0
+      const seeded = Debate.createInitialHistory({ history, injectTopic, round, nextSeq })
+      history = seeded.history
+      setMessages([...seeded.seededMessages])
+      round = 0
+      step = 0
+    } else if (injectTopic) {
+      const seeded = Debate.createInitialHistory({ history, injectTopic, round, nextSeq })
+      history = seeded.history
+      setMessages(history)
+    }
+
+    // Publish the first actor's presence before attachment preparation. This
+    // lets the UI show the topic and the participant while the first model is
+    // still being prepared, without creating a duplicate presence event in
+    // the normal turn loop.
+    const firstActorIndex = resumeMessages ? (resumeRound?.step ?? 0) : 0
+    const firstRawActor = parts[firstActorIndex] || parts[0]
+    const firstActor = firstRawActor?.model
+      ? firstRawActor
+      : firstRawActor ? { ...firstRawActor, model: defaultModel || firstRawActor.model } : null
+    if (firstActor) {
+      const lifecycleMessages = Debate.buildParticipantLifecycleMessages({
+        history,
+        participants: parts,
+        actor: firstActor,
+        turn: (resumeRound?.round ?? 0) + 1,
+        nextSeq,
+      })
+      if (lifecycleMessages.length > 0) {
+        history = [...history, ...lifecycleMessages]
+        setMessages(history)
+      }
+    }
+
     const transportCallbacks = (debugExchanges = null) => ({
       onPayload: request => {
         if (debugExchanges) debugExchanges.push({ request })
@@ -937,11 +992,6 @@ export class Debate {
       Web.clearCaches()
     }
 
-    let history = resumeMessages ?? []
-    let round = resumeRound?.round ?? 0
-    let step = resumeRound?.step ?? 0
-    let skipSummaryOnce = resumeRound?.skipSummary ?? false
-    summaryRef.current = resumeSummary ?? ''
     let lastModerationTargets = []
     let pendingModeratorRequest = null
 
@@ -976,19 +1026,6 @@ export class Debate {
       extraRounds,
     })
     roundLimitRef.current = roundLimit
-
-    if (history.length === 0) {
-      seqRef.current = 0
-      const seeded = Debate.createInitialHistory({ history, injectTopic, round, nextSeq })
-      history = seeded.history
-       setMessages([...seeded.seededMessages])
-      round = 0
-      step = 0
-    } else if (injectTopic) {
-      const seeded = Debate.createInitialHistory({ history, injectTopic, round, nextSeq })
-      history = seeded.history
-       syncHistory()
-    }
 
     outer: while (true) {
       parts = participantsRef.current
@@ -1165,7 +1202,7 @@ export class Debate {
           }
         }
 
-        const activeMessageSeq = actor.model !== Debate.USER_MODEL ? nextSeq() : null
+        let activeMessageSeq = actor.model !== Debate.USER_MODEL ? nextSeq() : null
         if (activeMessageSeq != null) {
           const placeholder = { role: actor.tag, content: '', turn: turnLabel, seq: activeMessageSeq, participantSnapshot: { ...actor } }
           history = [...history, placeholder]
@@ -1255,6 +1292,15 @@ export class Debate {
           for (const message of recentMessages) await pushHistoryMsg(message)
         } else {
           for (const message of realHistory) await pushHistoryMsg(message)
+        }
+
+        // Conclusions are shared analytical turns. Present them as ordinary
+        // user-context messages so every participant can respond to them,
+        // instead of hiding them in a side-channel JSON context.
+        for (const conclusion of conclusionsRef?.current || []) {
+          if (!conclusion?.content?.trim()) continue
+          const title = conclusion.title || conclusion.type || 'Conclusion'
+          await pushMsg('user', `[Shared conclusion — ${title}]\n${conclusion.content.trim()}`)
         }
 
         // The context size always applies: with a summary it bounds the recent
@@ -1382,6 +1428,26 @@ export class Debate {
                 : message)
               syncHistory()
             },
+            onToolRound: ({ content }) => {
+              // A tool call starts a new assistant segment. Persist the text
+              // already received and let the continuation render in its own
+              // balloon, so tool rounds cannot overwrite the first response.
+              if (content?.trim()) {
+                history = history.map(message => message.seq === activeMessageSeq
+                  ? { ...message, content: content.trim() }
+                  : message)
+              }
+              activeMessageSeq = nextSeq()
+              history = [...history, {
+                role: actor.tag,
+                content: '',
+                turn: turnLabel,
+                seq: activeMessageSeq,
+                participantSnapshot: { ...actor },
+              }]
+              setStreamingSeq(activeMessageSeq)
+              syncHistory()
+            },
             sourceUrls,
             onEstimate: handlePromptEstimate,
             ...transportCallbacks(debugMode ? debugPayloads : null),
@@ -1413,6 +1479,18 @@ export class Debate {
           const skipModeratorRewrite = moderatorMode === 'active' || (moderationDecision?.scheduledFacilitation && !moderationDecision?.reactiveModeration)
           if (actor.isModerator && finalContent.trim() && !skipModeratorRewrite && !Debate.isModerationDirectiveStyle(finalContent)) {
             let rewrite = ''
+            const draftMessageSeq = activeMessageSeq
+            const rewriteMessageSeq = nextSeq()
+            history = [...history, {
+              role: actor.tag,
+              content: '',
+              turn: turnLabel,
+              seq: rewriteMessageSeq,
+              participantSnapshot: { ...actor },
+            }]
+            activeMessageSeq = rewriteMessageSeq
+            setStreamingSeq(rewriteMessageSeq)
+            syncHistory()
             try {
               await streamChat({
                 baseUrl: actorBaseUrl,
@@ -1426,13 +1504,26 @@ export class Debate {
                   role: 'user',
                   content: `Rewrite this moderator draft as a REAL moderation intervention (not a recap, not a synthesis).\n\nDraft:\n${finalContent}\n\nOutput format (mandatory, 3 short lines, in the user's language):\n1) <brief reason for intervention now>\n2) <directive: what must change immediately>\n3) <next turn: who should answer and with what focus>\n\nUse labels naturally in that language. Avoid the word "trigger".\nMax 5 total sentences. No preamble.`,
                 }],
-                onToken: token => { rewrite = token },
+                onToken: token => {
+                  rewrite = token
+                  history = history.map(message => message.seq === rewriteMessageSeq ? { ...message, content: token } : message)
+                  syncHistory()
+                },
               })
               if (rewrite.trim() && Debate.isModerationDirectiveStyle(rewrite)) {
                 moderatedContent = rewrite.trim()
+              } else {
+                history = history.filter(message => message.seq !== rewriteMessageSeq)
+                activeMessageSeq = draftMessageSeq
+                setStreamingSeq(draftMessageSeq)
+                syncHistory()
               }
             } catch {
               // fallback: keep original output
+              history = history.filter(message => message.seq !== rewriteMessageSeq)
+              activeMessageSeq = draftMessageSeq
+              setStreamingSeq(draftMessageSeq)
+              syncHistory()
             }
           }
           if (moderatedContent.trim()) {

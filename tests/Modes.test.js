@@ -22,8 +22,7 @@ describe('Debate modes', () => {
   it('offers the complete mode list and defaults invalid values to Free', () => {
     expect(DEBATE_MODES.map(mode => mode.id)).toEqual([
       'free', 'brainstorm', 'fact_check', 'design_review', 'decision',
-      'negotiation', 'red_team', 'socratic', 'peer_review', 'consensus',
-      'role_play',
+      'negotiation', 'red_team', 'socratic', 'peer_review', 'consensus', 'role_play',
     ])
     expect(DEFAULT_DEBATE_MODE).toBe('free')
     expect(normalizeDebateMode('missing')).toBe('free')
@@ -57,5 +56,19 @@ describe('Debate modes', () => {
     })
     expect(prompt).toContain('ROLE PLAY ROLE — MASTER / NARRATOR:')
     expect(prompt).toContain('roll_dice tool')
+  })
+
+  it('requires active in-world participation and forbids debating the narration', () => {
+    const prompt = buildSystemPrompt({
+      actor,
+      allParticipants: [actor, { id: 1, tag: 'M', name: 'Master', isModerator: true, moderatorMode: 'active' }],
+      history: [],
+      debateMode: 'role_play',
+      constants,
+    })
+    expect(prompt).toContain('Role Play participation rule')
+    expect(prompt).toContain('Do not debate, fact-check, critique, negotiate, or meta-comment')
+    expect(prompt).toContain('concrete choice or attempted action')
+    expect(prompt).not.toContain("Their substantive claims are arguments like those of any other participant")
   })
 })

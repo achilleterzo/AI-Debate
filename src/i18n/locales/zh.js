@@ -210,7 +210,7 @@ export default {
     wandTitle: '建议',
     wandNoModel: '没有可用模型',
     wandOffline: '端点未连接',
-    wandSteerTitle: '继续的方向',
+    wandSteerTitle: '提案',
     wandParticipantTitle: '参与者候选',
     wandConclusionTitle: '建议的说明',
     wandLoading: '正在阅读辩论…',

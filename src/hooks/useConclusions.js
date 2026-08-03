@@ -19,6 +19,7 @@ export function useConclusions({
   baseUrl,
   uiLang,
   timeoutSec,
+  debateMode = 'free',
   nextSeq,
   setLastPromptEstimate,
   setLastRequest,
@@ -58,6 +59,7 @@ export function useConclusions({
       type,
       model,
       customPrompt,
+      debateMode,
     })
     const prompt = Debate.buildConclusionPrompt({
       conclusionType: conclusionTypeDefinition,
@@ -73,7 +75,7 @@ export function useConclusions({
         baseUrl,
         model,
         messages: [{ role: 'user', content: prompt }],
-        systemPrompt: `You are an expert analyst. Respond only with the requested ${conclusionTypeDefinition.labelEn.toLowerCase()}, no preamble. Write in ${language} (language code: ${uiLang}). Never reveal chain-of-thought, planning notes, or meta-commentary (e.g., "the user is asking", "let me analyze"). Output final answer only.`,
+        systemPrompt: `You are an expert analyst. Respond only with the requested ${conclusionTypeDefinition.labelEn.toLowerCase()}, no preamble. Respect the shared debate mode and its mode-specific conclusion guidance in the user prompt. Write in ${language} (language code: ${uiLang}). Never reveal chain-of-thought, planning notes, or meta-commentary (e.g., "the user is asking", "let me analyze"). Output final answer only.`,
         useTools: false,
         onEstimate: setLastPromptEstimate,
         onPayload: request => setLastRequest?.({ request }),
@@ -118,7 +120,7 @@ export function useConclusions({
     } finally {
       setConclusionRunning(false)
     }
-  }, [attachedDocs, baseUrl, conclusionRunning, conclusionType, conclusions, conversationRef, customConclusionPrompt, effectiveConclusionModel, messages, nextSeq, participants, setLastPromptEstimate, setLastRequest, standardConclusionPrompt, summaryRef, timeoutSec, uiLang])
+  }, [attachedDocs, baseUrl, conclusionRunning, conclusionType, conclusions, conversationRef, customConclusionPrompt, debateMode, effectiveConclusionModel, messages, nextSeq, participants, setLastPromptEstimate, setLastRequest, standardConclusionPrompt, summaryRef, timeoutSec, uiLang])
 
   return {
     conclusions,

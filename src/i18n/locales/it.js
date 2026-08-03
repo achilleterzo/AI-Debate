@@ -220,7 +220,7 @@ export default {
     wandTitle: 'Suggerisci',
     wandNoModel: 'Nessun modello disponibile',
     wandOffline: 'Endpoint non collegato',
-    wandSteerTitle: 'Come proseguire',
+    wandSteerTitle: 'Proposte',
     wandParticipantTitle: 'Idee per il partecipante',
     wandConclusionTitle: 'Indicazioni suggerite',
     wandLoading: 'Sto leggendo il dibattito…',

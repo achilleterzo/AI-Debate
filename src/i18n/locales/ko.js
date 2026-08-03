@@ -216,7 +216,7 @@ export default {
     wandTitle: '제안',
     wandNoModel: '사용 가능한 모델 없음',
     wandOffline: '엔드포인트 미연결',
-    wandSteerTitle: '이어갈 방향',
+    wandSteerTitle: '제안',
     wandParticipantTitle: '참가자 후보',
     wandConclusionTitle: '제안된 지침',
     wandLoading: '토론을 읽는 중…',

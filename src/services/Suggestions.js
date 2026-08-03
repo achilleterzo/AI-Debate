@@ -28,6 +28,7 @@ export const DEFAULT_SUGGESTION_COUNT = 4
 
 export const MAX_CONSTRAINT_CHARS = 1000
 const MAX_SUGGESTION_CHARS = 220
+const MAX_ATTACHMENT_CONTEXT_CHARS = 8000
 
 export function buildSuggestionSystemPrompt({ language, uiLang }) {
   return [
@@ -47,6 +48,7 @@ export function buildSuggestionPrompt({
   conversation = '',
   summary = '',
   participants = [],
+  attachedDocs = [],
   count = DEFAULT_SUGGESTION_COUNT,
 }) {
   const roster = participants
@@ -56,22 +58,37 @@ export function buildSuggestionPrompt({
 
   const context = [
     topic.trim() ? `Debate topic:\n${topic.trim()}` : '',
-    roster ? `Participants: ${roster}` : '',
+    roster ? `Participants at the table (context only; suggestions must address the debate as a whole): ${roster}` : '',
+    attachedDocs.length > 0
+      ? `Attached documents (use these as source material for the shared topic):\n${attachedDocs.map(document => `## ${document.name}\n${String(document.content || '').slice(0, MAX_ATTACHMENT_CONTEXT_CHARS)}`).join('\n\n').slice(0, MAX_ATTACHMENT_CONTEXT_CHARS)}`
+      : '',
     summary.trim() ? `Summary so far:\n${summary.trim()}` : '',
     conversation.trim() ? `Recent exchanges:\n${conversation.trim()}` : '',
   ].filter(Boolean).join('\n\n')
 
+  const hasTopicMaterial = topic.trim() || attachedDocs.length > 0
   const task = mode === SUGGESTION_MODE.CONCLUSION
     ? [
         `Analyse how this debate actually went and propose ${count} distinct pieces of additional guidance for the analyst who will write its conclusion.`,
         'Each one must point at something the debate itself raises: an unresolved disagreement, a claim left unverified, an angle nobody covered, a shift of position worth noting, or an imbalance between participants.',
         'Write each as a direct instruction to the analyst. Do not write the conclusion itself.',
       ].join(' ')
-    : [
-        `Propose ${count} distinct prompts the user could send next to continue or steer this debate.`,
-        'Vary the intent: deepen the strongest open thread, challenge an unexamined assumption, request concrete evidence, or redirect toward a neglected angle.',
-        'Write each as the message the user would actually send, addressed to the debate. Do not answer the debate yourself.',
-      ].join(' ')
+    : hasTopicMaterial
+      ? [
+          `Propose ${count} distinct refinements or alternative phrasings of the current topic prompt, grounded in the prompt and any attached documents.`,
+          'Preserve the user’s core intent while making each proposal clearer, more specific, or more useful to the whole debate. Do not answer the topic, write the debate response, or invent a different subject.',
+          debateMode === 'role_play'
+            ? 'In Role Play, phrase the proposals as shared scene premises, goals, complications, or situations that let all participants act inside the fiction; never suggest meta-analysis of the Master’s narration.'
+            : 'These are general topic instructions for every participant, not instructions for one character. Do not make a participant the topic, ask the user to add or redefine a participant, or address one participant by name unless the prompt explicitly requires it.',
+        ].join(' ')
+      : [
+          `Propose ${count} distinct prompts the user could send next to continue or steer this debate.`,
+          'Vary the intent: deepen the strongest open thread, challenge an unexamined assumption, request concrete evidence, or redirect toward a neglected angle.',
+          'These are general steering instructions for every participant, not instructions for one character. Write each as a message the user would actually send to the debate as a whole. Do not make a participant the topic, ask the user to add or redefine a participant, or address one participant by name unless the active topic explicitly requires it. Do not answer the debate yourself.',
+          debateMode === 'role_play'
+            ? 'In Role Play, suggest shared scene developments, choices, complications, or questions that let all participants act inside the fiction; never suggest meta-analysis of the Master’s narration.'
+            : 'Prefer additions to the shared direction, constraints, questions, or evidence requested from the whole table rather than personal traits or assignments for one participant.',
+        ].join(' ')
 
   return [
     `Shared debate mode: ${debateModeLabel} (${debateMode}).${debateModeInstruction ? ` ${debateModeInstruction}` : ''}`,

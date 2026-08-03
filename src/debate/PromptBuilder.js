@@ -52,6 +52,9 @@ No specialized debate procedure is active. Respond naturally to the topic while 
       ? 'ROLE PLAY ROLE — MASTER / NARRATOR:\nYou are also the Master / Narrator. Control the fictional world, adjudicate actions and consequences, narrate scenes, and keep the story moving. When a ruling depends on chance, use the roll_dice tool and treat its result as authoritative and shared with every participant. Do not behave only as a procedural moderator.'
       : 'ROLE PLAY ROLE — SHARED FICTION:\nThe moderator is also the Master / Narrator. Treat the moderator\'s narration and adjudication as the authority on the fictional world. Stay in character, make meaningful choices, and use roll_dice when a random outcome is needed; its result is common to every participant and must not be rerolled or contradicted.'
     : ''
+  const rolePlayParticipantRule = mode.id === 'role_play' && !actor.isModerator
+    ? 'Role Play participation rule: Do not debate, fact-check, critique, negotiate, or meta-comment on the Master\'s narration. Accept it as scene input and respond actively inside the fiction with a concrete choice or attempted action.'
+    : ''
   const moodIntensity = MOOD_INTENSITY[actor.moodIntensity ?? DEFAULT_MOOD_INTENSITY]
   const characterType = CHARACTER_TYPES.find(c => c.value === actor.characterType)
   const responseLength = RESPONSE_LENGTHS.find(r => r.value === actor.responseLength)
@@ -124,7 +127,7 @@ No specialized debate procedure is active. Respond naturally to the topic while 
 
   const debateHasModerator = allParticipants.some(p => p.isModerator && p.id !== actor.id)
   const hasNonContainmentModerator = allParticipants.some(p => p.isModerator && moderatorModeOf(p) !== 'containment')
-  const moderatorAuthorityBoundary = hasNonContainmentModerator
+  const moderatorAuthorityBoundary = hasNonContainmentModerator && mode.id !== 'role_play'
     ? "Moderator authority boundary:\nThe moderator's procedural decisions are binding. Their substantive claims are arguments like those of any other participant and may be challenged."
     : ''
   const latestModeratorDirective = [...history]
@@ -233,6 +236,7 @@ No specialized debate procedure is active. Respond naturally to the topic while 
     mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
     modeBlock,
     rolePlayBlock,
+    rolePlayParticipantRule,
     moderatorAuthorityBoundary,
     affinityBlock,
     topicDirectiveBlock,

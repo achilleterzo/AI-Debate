@@ -20,6 +20,12 @@ function compactMessages(arr, { keepLast = Infinity, maxPerMsg = 12000 } = {}) {
   return [...out, ...tail]
 }
 
+function cleanVisibleText(text) {
+  let visible = String(text || '').replace(/<think>[\s\S]*?<\/think>/g, '').trimStart()
+  visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*?<\|tool[▁_]calls[▁_]end\|>/g, '').trimEnd()
+  return visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
+}
+
 export async function streamChat({
   baseUrl,
   model,
@@ -36,6 +42,7 @@ export async function streamChat({
   sourceUrls = [],
   executeTool = null,
   onToolInvocation = null,
+  onToolRound = null,
   provider = getProvider(),
 }) {
   const label = `[${provider.id}] ${model}`
@@ -50,7 +57,9 @@ export async function streamChat({
   let retried = false
   let retriedTooLong = false
   let retriedServerError = false
+  let visiblePrefix = ''
   const supportsTools = provider.supportsTools(model)
+  const separateToolRounds = typeof onToolRound === 'function'
 
   while (true) {
     const payloadMessages = compactMessages(apiMessages, { maxPerMsg: 18000 })
@@ -151,16 +160,15 @@ export async function streamChat({
         case 'delta': {
           full += event.text
           tokenCount++
-          let visible = full.replace(/<think>[\s\S]*?<\/think>/g, '').trimStart()
-          visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*?<\|tool[▁_]calls[▁_]end\|>/g, '').trimEnd()
-          visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
-          onToken(visible || full)
+          const visible = cleanVisibleText(full)
+          onToken(separateToolRounds ? (visible || full) : [visiblePrefix, visible || full].filter(Boolean).join('\n\n'))
           break
         }
         case 'done':
           if (event.content && !full) {
             full = event.content
-            onToken(full.replace(/<think>[\s\S]*?<\/think>/g, '').trimStart() || full)
+            const visible = cleanVisibleText(full)
+            onToken(separateToolRounds ? (visible || full) : [visiblePrefix, visible || full].filter(Boolean).join('\n\n'))
           }
           console.log(`${label} done — tokens: ${tokenCount}, full length: ${full.length}`)
           break
@@ -188,9 +196,7 @@ export async function streamChat({
 
     clearTimeout(timer)
 
-    full = full.replace(/<think>[\s\S]*?<\/think>/g, '').trimStart()
-    full = full.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*?<\|tool[▁_]calls[▁_]end\|>/g, '').trimEnd()
-    full = full.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
+    full = cleanVisibleText(full)
 
     if (toolCalls.length === 0) {
       const mdToolRe = /<function>([\w]+)<\/function>\s*```(?:json)?\s*([\s\S]*?)```/g
@@ -222,6 +228,7 @@ export async function streamChat({
 
     if (toolCalls.length > 0 && toolRound < MAX_TOOL_ROUNDS) {
       toolRound++
+      if (full) visiblePrefix = [visiblePrefix, full].filter(Boolean).join('\n\n')
       apiMessages = [...apiMessages, { role: 'assistant', content: full || '', tool_calls: toolCalls }]
       for (const toolCall of toolCalls) {
         const toolName = toolCall.function?.name
@@ -244,7 +251,9 @@ export async function streamChat({
               apiMessages = [...apiMessages, { role: 'tool', content: sourceResult, name: 'web_search' }]
               continue
             }
-            onToken((full || '') + `\n\n*🔍 Web search: "${queryStr}"...*`)
+            onToken(separateToolRounds
+              ? [full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n')
+              : [visiblePrefix, full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n'))
             const result = await Web.search(queryStr, { noResultsMessage: noResultsMessage(queryStr) })
             apiMessages = [...apiMessages, { role: 'tool', content: result, name: 'web_search' }]
           }
@@ -255,8 +264,9 @@ export async function streamChat({
           }
         }
       }
+      onToolRound?.({ content: full, toolCalls, round: toolRound })
       full = ''
-      onToken('')
+      if (!separateToolRounds) onToken(visiblePrefix)
       continue
     }
 
@@ -264,11 +274,11 @@ export async function streamChat({
       retried = true
       console.warn(`${label} risposta vuota — retry${toolRound > 0 ? ' senza tools' : ''}`)
       full = ''
-      onToken('')
+      onToken(visiblePrefix)
       continue
     }
 
     console.groupEnd()
-    return full
+    return separateToolRounds ? full.trim() : [visiblePrefix, full].filter(Boolean).join('\n\n')
   }
 }

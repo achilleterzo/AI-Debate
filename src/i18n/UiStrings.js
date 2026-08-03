@@ -308,7 +308,7 @@ export const UI_STRINGS = {
     wandTitle: 'Suggest',
     wandNoModel: 'No model available',
     wandOffline: 'Endpoint not connected',
-    wandSteerTitle: 'Ways to continue',
+    wandSteerTitle: 'Proposals',
     wandParticipantTitle: 'Participant ideas',
     wandConclusionTitle: 'Suggested guidance',
     wandLoading: 'Reading the debate…',
