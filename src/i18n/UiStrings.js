@@ -120,7 +120,11 @@ export const UI_STRINGS = {
     send: 'Send',
     placeholder: 'Write your response... (Ctrl+Enter to send)',
   },
-  payloadModal: { title: 'PAYLOAD SENT', copy: 'Copy' },
+  payloadModal: {
+    title: 'PAYLOAD SENT',
+    copy: 'Copy',
+    memoryTitle: 'MEMORY ANNOTATIONS',
+  },
   constraintModal: {
     removeTitle: 'Remove constraint',
     editTitle: 'Edit constraint',
@@ -344,5 +348,7 @@ export const UI_STRINGS = {
       `Last prompt sent: ${estimate.totalChars} characters (~${estimate.estimatedTokens} tokens), ${estimate.messageCount} messages, model ${estimate.model}`,
     lastPromptLabel: estimate =>
       `Last request: ~${estimate.estimatedTokens} tok · ${estimate.model}`,
+    memoryTitle: (count, size) => `${count} memory annotations · ${size}`,
+    memoryLabel: (count, size) => `Memory: ${count} · ${size}`,
   },
 }

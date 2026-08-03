@@ -13,7 +13,7 @@ import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
-import { createConversationToolExecutor, formatDiceRoll, ROLE_PLAY_TOOLS, rollDice } from '../tools'
+import { createConversationToolExecutor, formatDiceRoll, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, ROLE_PLAY_TOOLS, readMemory, rollDice } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
@@ -887,6 +887,8 @@ export class Debate {
       interjectRef,
       conclusionConvRef,
       conclusionsRef,
+      memoryRef,
+      setMemory,
     } = runtime
 
     stopRef.current = false
@@ -1408,6 +1410,25 @@ export class Debate {
                   return { ...result, shared: true, message: diceMessage.content }
                 }
               : null,
+            memory: async args => {
+              const action = String(args?.action || '').trim().toLowerCase()
+              if (action === 'read') return readMemory(memoryRef?.current || [], args)
+              if (action !== 'write') return { accepted: false, reason: 'Memory action must be read or write.' }
+              const content = String(args?.content || '').trim().slice(0, MEMORY_MAX_CONTENT_CHARS)
+              if (!content) return { accepted: false, reason: 'Memory content is required for write.' }
+              const entry = {
+                id: `${actor.tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                authorTag: actor.tag,
+                authorName: actor.name || actor.tag,
+                content,
+                turn: turnLabel,
+                createdAt: new Date().toISOString(),
+              }
+              const nextMemory = [...(memoryRef?.current || []), entry].slice(-MEMORY_MAX_ENTRIES)
+              if (memoryRef) memoryRef.current = nextMemory
+              setMemory(nextMemory)
+              return { saved: true, entry }
+            },
             requestModeratorIntervention: args => {
               const moderatorAvailable = parts.some(participant => participant.isModerator)
               if (actor.isModerator || !moderatorAvailable || pendingModeratorRequest) {
@@ -1507,6 +1528,9 @@ export class Debate {
             continue
           }
           let moderatedContent = finalContent
+          const isProceduralModerationTurn = actor.isModerator
+            && !isRolePlay
+            && (!!moderationDecision?.reactiveModeration || extraModeratorTurn)
           // Directive-style rewrite only applies to containment interventions:
           // active moderators contribute content, and scheduled facilitation
           // turns are analytical by design — rewriting would destroy both.
@@ -1564,6 +1588,7 @@ export class Debate {
             history = history.map(message => message.seq === activeMessageSeq ? {
               ...message,
               content: moderatedContent,
+              ...(isProceduralModerationTurn ? { messageType: 'moderation' } : {}),
               ...(debugMode && debugPayloads.length > 0 ? { payload: debugPayloads.at(-1), debugPayloads } : {}),
             } : message)
           } else if (actor.isModerator) {

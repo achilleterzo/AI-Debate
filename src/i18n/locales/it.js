@@ -31,7 +31,11 @@ export default {
     send: 'Invia',
     placeholder: 'Scrivi la tua risposta... (Ctrl+Invio per inviare)',
   },
-  payloadModal: { title: 'PAYLOAD INVIATO', copy: 'Copia' },
+  payloadModal: {
+    title: 'PAYLOAD INVIATO',
+    copy: 'Copia',
+    memoryTitle: 'ANNOTAZIONI MEMORIA',
+  },
   constraintModal: {
     removeTitle: 'Rimuovi vincolo',
     editTitle: 'Modifica vincolo',
@@ -256,5 +260,7 @@ export default {
       `Ultimo prompt inviato: ${estimate.totalChars} caratteri (~${estimate.estimatedTokens} token), ${estimate.messageCount} messaggi, modello ${estimate.model}`,
     lastPromptLabel: estimate =>
       `Ultima richiesta: ~${estimate.estimatedTokens} tok · ${estimate.model}`,
+    memoryTitle: (count, size) => `${count} annotazioni memoria · ${size}`,
+    memoryLabel: (count, size) => `Memoria: ${count} · ${size}`,
   },
 }

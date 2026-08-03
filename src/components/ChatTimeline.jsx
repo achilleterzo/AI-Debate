@@ -14,16 +14,6 @@ function normalizeMathShorthands(text) {
   return out
 }
 
-function looksLikeModerationIntervention(text) {
-  const t = String(text || '').toLowerCase()
-  if (!t.trim()) return false
-  if (/\b(direttiva|prossimo\s+turno|moderazione)\b/.test(t)) return true
-  if (/\b(directive|next\s+turn|moderation)\b/.test(t)) return true
-  if (/\b(intervento|intervention)\s*:/.test(t)) return true
-  if (/\b1\)|2\)|3\)/.test(t) && /\b(deve|must|should|focus|focalizza)\b/.test(t)) return true
-  return false
-}
-
 function describeToolInvocation(invocation) {
   const args = invocation?.arguments || {}
   if (invocation?.name === 'web_search') return args.query || ''
@@ -223,7 +213,9 @@ export default function ChatTimeline({
     const actor = msg.participantSnapshot || participants.find(p => p.tag === msg.role)
     if (!actor) return
     const isModeratorMessage = !!actor.isModerator && actor.model !== userModel
-    const isModerationIntervention = isModeratorMessage && looksLikeModerationIntervention(msg.content)
+    // Moderation styling is driven only by the explicit message tag assigned
+    // by the debate engine, never by words found in the generated content.
+    const isModerationIntervention = isModeratorMessage && msg.messageType === 'moderation'
     const isStreamingMsg = streamingSeq != null ? msg.seq === streamingSeq : streamingRole === msg.role
     const moderatorBubbleStyle = isModerationIntervention
       ? {

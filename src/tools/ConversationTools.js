@@ -60,7 +60,7 @@ export function formatRecentMessages(messages = [], { limit = 10, participantTag
   return JSON.stringify({ messages: eligible })
 }
 
-export function createConversationToolExecutor({ getMessages, requestModeratorIntervention, rollDice }) {
+export function createConversationToolExecutor({ getMessages, requestModeratorIntervention, rollDice, memory }) {
   return async (name, args = {}) => {
     if (name === GET_RECENT_MESSAGES_TOOL.function.name) {
       return formatRecentMessages(getMessages?.() || [], args)
@@ -73,6 +73,12 @@ export function createConversationToolExecutor({ getMessages, requestModeratorIn
       const result = await rollDice?.(args)
       return result == null
         ? JSON.stringify({ accepted: false, reason: 'Dice are available only in Role Play mode.' })
+        : JSON.stringify(result)
+    }
+    if (name === 'memory') {
+      const result = await memory?.(args)
+      return result == null
+        ? JSON.stringify({ accepted: false, reason: 'Memory is not available.' })
         : JSON.stringify(result)
     }
     return null

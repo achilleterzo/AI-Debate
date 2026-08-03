@@ -112,6 +112,8 @@ function AppInner({ settings }) {
   const [summaryVisible, setSummaryVisible] = useState(false)
   const [summaryInProgress, setSummaryInProgress] = useState(false)
   const conclusionsRef = useRef([])
+  const [memory, setMemory] = useState([])
+  const memoryRef = useRef([])
   const [lastPromptEstimate, setLastPromptEstimate] = useState(null) // { model, messageCount, totalChars, estimatedTokens }
   const [lastRequest, setLastRequest] = useState(null)
   const [userInputPending, setUserInputPending] = useState(null) // { resolve, tag }
@@ -157,6 +159,8 @@ function AppInner({ settings }) {
     generalPersonalityInstructions,
     debateMode,
     conclusionsRef,
+    memoryRef,
+    setMemory,
     setLastPromptEstimate,
     setLastRequest,
     setStopping,
@@ -249,6 +253,9 @@ function AppInner({ settings }) {
   useEffect(() => {
     conclusionsRef.current = conclusions
   }, [conclusions])
+  useEffect(() => {
+    memoryRef.current = memory
+  }, [memory])
 
   usePersistedAppSettings({ settings, conclusions: conclusionsState })
 
@@ -519,6 +526,7 @@ function AppInner({ settings }) {
       messages,
       summary,
       conclusions,
+      memory,
     },
     actions: {
       setParticipants,
@@ -536,6 +544,7 @@ function AppInner({ settings }) {
       setEndpointInput,
       setMessages,
       setConclusions,
+      setMemory,
       setSummary,
     },
     refs: { sequence: seqRef, summary: summaryRef, turn: turnRef },
@@ -721,6 +730,11 @@ function AppInner({ settings }) {
         lastPromptEstimate={lastPromptEstimate}
         lastRequest={debugMode ? lastRequest : null}
         onInspectRequest={() => setPayloadModal(lastRequest)}
+        memory={memory}
+        onInspectMemory={() => setPayloadModal({
+          title: UI_STRINGS.payloadModal.memoryTitle,
+          payload: memory,
+        })}
         onInspectPayload={() => {
           const payloadBlock = summaryDebug.debugPayloads?.length > 1
             ? { rounds: summaryDebug.debugPayloads }

@@ -61,6 +61,7 @@ export function useSnapshots({
           const conclusions = data.conclusions.map(conclusion => conclusion.seq != null ? (refs.sequence.current = Math.max(refs.sequence.current, conclusion.seq), conclusion) : { ...conclusion, seq: ++refs.sequence.current })
           actions.setConclusions(conclusions)
         }
+        if (Array.isArray(data.memory)) actions.setMemory(data.memory)
         if (data.summary) {
           refs.summary.current = data.summary
           actions.setSummary(data.summary)

@@ -15,9 +15,16 @@ export default function SummaryPanel({
   lastPromptEstimate,
   lastRequest,
   onInspectRequest,
+  memory = [],
+  onInspectMemory,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
+  const memoryJson = JSON.stringify(memory)
+  const memoryBytes = new TextEncoder().encode(memoryJson).length
+  const memorySize = memoryBytes < 1024
+    ? `${memoryBytes} B`
+    : `${(memoryBytes / 1024).toFixed(memoryBytes < 10240 ? 1 : 0)} KB`
 
   return (
     <div ref={panelRef} style={{
@@ -75,6 +82,23 @@ export default function SummaryPanel({
             onInspectRequest={onInspectRequest}
             compact
           />
+          <button
+            onClick={e => { e.stopPropagation(); onInspectMemory() }}
+            style={{
+              marginTop: 0,
+              fontSize: 10,
+              color: '#8b9cff',
+              border: '1px solid #30356b',
+              background: '#17172b',
+              borderRadius: 999,
+              padding: '2px 8px',
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+            }}
+            title={ui.memoryTitle(memory.length, memorySize)}
+          >
+            {ui.memoryLabel(memory.length, memorySize)}
+          </button>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             {summaryVisible ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}
           </svg>

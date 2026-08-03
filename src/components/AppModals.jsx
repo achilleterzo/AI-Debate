@@ -38,7 +38,13 @@ export default function AppModals({
 }) {
   return (
     <>
-      {payloadModal && <PayloadModalView payload={payloadModal} onClose={onClosePayloadModal} />}
+      {payloadModal && (
+        <PayloadModalView
+          payload={payloadModal.title ? payloadModal.payload : payloadModal}
+          title={payloadModal.title}
+          onClose={onClosePayloadModal}
+        />
+      )}
       {constraintModal && (
         <ConstraintModalView
           state={constraintModal}

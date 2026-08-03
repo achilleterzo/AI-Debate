@@ -64,7 +64,7 @@ export class Session {
     })
   }
 
-  static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, debateMode, customConclusionPrompt, standardConclusionPrompt, maxTurns, timeoutSec, baseUrl, moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, constants }) {
+  static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, debateMode, customConclusionPrompt, standardConclusionPrompt, maxTurns, timeoutSec, baseUrl, moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, memory, constants }) {
     return {
       version: 2,
       savedAt: new Date().toISOString(),
@@ -84,6 +84,7 @@ export class Session {
       summary,
       turn,
       conclusions,
+      memory: Array.isArray(memory) ? memory : [],
     }
   }
 

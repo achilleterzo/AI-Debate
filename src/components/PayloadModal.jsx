@@ -1,6 +1,6 @@
 import { useUiStrings } from '../i18n/UiStringsContext'
 
-export default function PayloadModal({ payload, onClose }) {
+export default function PayloadModal({ payload, onClose, title }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.payloadModal
   const json = JSON.stringify(payload, null, 2)
@@ -23,7 +23,7 @@ export default function PayloadModal({ payload, onClose }) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid #2e2e2e' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#aaa', letterSpacing: 0.5 }}>{ui.title}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#aaa', letterSpacing: 0.5 }}>{title || ui.title}</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={() => navigator.clipboard.writeText(json)}

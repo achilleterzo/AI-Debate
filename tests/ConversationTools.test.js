@@ -3,6 +3,7 @@ import {
   GET_RECENT_MESSAGES_TOOL,
   LLM_TOOLS,
   REQUEST_MODERATOR_INTERVENTION_TOOL,
+  MEMORY_TOOL,
   createConversationToolExecutor,
   formatRecentMessages,
 } from '../src/tools'
@@ -22,6 +23,7 @@ describe('conversation tools', () => {
       'web_search',
       GET_RECENT_MESSAGES_TOOL.function.name,
       REQUEST_MODERATOR_INTERVENTION_TOOL.function.name,
+      MEMORY_TOOL.function.name,
     ])
   })
 
@@ -63,5 +65,23 @@ describe('conversation tools', () => {
     const execute = createConversationToolExecutor({ rollDice: args => ({ ...rollDice(args), shared: true }) })
     const toolResult = JSON.parse(await execute(ROLL_DICE_TOOL.function.name, { count: 2, sides: 8 }))
     expect(toolResult).toMatchObject({ count: 2, sides: 8, shared: true })
+  })
+
+  it('writes and filters collective memory by author', async () => {
+    const memory = []
+    const execute = createConversationToolExecutor({
+      memory: async args => {
+        if (args.action === 'write') {
+          const entry = { authorTag: 'A', authorName: 'Alice', content: args.content }
+          memory.push(entry)
+          return { saved: true, entry }
+        }
+        return { entries: memory.filter(entry => !args.participantTags?.length || args.participantTags.includes(entry.authorTag)) }
+      },
+    })
+
+    await execute(MEMORY_TOOL.function.name, { action: 'write', content: 'The gate opens only at dawn.' })
+    const result = JSON.parse(await execute(MEMORY_TOOL.function.name, { action: 'read', participantTags: ['B'] }))
+    expect(result.entries).toEqual([])
   })
 })
