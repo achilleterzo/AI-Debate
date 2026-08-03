@@ -26,6 +26,42 @@ function cleanVisibleText(text) {
   return visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
 }
 
+function cleanToolContinuationText(text, previousSegment = '') {
+  let visible = cleanVisibleText(text)
+  const previous = cleanVisibleText(previousSegment)
+  if (previous && visible === previous) return ''
+  if (previous && visible.startsWith(previous)) visible = visible.slice(previous.length).trimStart()
+  // Some tool-capable models finish a leaked JSON argument on the next round.
+  if (visible && [...visible].every(char => '{}[],'.includes(char) || /\s/.test(char))) return ''
+  return visible
+}
+
+function parseInlineToolArguments(raw) {
+  const args = {}
+  for (const part of String(raw || '').split(',')) {
+    const separator = part.indexOf('=')
+    if (separator < 1) continue
+    const key = part.slice(0, separator).trim()
+    const value = part.slice(separator + 1).trim()
+    if (!key || !value) continue
+    try {
+      args[key] = JSON.parse(value)
+    } catch {
+      args[key] = value.replace(/^['"]|['"]$/g, '')
+    }
+  }
+  return args
+}
+
+function stripInlineToolSyntax(text, tools = []) {
+  const names = new Set((tools || []).map(tool => tool?.function?.name).filter(Boolean))
+  if (names.size === 0) return text
+  return String(text || '')
+    .replace(/\b([A-Za-z_]\w*)\s*\([^()\n]*\)/g, (match, fnName) => names.has(fnName) ? '' : match)
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 export async function streamChat({
   baseUrl,
   model,
@@ -58,6 +94,7 @@ export async function streamChat({
   let retriedTooLong = false
   let retriedServerError = false
   let visiblePrefix = ''
+  let previousToolSegment = ''
   const supportsTools = provider.supportsTools(model)
   const separateToolRounds = typeof onToolRound === 'function'
 
@@ -160,15 +197,21 @@ export async function streamChat({
         case 'delta': {
           full += event.text
           tokenCount++
-          const visible = cleanVisibleText(full)
-          onToken(separateToolRounds ? (visible || full) : [visiblePrefix, visible || full].filter(Boolean).join('\n\n'))
+          const visible = separateToolRounds
+            ? cleanToolContinuationText(full, previousToolSegment)
+            : cleanVisibleText(full)
+          const renderedVisible = stripInlineToolSyntax(visible, tools)
+          onToken(separateToolRounds ? renderedVisible : [visiblePrefix, renderedVisible].filter(Boolean).join('\n\n'))
           break
         }
         case 'done':
           if (event.content && !full) {
             full = event.content
-            const visible = cleanVisibleText(full)
-            onToken(separateToolRounds ? (visible || full) : [visiblePrefix, visible || full].filter(Boolean).join('\n\n'))
+            const visible = separateToolRounds
+              ? cleanToolContinuationText(full, previousToolSegment)
+              : cleanVisibleText(full)
+            const renderedVisible = stripInlineToolSyntax(visible, tools)
+            onToken(separateToolRounds ? renderedVisible : [visiblePrefix, renderedVisible].filter(Boolean).join('\n\n'))
           }
           console.log(`${label} done — tokens: ${tokenCount}, full length: ${full.length}`)
           break
@@ -196,7 +239,9 @@ export async function streamChat({
 
     clearTimeout(timer)
 
-    full = cleanVisibleText(full)
+    full = separateToolRounds
+      ? cleanToolContinuationText(full, previousToolSegment)
+      : cleanVisibleText(full)
 
     if (toolCalls.length === 0) {
       const mdToolRe = /<function>([\w]+)<\/function>\s*```(?:json)?\s*([\s\S]*?)```/g
@@ -212,6 +257,20 @@ export async function streamChat({
       }
       if (toolCalls.length > 0) {
         full = full.replace(/<function>[\w]+<\/function>\s*```(?:json)?[\s\S]*?```/g, '').trim()
+      }
+    }
+
+    if (toolCalls.length === 0) {
+      const knownToolNames = new Set((tools || []).map(tool => tool?.function?.name).filter(Boolean))
+      const inlineToolRe = /\b([A-Za-z_]\w*)\s*\(([^()\n]*)\)/g
+      let inlineMatch
+      while ((inlineMatch = inlineToolRe.exec(full)) !== null) {
+        const fnName = inlineMatch[1]
+        if (!knownToolNames.has(fnName)) continue
+        toolCalls.push({ function: { name: fnName, arguments: parseInlineToolArguments(inlineMatch[2]) } })
+      }
+      if (toolCalls.length > 0) {
+        full = full.replace(/\b([A-Za-z_]\w*)\s*\([^()\n]*\)/g, (match, fnName) => knownToolNames.has(fnName) ? '' : match).replace(/\s{2,}/g, ' ').trim()
       }
     }
 
@@ -264,13 +323,14 @@ export async function streamChat({
           }
         }
       }
+      previousToolSegment = full
       onToolRound?.({ content: full, toolCalls, round: toolRound })
       full = ''
       if (!separateToolRounds) onToken(visiblePrefix)
       continue
     }
 
-    if (!full.trim() && !retried) {
+    if (!full.trim() && !retried && !previousToolSegment) {
       retried = true
       console.warn(`${label} risposta vuota — retry${toolRound > 0 ? ' senza tools' : ''}`)
       full = ''

@@ -297,6 +297,92 @@ describe('streamChat content assembly through the provider seam', () => {
     expect(segments[0].content).toBe('First moderator segment.')
     expect(result).toBe('Second segment.')
   })
+
+  it('drops repeated tool continuations and isolated JSON delimiters', async () => {
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const content = call === 1 ? 'Original response.' : (call === 2 ? 'Original response.' : '}')
+      const lines = call === 1
+        ? [
+            JSON.stringify({ message: { content } }) + '\n',
+            JSON.stringify({ message: { tool_calls: [{ function: { name: 'roll_dice', arguments: { count: 1, sides: 20 } } }] } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+        : [
+            JSON.stringify({ message: { content } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+            controller.close()
+          },
+        }),
+      }
+    }))
+
+    const segments = []
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'continue' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'roll_dice' } }],
+      executeTool: async () => 'rolled',
+      onToolRound: segment => segments.push(segment),
+      onToken: () => {},
+    })
+
+    expect(segments).toHaveLength(1)
+    expect(result).toBe('')
+  })
+
+  it('executes textual inline tool calls instead of displaying the command', async () => {
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const lines = call === 1
+        ? [
+            JSON.stringify({ message: { content: 'I will roll now. roll_dice(count=2, sides=10)' } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+        : [
+            JSON.stringify({ message: { content: 'The result is decisive.' } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+            controller.close()
+          },
+        }),
+      }
+    }))
+
+    const invocations = []
+    const tokens = []
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'roll' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'roll_dice' } }],
+      executeTool: async (name, args) => {
+        invocations.push({ name, args })
+        return 'rolled'
+      },
+      onToken: token => tokens.push(token),
+    })
+
+    expect(invocations).toEqual([{ name: 'roll_dice', args: { count: 2, sides: 10 } }])
+    expect(result).toBe('I will roll now.\n\nThe result is decisive.')
+    expect(tokens.some(token => token.includes('roll_dice(count=2'))).toBe(false)
+  })
 })
 
 describe('streamChat empty response handling', () => {

@@ -55,7 +55,8 @@ describe('Debate modes', () => {
       constants,
     })
     expect(prompt).toContain('ROLE PLAY ROLE — MASTER / NARRATOR:')
-    expect(prompt).toContain('roll_dice tool')
+    expect(prompt).toContain('invoke roll_dice')
+    expect(prompt).toContain('The invocation belongs only to the participant who calls the tool')
   })
 
   it('requires active in-world participation and forbids debating the narration', () => {

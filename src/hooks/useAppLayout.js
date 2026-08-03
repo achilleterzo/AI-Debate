@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-export function useAppLayout({ messages, streamingRole, headerOpen, summary, summaryVisible }) {
+export function useAppLayout({ messages, conclusions = [], streamingRole, headerOpen, summary, summaryVisible }) {
   const bottomRef = useRef(null)
   const chatRef = useRef(null)
   const headerTopRef = useRef(null)
   const summaryPanelRef = useRef(null)
   const inputAreaRef = useRef(null)
   const autoScrollRef = useRef(true)
+  const scrollFrameRef = useRef(null)
   const showScrollBtnRef = useRef(false)
   const [headerBodyMaxHeight, setHeaderBodyMaxHeight] = useState(360)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
@@ -50,6 +51,10 @@ export function useAppLayout({ messages, streamingRole, headerOpen, summary, sum
 
   useEffect(() => {
     if (messages.length === 0) {
+      if (scrollFrameRef.current != null) {
+        window.cancelAnimationFrame(scrollFrameRef.current)
+        scrollFrameRef.current = null
+      }
       autoScrollRef.current = true
       if (showScrollBtnRef.current) {
         showScrollBtnRef.current = false
@@ -58,17 +63,22 @@ export function useAppLayout({ messages, streamingRole, headerOpen, summary, sum
       return
     }
     if (!autoScrollRef.current) return
-    const chat = chatRef.current
-    if (chat) {
-      chat.scrollTop = chat.scrollHeight
-      if (showScrollBtnRef.current) {
-        showScrollBtnRef.current = false
-        setShowScrollBtn(false)
+    if (scrollFrameRef.current != null) return
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null
+      if (!autoScrollRef.current) return
+      const chat = chatRef.current
+      if (chat) {
+        chat.scrollTop = chat.scrollHeight
+        if (showScrollBtnRef.current) {
+          showScrollBtnRef.current = false
+          setShowScrollBtn(false)
+        }
+        return
       }
-      return
-    }
-    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
-  }, [messages, streamingRole])
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    })
+  }, [conclusions, messages, streamingRole])
 
   const handleChatScroll = useCallback(() => {
     const chat = chatRef.current

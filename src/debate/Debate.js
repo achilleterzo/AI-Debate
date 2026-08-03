@@ -15,6 +15,10 @@ import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS,
 import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
 import { createConversationToolExecutor, formatDiceRoll, ROLE_PLAY_TOOLS, rollDice } from '../tools'
 
+function normalizeForDuplicateCheck(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim()
+}
+
 export class Debate {
   static CONCLUSION_CONVERSATION_LIMIT = 8000
 
@@ -1271,7 +1275,8 @@ export class Debate {
           } else if (message.role === 'interjection') {
             await pushMsg('user', `[Topic update]: ${message.content}`)
           } else if (message.role === 'dice') {
-            await pushMsg('user', `[SHARED DICE RESULT — COMMON TO ALL PARTICIPANTS]\n${message.content}`)
+            const ownerName = message.diceOwner?.name || message.diceOwner?.tag || 'a participant'
+            await pushMsg('user', `[DICE RESULT — NUMBERS SHARED WITH ALL PARTICIPANTS]\nThe individual tool call was made by ${ownerName}. Preserve that ownership: use the result as established, do not claim the group rolled it, do not retract it, and do not roll it again.\n${message.content}`)
           } else if (message.role === actor.tag) {
             if (message.content && message.content.trim().startsWith('<function_calls>')) return
               contextMessages.push({ role: 'assistant', content: message.content })
@@ -1378,6 +1383,8 @@ export class Debate {
         }
 
         try {
+          let previousToolMessageSeq = null
+          let hasToolContinuation = false
           const debugPayloads = []
           const conversationToolExecutor = createConversationToolExecutor({
             getMessages: () => history,
@@ -1390,6 +1397,7 @@ export class Debate {
                     turn: turnLabel,
                     seq: nextSeq(),
                     dice: result,
+                    diceOwner: { id: actor.id, tag: actor.tag, name: actor.name },
                     participantSnapshot: { ...actor },
                   }
                   const activeIndex = history.findIndex(message => message.seq === activeMessageSeq)
@@ -1432,11 +1440,14 @@ export class Debate {
               // A tool call starts a new assistant segment. Persist the text
               // already received and let the continuation render in its own
               // balloon, so tool rounds cannot overwrite the first response.
-              if (content?.trim()) {
-                history = history.map(message => message.seq === activeMessageSeq
-                  ? { ...message, content: content.trim() }
-                  : message)
-              }
+              hasToolContinuation = true
+              // A tool-first response has no visible segment to split. Keep
+              // the current placeholder and let the continuation fill it.
+              if (!content?.trim()) return
+              previousToolMessageSeq = activeMessageSeq
+              history = history.map(message => message.seq === activeMessageSeq
+                ? { ...message, content: content.trim() }
+                : message)
               activeMessageSeq = nextSeq()
               history = [...history, {
                 role: actor.tag,
@@ -1457,9 +1468,32 @@ export class Debate {
             },
             timeoutMs,
           })
-          const finalContent = full && full.trim()
+          let finalContent = full && full.trim()
             ? full
             : (history.find(message => message.seq === activeMessageSeq)?.content ?? '')
+          if (hasToolContinuation && previousToolMessageSeq != null && finalContent.trim()) {
+            const previousToolContent = history.find(message => message.seq === previousToolMessageSeq)?.content ?? ''
+            const normalizedCurrent = normalizeForDuplicateCheck(finalContent)
+            const normalizedPrevious = normalizeForDuplicateCheck(previousToolContent)
+            if (normalizedPrevious && normalizedCurrent === normalizedPrevious) {
+              history = history.filter(message => message.seq !== activeMessageSeq)
+              activeMessageSeq = previousToolMessageSeq
+              setStreamingSeq(activeMessageSeq)
+              syncHistory()
+              finalContent = previousToolContent
+            } else if (normalizedPrevious && normalizedCurrent.startsWith(normalizedPrevious)) {
+              finalContent = finalContent.slice(previousToolContent.length).trimStart()
+              history = history.map(message => message.seq === activeMessageSeq ? { ...message, content: finalContent } : message)
+              syncHistory()
+            }
+          }
+          if (!finalContent.trim() && hasToolContinuation && previousToolMessageSeq != null) {
+            history = history.filter(message => message.seq !== activeMessageSeq)
+            activeMessageSeq = previousToolMessageSeq
+            setStreamingSeq(activeMessageSeq)
+            syncHistory()
+            finalContent = history.find(message => message.seq === activeMessageSeq)?.content ?? ''
+          }
           const shouldSkipModeratorTurn = actor.isModerator
             && moderatorMode !== 'active'
             && !moderationDecision?.scheduledFacilitation

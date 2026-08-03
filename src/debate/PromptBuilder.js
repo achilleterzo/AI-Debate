@@ -49,8 +49,8 @@ Before sending each response, silently verify that the response visibly performs
 No specialized debate procedure is active. Respond naturally to the topic while following the other applicable rules.`
   const rolePlayBlock = mode.id === 'role_play'
     ? actor.isModerator
-      ? 'ROLE PLAY ROLE — MASTER / NARRATOR:\nYou are also the Master / Narrator. Control the fictional world, adjudicate actions and consequences, narrate scenes, and keep the story moving. When a ruling depends on chance, use the roll_dice tool and treat its result as authoritative and shared with every participant. Do not behave only as a procedural moderator.'
-      : 'ROLE PLAY ROLE — SHARED FICTION:\nThe moderator is also the Master / Narrator. Treat the moderator\'s narration and adjudication as the authority on the fictional world. Stay in character, make meaningful choices, and use roll_dice when a random outcome is needed; its result is common to every participant and must not be rerolled or contradicted.'
+      ? 'ROLE PLAY ROLE — MASTER / NARRATOR:\nYou are also the Master / Narrator. Control the fictional world, adjudicate actions and consequences, narrate scenes, and keep the story moving. When a ruling depends on chance, invoke roll_dice for the specific action being resolved. The invocation belongs only to the participant who calls the tool; share the resulting numbers and apply them authoritatively to everyone. Do not behave only as a procedural moderator.'
+      : 'ROLE PLAY ROLE — SHARED FICTION:\nThe moderator is also the Master / Narrator. Treat the moderator\'s narration and adjudication as the authority on the fictional world. Stay in character, make meaningful choices, and invoke roll_dice only for your own action when a random outcome is needed. The invocation belongs to you; only its result is shared with every participant. Do not claim the group rolled, do not retract a valid roll, and do not reroll an already shared result.'
     : ''
   const rolePlayParticipantRule = mode.id === 'role_play' && !actor.isModerator
     ? 'Role Play participation rule: Do not debate, fact-check, critique, negotiate, or meta-comment on the Master\'s narration. Accept it as scene input and respond actively inside the fiction with a concrete choice or attempted action.'
@@ -143,6 +143,7 @@ No specialized debate procedure is active. Respond naturally to the topic while 
       ? [
           '- A moderator holds procedural authority over this debate. If the moderator issues a process directive (de-escalation, topic redirection, turn assignment, format), comply with it in your next turn. You may keep defending your positions on content, but never ignore or overrule a moderator process directive.',
           '- Treat a moderator intervention as a binding procedural instruction, not as an ordinary peer argument. Do not debate, dismiss, reinterpret, or sidestep its directive; acknowledge it through your next response and follow its requested format or focus.',
+          '- If the moderator explicitly instructs you to use a named tool, follow that procedural instruction and invoke the tool when its conditions apply; do not merely describe the tool or claim that you used it. If the requested result is already present as a shared tool result, use that result and do not invoke the tool again.',
         ]
       : []),
     '- Avoid referring to other participants unless it is strictly necessary for the argument you are making.',
@@ -150,6 +151,7 @@ No specialized debate procedure is active. Respond naturally to the topic while 
     '- Do not attribute internal motives, traffic strategy, business incentives, hidden intent, or undocumented decision-making to the subject unless such claims are explicitly supported by available evidence.',
     '- If you need up-to-date external information, you may use the available web search capability. Do not claim that you cannot browse, search the web, or verify information unless a tool call has actually failed or no relevant result is available.',
     '- If the available context does not contain exchanges you need, use get_recent_messages with a small limit; you may filter it by participantTags and searchTerm when reviewing specific participants or claims.',
+    '- Tool ownership is individual: a tool action is performed only by the participant who invokes it. A result may be shared with the table without making the action collective. Preserve the recorded owner and do not falsely claim, disclaim, or repeat another participant\'s tool action.',
     '- If you need a direct procedural intervention from the moderator, use request_moderator_intervention instead of merely asking in prose; it schedules one extra moderator turn outside the standard round.',
     '- If you think moderator intervention is needed, ask for it naturally in plain language. Do not use coded markers or special trigger syntax.',
     '- Treat the active topic as the primary obligation. Source material, cited links, and examples are supporting context only.',

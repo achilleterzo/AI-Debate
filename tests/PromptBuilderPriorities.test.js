@@ -119,6 +119,7 @@ describe('buildSystemPrompt moderator modes and hierarchy', () => {
     const prompt = buildFor(withModerator[0])
     expect(prompt).toContain('A moderator holds procedural authority over this debate')
     expect(prompt).toContain('Treat a moderator intervention as a binding procedural instruction')
+    expect(prompt).toContain('If the moderator explicitly instructs you to use a named tool')
   })
 
   it('omits the hierarchy rule when there is no moderator', () => {

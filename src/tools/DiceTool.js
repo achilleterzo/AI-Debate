@@ -2,7 +2,7 @@ export const ROLL_DICE_TOOL = {
   type: 'function',
   function: {
     name: 'roll_dice',
-    description: 'Roll a shared set of dice for the role-playing scene. Every participant receives the same result in the shared debate history.',
+    description: 'Individually roll dice for your own action in the role-playing scene. The tool call belongs to the participant who invokes it; only the resulting numbers are shared with everyone.',
     parameters: {
       type: 'object',
       properties: {
@@ -32,5 +32,5 @@ export function rollDice({ count = 1, sides = 20 } = {}) {
 }
 
 export function formatDiceRoll(result) {
-  return `Shared dice result: ${result.count}d${result.sides} → [${result.rolls.join(', ')}] = ${result.total}`
+  return `Dice result: ${result.count}d${result.sides} → [${result.rolls.join(', ')}] = ${result.total}`
 }

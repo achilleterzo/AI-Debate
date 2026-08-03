@@ -57,6 +57,15 @@ export default function App() {
   )
 }
 
+function resetUnlockedAffinities(participant) {
+  const affinity = participant.affinity && typeof participant.affinity === 'object' ? participant.affinity : {}
+  const locks = participant.affinityLocks && typeof participant.affinityLocks === 'object' ? participant.affinityLocks : {}
+  return {
+    ...participant,
+    affinity: Object.fromEntries(Object.entries(affinity).filter(([id]) => !!locks[id])),
+  }
+}
+
 function AppInner({ settings }) {
   const UI_STRINGS = useUiStrings()
   const common = UI_STRINGS.common
@@ -255,7 +264,7 @@ function AppInner({ settings }) {
     is2xlLayout,
     handleChatScroll,
     scrollToBottom,
-  } = useAppLayout({ messages, streamingRole, headerOpen, summary, summaryVisible })
+  } = useAppLayout({ messages, conclusions, streamingRole, headerOpen, summary, summaryVisible })
 
   const { fetchModels } = useAIModels({
     defaultUrl: DEFAULT_URL,
@@ -437,7 +446,7 @@ function AppInner({ settings }) {
     setConclusions([])
     seqRef.current = 0
     if (resetAffinities) {
-      setParticipants(prev => prev.map(p => ({ ...p, affinity: {} })))
+      setParticipants(prev => prev.map(resetUnlockedAffinities))
     }
   }, [setConclusions, setMessages, setParticipants, setSummary, setSummaryDebug, setTopicValue, seqRef, summaryRef])
 
@@ -486,7 +495,7 @@ function AppInner({ settings }) {
         danger: false,
       },
       () => {
-        setParticipants(prev => prev.map(p => ({ ...p, affinity: {} })))
+        setParticipants(prev => prev.map(resetUnlockedAffinities))
       },
     )
   }
