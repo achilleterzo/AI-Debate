@@ -274,8 +274,8 @@ function AppInner({ settings }) {
     setConfirmModal(state)
   }, [])
 
-  const handleConfirmModal = useCallback(() => {
-    const fn = confirmActionRef.current
+  const handleConfirmModal = useCallback(option => {
+    const fn = option?.action || confirmActionRef.current
     confirmActionRef.current = null
     setConfirmModal(null)
     if (typeof fn === 'function') fn()
@@ -428,7 +428,7 @@ function AppInner({ settings }) {
       setConstraintModal(null)
     }
   }
-  const handleReset = () => {
+  const resetChat = useCallback(resetAffinities => {
     setMessages([])
     setTopicValue('')
     setSummary('')
@@ -436,6 +436,21 @@ function AppInner({ settings }) {
     summaryRef.current = ''
     setConclusions([])
     seqRef.current = 0
+    if (resetAffinities) {
+      setParticipants(prev => prev.map(p => ({ ...p, affinity: {} })))
+    }
+  }, [setConclusions, setMessages, setParticipants, setSummary, setSummaryDebug, setTopicValue, seqRef, summaryRef])
+
+  const handleReset = () => {
+    if (running) return
+    setConfirmModal({
+      title: ui.resetChatTitle,
+      message: ui.resetChatMessage,
+      options: [
+        { label: ui.resetChatOnly, action: () => resetChat(false) },
+        { label: ui.resetChatAndAffinities, action: () => resetChat(true), danger: true },
+      ],
+    })
   }
 
   const handleConnect = () => {
@@ -471,7 +486,7 @@ function AppInner({ settings }) {
         danger: false,
       },
       () => {
-        setParticipants(prev => prev.map(p => ({ ...p, affinity: {}, affinityLocks: {} })))
+        setParticipants(prev => prev.map(p => ({ ...p, affinity: {} })))
       },
     )
   }
