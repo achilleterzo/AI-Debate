@@ -1,5 +1,5 @@
 export default {
-  modes: { free: '自由', brainstorm: '头脑风暴', fact_check: '事实核查', design_review: '设计评审', decision: '决策', negotiation: '谈判', red_team: '红队', socratic: '苏格拉底式', peer_review: '同行评审', consensus: '共识' },
+  modes: { free: '自由', brainstorm: '头脑风暴', fact_check: '事实核查', design_review: '设计评审', decision: '决策', negotiation: '谈判', red_team: '红队', socratic: '苏格拉底式', peer_review: '同行评审', consensus: '共识', role_play: '角色扮演' },
   common: {
     debateMode: '辩论模式',
     cancel: '取消',

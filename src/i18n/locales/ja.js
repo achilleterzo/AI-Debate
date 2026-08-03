@@ -1,5 +1,5 @@
 export default {
-  modes: { free: 'フリー', brainstorm: 'ブレインストーミング', fact_check: 'ファクトチェック', design_review: 'デザインレビュー', decision: '意思決定', negotiation: '交渉', red_team: 'レッドチーム', socratic: 'ソクラテス式', peer_review: 'ピアレビュー', consensus: '合意形成' },
+  modes: { free: 'フリー', brainstorm: 'ブレインストーミング', fact_check: 'ファクトチェック', design_review: 'デザインレビュー', decision: '意思決定', negotiation: '交渉', red_team: 'レッドチーム', socratic: 'ソクラテス式', peer_review: 'ピアレビュー', consensus: '合意形成', role_play: 'ロールプレイ' },
   common: {
     debateMode: '議論モード',
     cancel: 'キャンセル',

@@ -14,6 +14,7 @@ export const DEBATE_MODES = [
   { id: 'socratic', label: UI_OPTION_LABELS.modes.socratic, labelEn: 'Socratic', emoji: '🏛️', instruction: 'On every turn, lead with precise questions that test definitions, assumptions, evidence, implications, and contradictions. Do not rush to assert a conclusion when a question would reveal more.' },
   { id: 'peer_review', label: UI_OPTION_LABELS.modes.peerReview, labelEn: 'Peer Review', emoji: '📚', instruction: 'On every turn, give rigorous but constructive peer review: assess reasoning, evidence, clarity, completeness, and reproducibility, then identify specific revisions rather than offering vague approval or rejection.' },
   { id: 'consensus', label: UI_OPTION_LABELS.modes.consensus, labelEn: 'Consensus', emoji: '🌐', instruction: 'On every turn, explicitly separate agreements from unresolved disagreements, reconcile compatible views, and propose the smallest precise common position the group could accept. Never manufacture agreement.' },
+  { id: 'role_play', label: UI_OPTION_LABELS.modes.rolePlay, labelEn: 'Role Play', emoji: '🎭', instruction: 'Treat the debate as a shared role-playing scene. Stay in character, make concrete choices, describe consequences through the fiction, and defer world adjudication and narration to the moderator acting as Master / Narrator.' },
 ]
 
 export const DEFAULT_DEBATE_MODE = 'free'

@@ -6,6 +6,7 @@ import {
   createConversationToolExecutor,
   formatRecentMessages,
 } from '../src/tools'
+import { ROLL_DICE_TOOL, formatDiceRoll, rollDice } from '../src/tools/DiceTool'
 
 const history = [
   { role: 'topic', turn: 0, content: 'The topic' },
@@ -50,5 +51,17 @@ describe('conversation tools', () => {
 
     expect(JSON.parse(result)).toEqual({ accepted: true })
     expect(request).toMatchObject({ reason: 'Escalation', focus: 'Clarify the claim' })
+  })
+
+  it('rolls a bounded shared dice result through the tool executor', async () => {
+    const result = rollDice({ count: 3, sides: 6 })
+    expect(result.rolls).toHaveLength(3)
+    expect(result.rolls.every(value => value >= 1 && value <= 6)).toBe(true)
+    expect(result.total).toBe(result.rolls.reduce((sum, value) => sum + value, 0))
+    expect(formatDiceRoll(result)).toContain('3d6')
+
+    const execute = createConversationToolExecutor({ rollDice: args => ({ ...rollDice(args), shared: true }) })
+    const toolResult = JSON.parse(await execute(ROLL_DICE_TOOL.function.name, { count: 2, sides: 8 }))
+    expect(toolResult).toMatchObject({ count: 2, sides: 8, shared: true })
   })
 })

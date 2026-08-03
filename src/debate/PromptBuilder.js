@@ -47,6 +47,11 @@ Operational rule: ${mode.instruction}
 Before sending each response, silently verify that the response visibly performs the operational rule above. If another instruction conflicts with this mode, preserve the mode and adapt the tone or framing instead.`
     : `SHARED DEBATE MODE — FREE:
 No specialized debate procedure is active. Respond naturally to the topic while following the other applicable rules.`
+  const rolePlayBlock = mode.id === 'role_play'
+    ? actor.isModerator
+      ? 'ROLE PLAY ROLE — MASTER / NARRATOR:\nYou are also the Master / Narrator. Control the fictional world, adjudicate actions and consequences, narrate scenes, and keep the story moving. When a ruling depends on chance, use the roll_dice tool and treat its result as authoritative and shared with every participant. Do not behave only as a procedural moderator.'
+      : 'ROLE PLAY ROLE — SHARED FICTION:\nThe moderator is also the Master / Narrator. Treat the moderator\'s narration and adjudication as the authority on the fictional world. Stay in character, make meaningful choices, and use roll_dice when a random outcome is needed; its result is common to every participant and must not be rerolled or contradicted.'
+    : ''
   const moodIntensity = MOOD_INTENSITY[actor.moodIntensity ?? DEFAULT_MOOD_INTENSITY]
   const characterType = CHARACTER_TYPES.find(c => c.value === actor.characterType)
   const responseLength = RESPONSE_LENGTHS.find(r => r.value === actor.responseLength)
@@ -180,7 +185,9 @@ No specialized debate procedure is active. Respond naturally to the topic while 
         'Very strict: intervene early when discourse becomes personally adversarial.',
       ][moderatorPermissiveness]
   const reactiveModeration = !!externalModerationTrigger?.reactiveModeration
-  const moderatorStyleText = moderatorMode === 'active'
+  const moderatorStyleText = mode.id === 'role_play' && actor.isModerator
+    ? 'Moderation style: ROLE PLAY MASTER / NARRATOR. You are responsible for the fictional world, scene narration, adjudication, consequences, and pacing. Take a substantive narrative turn when appropriate; do not output [SKIP_TURN].'
+    : moderatorMode === 'active'
     ? `Moderation style: ACTIVE. You take part in the debate proactively: you may contribute opinions, arguments, interpretations, process guidance, fact-checking, and topic enforcement, always from your position of authority above the participants. ${reactiveModeration ? 'A reactive moderation trigger is present: address the attack or escalating hostility first with a clear corrective directive, then add any substantive contribution.' : 'In every style, respond immediately to personal attacks or escalating hostility.'}`
     : moderatorMode === 'facilitator'
       ? [
@@ -225,6 +232,7 @@ No specialized debate procedure is active. Respond naturally to the topic while 
     mood?.instruction ? `Mood: ${mood.instruction}` : '',
     mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
     modeBlock,
+    rolePlayBlock,
     moderatorAuthorityBoundary,
     affinityBlock,
     topicDirectiveBlock,

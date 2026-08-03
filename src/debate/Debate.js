@@ -13,7 +13,7 @@ import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
-import { createConversationToolExecutor } from '../tools'
+import { createConversationToolExecutor, formatDiceRoll, ROLE_PLAY_TOOLS, rollDice } from '../tools'
 
 export class Debate {
   static CONCLUSION_CONVERSATION_LIMIT = 8000
@@ -879,6 +879,7 @@ export class Debate {
     setRunning(true)
 
     let parts = participantsRef.current
+    const isRolePlay = normalizeDebateMode(debateMode) === 'role_play'
     const maxRounds = maxTurnsRef.current
     const timeoutMs = timeoutSecRef.current * 1000
     const baseUrl = baseUrlRef.current
@@ -1134,7 +1135,15 @@ export class Debate {
 
         let moderationDecision = null
         if (actor.isModerator) {
-          moderationDecision = extraModeratorTurn
+          moderationDecision = isRolePlay
+            ? {
+                shouldIntervene: true,
+                scheduledFacilitation: true,
+                reactiveModeration: false,
+                moderationTargets: [],
+                reason: 'Role Play Master / Narrator turn.',
+              }
+            : extraModeratorTurn
             ? {
                 shouldIntervene: true,
                 scheduledFacilitation: true,
@@ -1156,12 +1165,12 @@ export class Debate {
           }
         }
 
-        if (actor.model !== Debate.USER_MODEL) {
-          const seq = nextSeq()
-          const placeholder = { role: actor.tag, content: '', turn: turnLabel, seq, participantSnapshot: { ...actor } }
+        const activeMessageSeq = actor.model !== Debate.USER_MODEL ? nextSeq() : null
+        if (activeMessageSeq != null) {
+          const placeholder = { role: actor.tag, content: '', turn: turnLabel, seq: activeMessageSeq, participantSnapshot: { ...actor } }
           history = [...history, placeholder]
           syncHistory()
-          setStreamingSeq(seq)
+          setStreamingSeq(activeMessageSeq)
         }
         setStreamingRole(actor.tag)
 
@@ -1224,6 +1233,8 @@ export class Debate {
             await pushMsg('user', `[Moderator]: ${message.content}`)
           } else if (message.role === 'interjection') {
             await pushMsg('user', `[Topic update]: ${message.content}`)
+          } else if (message.role === 'dice') {
+            await pushMsg('user', `[SHARED DICE RESULT — COMMON TO ALL PARTICIPANTS]\n${message.content}`)
           } else if (message.role === actor.tag) {
             if (message.content && message.content.trim().startsWith('<function_calls>')) return
               contextMessages.push({ role: 'assistant', content: message.content })
@@ -1324,6 +1335,25 @@ export class Debate {
           const debugPayloads = []
           const conversationToolExecutor = createConversationToolExecutor({
             getMessages: () => history,
+            rollDice: isRolePlay
+              ? args => {
+                  const result = rollDice(args)
+                  const diceMessage = {
+                    role: 'dice',
+                    content: formatDiceRoll(result),
+                    turn: turnLabel,
+                    seq: nextSeq(),
+                    dice: result,
+                    participantSnapshot: { ...actor },
+                  }
+                  const activeIndex = history.findIndex(message => message.seq === activeMessageSeq)
+                  history = activeIndex >= 0
+                    ? [...history.slice(0, activeIndex), diceMessage, ...history.slice(activeIndex)]
+                    : [...history, diceMessage]
+                  syncHistory()
+                  return { ...result, shared: true, message: diceMessage.content }
+                }
+              : null,
             requestModeratorIntervention: args => {
               const moderatorAvailable = parts.some(participant => participant.isModerator)
               if (actor.isModerator || !moderatorAvailable || pendingModeratorRequest) {
@@ -1344,9 +1374,10 @@ export class Debate {
             messages: contextMessages,
             systemPrompt,
             useTools: true,
+            tools: isRolePlay ? ROLE_PLAY_TOOLS : undefined,
             executeTool: conversationToolExecutor,
             onToolInvocation: invocation => {
-              history = history.map((message, index) => index === history.length - 1
+              history = history.map(message => message.seq === activeMessageSeq
                 ? { ...message, toolInvocations: [...(message.toolInvocations || []), invocation] }
                 : message)
               syncHistory()
@@ -1355,19 +1386,21 @@ export class Debate {
             onEstimate: handlePromptEstimate,
             ...transportCallbacks(debugMode ? debugPayloads : null),
             onToken: text => {
-              history = history.map((message, index) => index === history.length - 1 ? { ...message, content: text } : message)
+              history = history.map(message => message.seq === activeMessageSeq ? { ...message, content: text } : message)
                syncHistory()
             },
             timeoutMs,
           })
-          const finalContent = full && full.trim() ? full : (history[history.length - 1]?.content ?? '')
+          const finalContent = full && full.trim()
+            ? full
+            : (history.find(message => message.seq === activeMessageSeq)?.content ?? '')
           const shouldSkipModeratorTurn = actor.isModerator
             && moderatorMode !== 'active'
             && !moderationDecision?.scheduledFacilitation
             && !moderationDecision?.reactiveModeration
             && /^\s*\[SKIP_TURN\]\s*$/i.test(finalContent)
           if (shouldSkipModeratorTurn) {
-            history = history.slice(0, -1)
+            history = history.filter(message => message.seq !== activeMessageSeq)
              syncHistory()
             setStreamingRole(null)
             setStreamingSeq(null)
@@ -1403,13 +1436,13 @@ export class Debate {
             }
           }
           if (moderatedContent.trim()) {
-            history = history.map((message, index) => index === history.length - 1 ? {
+            history = history.map(message => message.seq === activeMessageSeq ? {
               ...message,
               content: moderatedContent,
               ...(debugMode && debugPayloads.length > 0 ? { payload: debugPayloads.at(-1), debugPayloads } : {}),
             } : message)
           } else if (actor.isModerator) {
-            history = history.slice(0, -1)
+            history = history.filter(message => message.seq !== activeMessageSeq)
           } else {
             const emptyMsg = {
               role: 'error',
@@ -1418,7 +1451,7 @@ export class Debate {
               turn: turnLabel,
               seq: nextSeq(),
             }
-            history = [...history.slice(0, -1), emptyMsg]
+            history = [...history.filter(message => message.seq !== activeMessageSeq), emptyMsg]
           }
            syncHistory()
         } catch (err) {
@@ -1428,7 +1461,7 @@ export class Debate {
             turn: turnLabel,
             seq: nextSeq(),
           }
-          history = [...history.slice(0, -1), errMsg]
+          history = [...history.filter(message => message.seq !== activeMessageSeq), errMsg]
           syncHistory()
           turnRef.current = { round, step: s, skipSummary: true }
           setStreamingRole(null)

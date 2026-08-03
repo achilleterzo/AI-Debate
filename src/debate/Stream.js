@@ -28,6 +28,7 @@ export async function streamChat({
   timeoutMs = 120_000,
   systemPrompt = null,
   useTools = false,
+  tools = LLM_TOOLS,
   onPayload = null,
   onResponse = null,
   onEstimate = null,
@@ -72,7 +73,7 @@ export async function streamChat({
       baseUrl,
       model,
       messages: payloadMessages,
-      tools: wantsTools ? LLM_TOOLS : null,
+      tools: wantsTools ? tools : null,
     })
     const debugRequest = {
       provider: provider.id,

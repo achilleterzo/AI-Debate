@@ -1,5 +1,5 @@
 export default {
-  modes: { free: '자유', brainstorm: '브레인스토밍', fact_check: '팩트 체크', design_review: '디자인 검토', decision: '의사결정', negotiation: '협상', red_team: '레드팀', socratic: '소크라테스식', peer_review: '동료 검토', consensus: '합의' },
+  modes: { free: '자유', brainstorm: '브레인스토밍', fact_check: '팩트 체크', design_review: '디자인 검토', decision: '의사결정', negotiation: '협상', red_team: '레드팀', socratic: '소크라테스식', peer_review: '동료 검토', consensus: '합의', role_play: '롤플레이' },
   common: {
     debateMode: '토론 모드',
     cancel: '취소',

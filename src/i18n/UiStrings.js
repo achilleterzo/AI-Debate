@@ -71,6 +71,7 @@ export const UI_OPTION_LABELS = {
     socratic: 'Socratic',
     peerReview: 'Peer Review',
     consensus: 'Consensus',
+    rolePlay: 'Role Play',
   },
 }
 
@@ -100,6 +101,7 @@ export const UI_STRINGS = {
     socratic: 'Socratic',
     peer_review: 'Peer Review',
     consensus: 'Consensus',
+    role_play: 'Role Play',
   },
   topMenu: {
     title: 'Settings',

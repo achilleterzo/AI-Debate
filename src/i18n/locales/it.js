@@ -1,5 +1,5 @@
 export default {
-  modes: { free: 'Libero', brainstorm: 'Brainstorming', fact_check: 'Fact-checking', design_review: 'Revisione del design', decision: 'Decisione', negotiation: 'Negoziazione', red_team: 'Red Team', socratic: 'Socratico', peer_review: 'Peer review', consensus: 'Consenso' },
+  modes: { free: 'Libero', brainstorm: 'Brainstorming', fact_check: 'Fact-checking', design_review: 'Revisione del design', decision: 'Decisione', negotiation: 'Negoziazione', red_team: 'Red Team', socratic: 'Socratico', peer_review: 'Peer review', consensus: 'Consenso', role_play: 'Role Play' },
   common: {
     debateMode: 'Modalità di dibattito',
     cancel: 'Annulla',

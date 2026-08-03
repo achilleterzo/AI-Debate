@@ -124,6 +124,11 @@ export class Data {
         continue
       }
 
+      if (msg.role === 'dice') {
+        body += `<div style="text-align:center;margin:10px 0;"><div style="display:inline-block;background:#17152a;border:1px solid #6d5bb544;border-radius:9px;padding:7px 14px;color:#c9bfff;font-size:12px;"><strong>🎲 Shared dice result</strong> · ${esc(msg.content)}</div></div>`
+        continue
+      }
+
       if (msg.role === 'participant_left' || msg.role === 'participant_joined') {
         const snap = msg.participantSnapshot
         const isLeft = msg.role === 'participant_left'
@@ -282,6 +287,10 @@ export class Data {
         out += `**Variation:** ${msg.content}\n\n`
         continue
       }
+      if (msg.role === 'dice') {
+        out += `**🎲 Shared dice result:** ${msg.content}\n\n`
+        continue
+      }
       if (msg.role === 'participant_left' || msg.role === 'participant_joined') {
         const snap = msg.participantSnapshot
         const isLeft = msg.role === 'participant_left'
@@ -349,6 +358,7 @@ export class Data {
           actor: actor ? (actor.name || actor.tag) : null,
           actorIsModerator: !!actor?.isModerator,
           kind: actor?.isModerator ? 'moderation' : 'message',
+          dice: m.dice ?? null,
         }
       }),
       conclusions: conclusions.map(({ type, title, customPrompt, content, createdAt, seq }) => ({ type, title: title ?? null, customPrompt: customPrompt ?? null, content, createdAt, seq })),

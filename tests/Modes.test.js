@@ -23,6 +23,7 @@ describe('Debate modes', () => {
     expect(DEBATE_MODES.map(mode => mode.id)).toEqual([
       'free', 'brainstorm', 'fact_check', 'design_review', 'decision',
       'negotiation', 'red_team', 'socratic', 'peer_review', 'consensus',
+      'role_play',
     ])
     expect(DEFAULT_DEBATE_MODE).toBe('free')
     expect(normalizeDebateMode('missing')).toBe('free')
@@ -44,5 +45,17 @@ describe('Debate modes', () => {
   it('keeps legacy prompt callers in Free mode', () => {
     const prompt = buildSystemPrompt({ actor, allParticipants: [actor], history: [], constants })
     expect(prompt).toContain('SHARED DEBATE MODE — FREE:')
+  })
+
+  it('gives Role Play a shared fiction and Master/Narrator contract', () => {
+    const prompt = buildSystemPrompt({
+      actor: { ...actor, isModerator: true, moderatorMode: 'containment' },
+      allParticipants: [{ ...actor, isModerator: true, moderatorMode: 'containment' }],
+      history: [],
+      debateMode: 'role_play',
+      constants,
+    })
+    expect(prompt).toContain('ROLE PLAY ROLE — MASTER / NARRATOR:')
+    expect(prompt).toContain('roll_dice tool')
   })
 })

@@ -177,6 +177,18 @@ export default function ChatTimeline({
       return
     }
 
+    if (msg.role === 'dice') {
+      elems.push(
+        <div key={`dice-${i}`} style={{ textAlign: 'center', margin: '10px 0' }}>
+          <div style={{ display: 'inline-block', maxWidth: '92%', background: '#17152a', border: '1px solid #6d5bb544', borderRadius: 9, padding: '7px 14px', color: '#c9bfff', fontSize: 12 }}>
+            <span style={{ fontWeight: 700, marginRight: 7 }}>🎲 Shared dice result</span>
+            <span>{msg.content}</span>
+          </div>
+        </div>
+      )
+      return
+    }
+
     // ── presence events (join / leave) — skip turn badge ──────────────────
     if (msg.role === 'participant_left' || msg.role === 'participant_joined') {
       const snap = msg.participantSnapshot
