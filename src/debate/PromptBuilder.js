@@ -139,11 +139,13 @@ No specialized debate procedure is active. Respond naturally to the topic while 
     .find(Boolean)
 
   const baselineRules = [
+    'Tool-call protocol (strict): the current request payload and its tools array are the source of truth for available tools and their argument schemas. Invoke a tool only through the structured function-calling interface defined there, using valid JSON arguments; never write a tool name, pseudo-call, Markdown code, or notation such as `roll_dice`(1d20) in visible content. If a tool is not present in the payload, do not invent or simulate it.',
+    'A tool instruction and a tool invocation are different events: a moderator message may instruct a participant to use a tool, but that message is not itself a tool call. The addressed participant must make their own structured call when the instruction applies; do not reproduce the command in prose, and do not call a tool on behalf of another participant.',
     ...(!actor.isModerator && debateHasModerator
       ? [
           '- A moderator holds procedural authority over this debate. If the moderator issues a process directive (de-escalation, topic redirection, turn assignment, format), comply with it in your next turn. You may keep defending your positions on content, but never ignore or overrule a moderator process directive.',
           '- Treat a moderator intervention as a binding procedural instruction, not as an ordinary peer argument. Do not debate, dismiss, reinterpret, or sidestep its directive; acknowledge it through your next response and follow its requested format or focus.',
-          '- If the moderator explicitly instructs you to use a named tool, follow that procedural instruction and invoke the tool when its conditions apply; do not merely describe the tool or claim that you used it. If the requested result is already present as a shared tool result, use that result and do not invoke the tool again.',
+          '- If the moderator explicitly instructs you to use a tool, follow that procedural instruction by making the structured tool call yourself when its conditions apply; do not merely describe it, quote its syntax, or claim that another participant used it. If the requested result is already present as a shared tool result, use that result and do not invoke the tool again.',
         ]
       : []),
     '- Avoid referring to other participants unless it is strictly necessary for the argument you are making.',

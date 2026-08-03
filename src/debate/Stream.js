@@ -37,6 +37,9 @@ function cleanToolContinuationText(text, previousSegment = '') {
 }
 
 function parseInlineToolArguments(raw) {
+  const diceMatch = String(raw || '').trim().match(/^(\d+)\s*d\s*(\d+)$/i)
+  if (diceMatch) return { count: Number(diceMatch[1]), sides: Number(diceMatch[2]) }
+
   const args = {}
   for (const part of String(raw || '').split(',')) {
     const separator = part.indexOf('=')
@@ -57,7 +60,7 @@ function stripInlineToolSyntax(text, tools = []) {
   const names = new Set((tools || []).map(tool => tool?.function?.name).filter(Boolean))
   if (names.size === 0) return text
   return String(text || '')
-    .replace(/\b([A-Za-z_]\w*)\s*\([^()\n]*\)/g, (match, fnName) => names.has(fnName) ? '' : match)
+    .replace(/`?\b([A-Za-z_]\w*)`?\s*\([^()\n]*\)/g, (match, fnName) => names.has(fnName) ? '' : match)
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
@@ -267,7 +270,7 @@ export async function streamChat({
 
     if (toolCalls.length === 0) {
       const knownToolNames = new Set((tools || []).map(tool => tool?.function?.name).filter(Boolean))
-      const inlineToolRe = /\b([A-Za-z_]\w*)\s*\(([^()\n]*)\)/g
+      const inlineToolRe = /`?\b([A-Za-z_]\w*)`?\s*\(([^()\n]*)\)/g
       let inlineMatch
       while ((inlineMatch = inlineToolRe.exec(full)) !== null) {
         const fnName = inlineMatch[1]
@@ -275,7 +278,7 @@ export async function streamChat({
         toolCalls.push({ function: { name: fnName, arguments: parseInlineToolArguments(inlineMatch[2]) } })
       }
       if (toolCalls.length > 0) {
-        full = full.replace(/\b([A-Za-z_]\w*)\s*\([^()\n]*\)/g, (match, fnName) => knownToolNames.has(fnName) ? '' : match).replace(/\s{2,}/g, ' ').trim()
+        full = full.replace(/`?\b([A-Za-z_]\w*)`?\s*\([^()\n]*\)/g, (match, fnName) => knownToolNames.has(fnName) ? '' : match).replace(/\s{2,}/g, ' ').trim()
       }
     }
 

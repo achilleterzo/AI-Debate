@@ -383,6 +383,50 @@ describe('streamChat content assembly through the provider seam', () => {
     expect(result).toBe('I will roll now.\n\nThe result is decisive.')
     expect(tokens.some(token => token.includes('roll_dice(count=2'))).toBe(false)
   })
+
+  it('recognizes backticked dice notation emitted as text', async () => {
+    let call = 0
+    let receivedArgs = null
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const content = call === 1 ? 'I act now. `roll_dice`(1d20)' : 'The roll decides the outcome.'
+      const lines = call === 1
+        ? [
+            JSON.stringify({ message: { content } }) + '\n',
+            JSON.stringify({ done: true, done_reason: 'stop', message: { content: '' } }) + '\n',
+          ]
+        : [
+            JSON.stringify({ message: { content } }) + '\n',
+            JSON.stringify({ done: true, done_reason: 'stop', message: { content: '' } }) + '\n',
+          ]
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+            controller.close()
+          },
+        }),
+      }
+    }))
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'continue' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'roll_dice' } }],
+      executeTool: async (name, args) => {
+        receivedArgs = { name, args }
+        return 'rolled: 15'
+      },
+      onToken: () => {},
+    })
+
+    expect(receivedArgs).toEqual({ name: 'roll_dice', args: { count: 1, sides: 20 } })
+    expect(result).toContain('The roll decides the outcome.')
+    expect(result).not.toContain('roll_dice')
+  })
 })
 
 describe('streamChat empty response handling', () => {
