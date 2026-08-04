@@ -4,6 +4,7 @@ import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { TRANSLATED_LANGUAGE_CODES } from '../i18n/locales'
 import { UPDATE_ERROR, UPDATE_STATUS } from '../services/Updates'
+import { TOOL_SETTINGS } from '../tools/ToolSettings'
 
 const TABS = ['main', 'promptRules', 'advanced']
 
@@ -22,6 +23,8 @@ export default function PromptSettingsModal({
   debugMode,
   onDebugModeChange,
   running,
+  enabledTools,
+  onEnabledToolsChange,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.promptSettingsModal
@@ -156,6 +159,33 @@ export default function PromptSettingsModal({
 
             {activeTab === 'advanced' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start', minHeight: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>{ui.toolsTitle}</span>
+                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.toolsDescription}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: '100%' }}>
+                    {TOOL_SETTINGS.map(tool => {
+                      const enabled = enabledTools?.[tool.id] !== false
+                      return (
+                        <div key={tool.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '7px 9px', border: '1px solid #252525', borderRadius: 7, background: '#101010', opacity: running ? 0.55 : 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{tool.icon}</span>
+                            <span style={{ fontSize: 12, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ui[tool.labelKey]} <span style={{ color: '#777' }}>({tool.id})</span></span>
+                            {tool.rolePlayOnly && <span style={{ fontSize: 10, color: '#9b8bd4', border: '1px solid #443b64', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap' }}>{ui.toolRolePlayOnly}</span>}
+                          </div>
+                          <div
+                            onClick={() => !running && onEnabledToolsChange?.({ ...enabledTools, [tool.id]: !enabled })}
+                            role="switch"
+                            aria-checked={enabled}
+                            style={{ width: 34, height: 18, borderRadius: 9, position: 'relative', flexShrink: 0, background: enabled ? '#4ade80' : '#444', cursor: running ? 'default' : 'pointer', transition: 'background 0.2s' }}
+                            title={enabled ? ui.toolEnabled : ui.toolDisabled}
+                          >
+                            <div style={{ position: 'absolute', top: 2, left: enabled ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
                   <span style={{ fontSize: 12, color: '#888' }}>{appUi.timeout}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -149,6 +149,8 @@ export async function streamChat({
   executeTool = null,
   onToolInvocation = null,
   onToolRound = null,
+  onThinking = null,
+  think = true,
   provider = getProvider(),
 }) {
   const label = `[${provider.id}] ${model}`
@@ -190,6 +192,7 @@ export async function streamChat({
       model,
       messages: payloadMessages,
       tools: wantsTools ? tools : null,
+      think,
     })
     const debugRequest = {
       provider: provider.id,
@@ -248,6 +251,7 @@ export async function streamChat({
     const decoder = new TextDecoder()
     const parser = provider.createStreamParser()
   let full = ''
+  let thinking = ''
   let tokenCount = 0
   let toolCalls = []
   let doneReason = null
@@ -262,6 +266,12 @@ export async function streamChat({
         // the user with an unexplained empty response.
         case 'error':
           throw new Error(event.message)
+        case 'thinking':
+          thinking += event.text
+          // Thinking is deliberately kept out of visible content. Consumers
+          // may use it for diagnostics or a private progress indicator.
+          onThinking?.(thinking)
+          break
         case 'toolCalls':
           // Ollama may emit tool calls across multiple streaming chunks.
           // Keep every chunk as prescribed by the API instead of replacing
@@ -323,6 +333,7 @@ export async function streamChat({
         role: 'assistant',
         content: full,
         contentLength: full.length,
+        ...(thinking ? { thinking, thinkingLength: thinking.length } : {}),
         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
       },
       ...(doneReason ? { done_reason: doneReason } : {}),
@@ -332,6 +343,7 @@ export async function streamChat({
       rawContent: rawStreamContent,
       visibleContent: rawVisibleContent,
       content: full,
+      thinking,
       doneReason,
       toolCalls,
     })
@@ -382,7 +394,10 @@ export async function streamChat({
       continue
     }
 
-    if (!full.trim() && !retried && !previousToolSegment) {
+    // A provider may acknowledge the tool result with an empty assistant
+    // message. A previous segment must not suppress the retry: after a tool
+    // round the continuation is a new response and still needs visible text.
+    if (!full.trim() && !retried && (!previousToolSegment || toolRound > 0)) {
       retried = true
       console.warn(`${label} risposta vuota — retry${toolRound > 0 ? ' senza tools' : ''}`)
       full = ''

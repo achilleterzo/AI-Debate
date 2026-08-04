@@ -94,6 +94,7 @@ function AppInner({ settings }) {
     summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
+    enabledTools, setEnabledTools,
   } = settings
   const [messages, setMessages] = useState([])
   const [running, setRunning] = useState(false)
@@ -158,6 +159,7 @@ function AppInner({ settings }) {
     globalConstraints,
     generalPersonalityInstructions,
     debateMode,
+    enabledTools,
     conclusionsRef,
     memoryRef,
     setMemory,
@@ -875,7 +877,12 @@ function AppInner({ settings }) {
         </div>{/* end column wrapper */}
       </div>
       <AppModals
-        payloadModal={payloadModal}
+        payloadModal={payloadModal?.reasoningSeq != null
+          ? {
+              ...payloadModal,
+              text: messages.find(message => message.seq === payloadModal.reasoningSeq)?.thinking || '',
+            }
+          : payloadModal}
         onClosePayloadModal={() => setPayloadModal(null)}
         constraintModal={constraintModal}
         onCloseConstraintModal={() => setConstraintModal(null)}
@@ -904,6 +911,8 @@ function AppInner({ settings }) {
         debugMode={debugMode}
         onDebugModeChange={next => { localStorage.setItem('debugMode', next); setDebugMode(next) }}
         running={running}
+        enabledTools={enabledTools}
+        onEnabledToolsChange={setEnabledTools}
       />
       </div>
     </div>

@@ -7,6 +7,7 @@ import { DEFAULT_DELIVERY_STYLE } from '../prompts/DeliveryStyle'
 import { buildModeratorPromptBlocks } from '../prompts/ModeratorPrompt'
 import { STRUCTURED_TOOL_CALL_PROTOCOL } from '../prompts/ToolProtocol'
 import { buildTopicPromptBlocks } from '../prompts/TopicPrompt'
+import { REASONING_CONTEXT_BLOCK } from '../prompts/ReasoningContext'
 
 export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, constants }) {
   const {
@@ -57,6 +58,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   const constraintsBlock = buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions })
 
   return [
+    REASONING_CONTEXT_BLOCK,
     identityBlock,
     characterType ? `Character type: ${characterType.label}.` : '',
     responseLength?.instruction ? `Verbosity rule: ${responseLength.instruction}` : '',

@@ -72,6 +72,7 @@ describe('streamChat content assembly through the provider seam', () => {
       body: {
         model: 'test-model',
         stream: true,
+        think: true,
         messages: [{ role: 'system', content: 'sys' }, { role: 'user', content: 'hi' }],
       },
     })

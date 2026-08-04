@@ -36,6 +36,25 @@ function isRenderableParticipantMessage(message) {
   return message && !['participant_joined', 'participant_left', 'dice', 'topic', 'interjection', 'error'].includes(message.role)
 }
 
+function toolInvocationPill(invocation, key, alignment) {
+  return (
+    <div
+      key={key}
+      style={{
+        alignSelf: alignment, maxWidth: '100%', boxSizing: 'border-box', padding: '4px 8px',
+        border: '1px solid #514a78', borderRadius: 8,
+        color: '#aaa', fontSize: 10, lineHeight: 1.35,
+        background: '#171624',
+        boxShadow: '0 0 8px rgba(139, 92, 246, 0.22), inset 0 0 7px rgba(139, 92, 246, 0.08)',
+      }}
+    >
+      <span style={{ marginRight: 5 }}>{TOOL_ICONS[invocation?.name] || '🛠️'}</span>
+      <span style={{ color: '#aaa' }}>{invocation?.name}</span>
+      {describeToolInvocation(invocation) && <span style={{ color: '#666' }}> · {describeToolInvocation(invocation)}</span>}
+    </div>
+  )
+}
+
 export default function ChatTimeline({
   messages,
   running,
@@ -189,7 +208,7 @@ export default function ChatTimeline({
       const diceAlign = diceOwner ? (diceOwner.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'center'
       elems.push(
         <div key={`dice-${i}`} style={{ display: 'flex', justifyContent: diceAlign, width: '100%', margin: '4px 0 10px' }}>
-          <div style={{ display: 'inline-block', maxWidth: '92%', background: diceOwner?.bg || '#17152a', border: `2px dashed ${diceOwner?.border || '#514a78'}`, borderRadius: diceOwner?.radiusOwn || 9, padding: '7px 14px', color: '#e0e0e0', fontSize: 12, boxShadow: `inset 0 0 0 1px ${diceOwner?.border || '#514a78'}44` }}>
+          <div style={{ display: 'inline-block', maxWidth: '92%', background: diceOwner?.bg || '#17152a', border: `2px dashed ${diceOwner?.border || '#514a78'}`, borderRadius: 12, padding: '7px 14px', color: '#e0e0e0', fontSize: 12, boxShadow: `inset 0 0 0 1px ${diceOwner?.border || '#514a78'}44` }}>
             <span style={{ fontWeight: 700, marginRight: 7, color: diceOwner?.label || '#c9bfff' }}>🎲 {diceOwnerName}</span>
             <span>{msg.content}</span>
           </div>
@@ -240,7 +259,8 @@ export default function ChatTimeline({
         <div key={`turn-${i}`} style={styles.turnBadge}>{ui.round(msg.turn)}</div>
       )
     }
-    const isModeratorMessage = !!actor.isModerator && actor.model !== userModel
+    const isLocalUser = !!actor.localUser || actor.model === userModel
+    const isModeratorMessage = !!actor.isModerator && !isLocalUser
     // Moderation styling is driven only by the explicit message tag assigned
     // by the debate engine, never by words found in the generated content.
     const isModerationIntervention = isModeratorMessage && msg.messageType === 'moderation'
@@ -260,9 +280,20 @@ export default function ChatTimeline({
     const continuationText = [msg.content, ...continuationItems.filter(candidate => candidate.role !== 'dice').map(candidate => candidate.content)]
       .filter(Boolean)
       .join('\n\n')
+    const toolEvents = msg.toolEvents?.length
+      ? msg.toolEvents
+      : (msg.toolInvocations || []).map(invocation => ({ type: 'invocation', invocation, beforeContent: false }))
+    const leadingToolEvents = toolEvents.filter(event => event.type === 'invocation' && event.beforeContent)
+    const trailingToolEvents = toolEvents.filter(event => !(event.type === 'invocation' && event.beforeContent))
+    const leadingDiceResults = continuationItems.filter(candidate => candidate.role === 'dice' && candidate.beforeContent)
+    const primaryIsLastBalloon = !continuationItems.some(candidate => candidate.role !== 'dice')
     const groupedPayloadMessage = [msg, ...continuationItems]
       .find(candidate => candidate.payload || candidate.debugPayloads?.length > 0)
     const isStreamingMsg = streamingSeq != null ? msg.seq === streamingSeq : streamingRole === msg.role
+    const thinkingText = String(msg.thinking || '').trim()
+    const contentAlignment = isModerationIntervention
+      ? 'flex-start'
+      : (actor ? (actor.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'flex-end')
     const moderatorBubbleStyle = isModerationIntervention
       ? {
           background: '#2a1010',
@@ -273,8 +304,8 @@ export default function ChatTimeline({
       : null
     elems.push(
       <div key={`msg-${i}`} style={{ ...styles.msgWrap(msg.role, actor), ...(isModerationIntervention ? { alignItems: 'center' } : {}) }}>
-        {!isContinuation && <div style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', color: '#ef4444' } : {}), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span>{actor.name || actor.tag} · {actor.model === userModel ? `👤 ${common.user}` : `${actor.model} · ${(() => { const m = moods.find(x => x.id === actor.mood); const intensity = moodIntensity[actor.moodIntensity ?? defaultMoodIntensity]; return m ? `${m.emoji} ${m.label} (${intensity.label})` : '' })()}`} <span style={{ fontWeight: 400, color: '#555' }}>({ui.round(msg.turn)})</span></span>
+        {!isContinuation && <div style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', width: '92%', maxWidth: regularBalloonMaxWidth || 980, justifyContent: 'flex-start', color: '#ef4444' } : {}), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span>{actor.name || actor.tag} · {isLocalUser ? `👤 ${common.user}` : `${actor.model} · ${(() => { const m = moods.find(x => x.id === actor.mood); const intensity = moodIntensity[actor.moodIntensity ?? defaultMoodIntensity]; return m ? `${m.emoji} ${m.label} (${intensity.label})` : '' })()}`} <span style={{ fontWeight: 400, color: '#555' }}>({ui.round(msg.turn)})</span></span>
           {isStreamingMsg && (
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.75, animation: 'spin 1s linear infinite' }}>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
@@ -283,14 +314,47 @@ export default function ChatTimeline({
         </div>}
         <div className="balloon-group" style={{
           ...styles.balloonWrap(actor),
+          display: 'flex', flexDirection: 'column', alignItems: contentAlignment, gap: 4,
           ...(isModerationIntervention ? { width: '92%', maxWidth: regularBalloonMaxWidth || 980, alignSelf: 'center' } : {}),
           ...(!isModerationIntervention && regularBalloonMaxWidth ? { maxWidth: regularBalloonMaxWidth } : {}),
           ...(!msg.content && streamingRole === msg.role
             ? (isModerationIntervention ? { width: 'auto', alignSelf: 'center' } : { width: 'auto', alignSelf: actor ? (actor.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'flex-end' })
             : {}),
-        }}>
+          }}>
+          {thinkingText && (
+            <div style={{ alignSelf: contentAlignment }}>
+              <button
+                type="button"
+                title={ui.reasoning}
+                onClick={() => setPayloadModal({ title: ui.reasoning, reasoningSeq: msg.seq })}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '3px 8px', borderRadius: 999,
+                  border: '1px solid #514a78', background: '#171624',
+                  color: '#aaa', fontSize: 10, cursor: 'pointer',
+                }}
+              >
+                <span>💭</span>
+                <span style={{ animation: isStreamingMsg ? 'reasoningGlow 1.4s ease-in-out infinite' : undefined }}>
+                  {isStreamingMsg ? `${ui.reasoning}...` : ui.reasoning}
+                </span>
+              </button>
+            </div>
+          )}
+          {leadingToolEvents.map((event, eventIndex) => toolInvocationPill(event.invocation, `tool-before-${i}-${eventIndex}`, contentAlignment))}
+          {leadingDiceResults.map((result, resultIndex) => {
+            const diceOwner = resolveDiceOwner(result, participants)
+            const diceOwnerName = diceOwner?.name || diceOwner?.tag || 'Shared dice result'
+            const diceBorder = diceOwner?.border || actor.border || '#514a78'
+            return (
+              <div key={`leading-dice-${i}-${resultIndex}`} style={{ alignSelf: contentAlignment, maxWidth: '100%', padding: '7px 14px', background: diceOwner?.bg || actor.bg || '#17152a', border: `2px dashed ${diceBorder}`, borderRadius: 12, color: '#e0e0e0', fontSize: 12, boxShadow: `inset 0 0 0 1px ${diceBorder}44` }}>
+                <span style={{ fontWeight: 700, marginRight: 7, color: diceOwner?.label || actor.label || '#c9bfff' }}>🎲 {diceOwnerName}</span>
+                <span>{result.content}</span>
+              </div>
+            )
+          })}
           {msg.content || !isStreamingMsg
-            ? <div className="bubble" style={{ ...styles.bubble(msg.role, actor), ...(moderatorBubbleStyle || {}) }}>
+            ? <div className="bubble" style={{ ...styles.bubble(msg.role, actor), borderRadius: primaryIsLastBalloon ? actor.radiusOwn : 12, ...(moderatorBubbleStyle || {}) }}>
                 {isModerationIntervention && (
                   <div style={{
                     display: 'inline-flex', alignItems: 'center',
@@ -304,7 +368,12 @@ export default function ChatTimeline({
                 )}
                 <div dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(msg.content || '')) }} />
               </div>
-            : <div className="bubble" style={{ ...styles.bubble(msg.role, actor), ...(moderatorBubbleStyle || {}), width: 'auto' }}>{Dots({})}</div>
+            : <div className="bubble" style={{
+                ...styles.bubble(msg.role, actor),
+                ...(moderatorBubbleStyle || {}),
+                width: 'auto',
+                alignSelf: actor ? (actor.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'flex-end',
+              }}>{Dots({})}</div>
           }
           {msg.content && (
             <div style={styles.floatBtns(actor)}>
@@ -333,36 +402,22 @@ export default function ChatTimeline({
               )}
             </div>
           )}
-          {msg.toolInvocations?.map((invocation, toolIndex) => (
-            <div
-              key={`${invocation.name}-${toolIndex}`}
-              style={{
-                alignSelf: 'stretch', marginTop: 4, padding: '4px 8px',
-                border: '1px solid #514a78', borderRadius: 8,
-                color: '#aaa', fontSize: 10, lineHeight: 1.35,
-                background: '#171624',
-                boxShadow: '0 0 8px rgba(139, 92, 246, 0.22), inset 0 0 7px rgba(139, 92, 246, 0.08)',
-              }}
-            >
-              <span style={{ marginRight: 5 }}>{TOOL_ICONS[invocation.name] || '🛠️'}</span>
-              <span style={{ color: '#aaa' }}>{invocation.name}</span>
-              {describeToolInvocation(invocation) && <span style={{ color: '#666' }}> · {describeToolInvocation(invocation)}</span>}
-            </div>
-          ))}
+          {trailingToolEvents.map((event, eventIndex) => toolInvocationPill(event.invocation, `tool-after-${i}-${eventIndex}`, contentAlignment))}
           {continuationItems.map((continuation, continuationIndex) => {
+            if (continuation.role === 'dice' && continuation.beforeContent) return null
             if (continuation.role === 'dice') {
               const diceOwner = resolveDiceOwner(continuation, participants)
               const diceOwnerName = diceOwner?.name || diceOwner?.tag || 'Shared dice result'
               const diceBorder = diceOwner?.border || actor.border || '#514a78'
               return (
-                <div key={`continuation-dice-${continuationIndex}`} style={{ alignSelf: 'stretch', marginTop: 4, marginBottom: 0, padding: '7px 14px', background: diceOwner?.bg || actor.bg || '#17152a', border: `2px dashed ${diceBorder}`, borderRadius: diceOwner?.radiusOwn || actor.radiusOwn || 9, color: '#e0e0e0', fontSize: 12, boxShadow: `inset 0 0 0 1px ${diceBorder}44` }}>
+                <div key={`continuation-dice-${continuationIndex}`} style={{ alignSelf: contentAlignment, maxWidth: '100%', padding: '7px 14px', background: diceOwner?.bg || actor.bg || '#17152a', border: `2px dashed ${diceBorder}`, borderRadius: 12, color: '#e0e0e0', fontSize: 12, boxShadow: `inset 0 0 0 1px ${diceBorder}44` }}>
                   <span style={{ fontWeight: 700, marginRight: 7, color: diceOwner?.label || actor.label || '#c9bfff' }}>🎲 {diceOwnerName}</span>
                   <span>{continuation.content}</span>
                 </div>
               )
             }
             return (
-              <div key={`continuation-message-${continuationIndex}`} className="bubble" style={{ ...styles.bubble(continuation.role, actor), marginTop: 4 }}>
+              <div key={`continuation-message-${continuationIndex}`} className="bubble" style={{ ...styles.bubble(continuation.role, actor), borderRadius: continuationItems.slice(continuationIndex + 1).some(candidate => candidate.role !== 'dice') ? 12 : actor.radiusOwn }}>
                 <div dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(continuation.content || '')) }} />
               </div>
             )

@@ -11,7 +11,7 @@ export function useEndpointStatuses(participants) {
 
   const statuses = useMemo(() => {
     const activeIds = participants
-      .filter(participant => participant.model !== Debate.USER_MODEL && participant.endpointOverride?.trim())
+      .filter(participant => !participant.localUser && participant.model !== Debate.USER_MODEL && participant.endpointOverride?.trim())
       .map(participant => participant.id)
 
     return Object.fromEntries(activeIds.map(id => [id, results[id] ?? { state: 'checking' }]))
@@ -20,7 +20,7 @@ export function useEndpointStatuses(participants) {
   useEffect(() => {
     let cancelled = false
     const active = participants
-      .filter(participant => participant.model !== Debate.USER_MODEL && participant.endpointOverride?.trim())
+      .filter(participant => !participant.localUser && participant.model !== Debate.USER_MODEL && participant.endpointOverride?.trim())
       .map(participant => ({ id: participant.id, url: participant.endpointOverride.trim().replace(/\/$/, '') }))
 
     if (active.length === 0) return

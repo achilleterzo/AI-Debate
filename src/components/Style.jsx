@@ -180,6 +180,7 @@ export const moodSelectStyles = {
 	control: (b, state) => ({
 		...b,
 		background: '#0f0f0f',
+		textAlign: 'left',
 		borderColor: state.isFocused ? '#555' : '#2e2e2e',
 		borderRadius: 6,
 		minHeight: 28,
@@ -227,14 +228,15 @@ export const modelSelectStyles = {
 		opacity: state.isDisabled ? 0.5 : 1,
 		'&:hover': { borderColor: state.isDisabled ? '#2e2e2e' : '#555' },
 	}),
-	singleValue: (b, state) => ({ ...b, color: state.isDisabled ? '#444' : '#e0e0e0', fontSize: 12 }),
-	placeholder: (b, state) => ({ ...b, color: state.isDisabled ? '#333' : '#444', fontSize: 12 }),
-	valueContainer: b => ({ ...b, padding: '0 8px', flexWrap: 'nowrap' }),
+	singleValue: (b, state) => ({ ...b, color: state.isDisabled ? '#444' : '#e0e0e0', fontSize: 12, textAlign: 'left' }),
+	placeholder: (b, state) => ({ ...b, color: state.isDisabled ? '#333' : '#444', fontSize: 12, textAlign: 'left' }),
+	valueContainer: b => ({ ...b, padding: '0 8px', flexWrap: 'nowrap', justifyContent: 'flex-start', textAlign: 'left' }),
 	option: (b, state) => ({
 		...b,
 		background: state.isSelected ? '#2a2a2a' : state.isFocused ? '#1e1e1e' : '#0f0f0f',
 		color: state.isSelected ? '#e0e0e0' : '#aaa',
 		fontSize: 12,
+		textAlign: 'left',
 		cursor: 'pointer',
 		padding: '5px 10px',
 		whiteSpace: 'nowrap',
@@ -245,7 +247,7 @@ export const modelSelectStyles = {
 	menuList: b => ({ ...b, padding: 2 }),
 	indicatorSeparator: () => ({ display: 'none' }),
 	dropdownIndicator: b => ({ ...b, color: '#444', padding: '0 6px', '&:hover': { color: '#888' } }),
-	input: b => ({ ...b, color: '#e0e0e0', margin: 0, padding: 0, fontSize: 12 }),
+	input: b => ({ ...b, color: '#e0e0e0', margin: 0, padding: 0, fontSize: 12, textAlign: 'left' }),
 	clearIndicator: b => ({ ...b, color: '#444', padding: '0 4px', '&:hover': { color: '#888' } }),
 }
 
@@ -254,6 +256,7 @@ export function GlobalStyles() {
 		<style>{`
 			@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
 			@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+			@keyframes reasoningGlow{0%,100%{text-shadow:0 0 2px #8b7cf655}50%{text-shadow:0 0 9px #c4b5fd}}
 			.balloon-group:hover .float-btn { opacity: 1 !important; }
 			input[type="number"] {
 				color-scheme: dark;

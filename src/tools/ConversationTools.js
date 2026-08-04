@@ -23,19 +23,13 @@ export const REQUEST_MODERATOR_INTERVENTION_TOOL = {
   type: 'function',
   function: {
     name: 'request_moderator_intervention',
-    description: 'Ask the debate moderator for a direct procedural intervention. This schedules one extra moderator turn outside the standard round.',
+    description: 'Ask the debate moderator for an explicit extra turn outside the standard round. Available only when a moderator is present.',
     parameters: {
       type: 'object',
       properties: {
-        reason: { type: 'string', description: 'Why moderator intervention is needed now.' },
-        focus: { type: 'string', description: 'What the moderator should clarify, redirect, or enforce.' },
-        participantTags: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional participant tags the intervention should address.',
-        },
+        reason: { type: 'string', description: 'Why the moderator should intervene now.' },
       },
-      required: [],
+      required: ['reason'],
     },
   },
 }

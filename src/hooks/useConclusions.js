@@ -25,13 +25,13 @@ export function useConclusions({
   setLastRequest,
 }) {
   const [conclusions, setConclusions] = useState([])
-  const [conclusionModel, setConclusionModel] = useState(initialModel)
+  const [conclusionModel, setConclusionModel] = useState(initialModel || defaultModel)
   const [conclusionType, setConclusionType] = useState('summary')
   const [customConclusionPrompt, setCustomConclusionPrompt] = useState(initialCustomPrompt)
   const [standardConclusionPrompt, setStandardConclusionPrompt] = useState(initialStandardPrompt)
   const [conclusionRunning, setConclusionRunning] = useState(false)
 
-  const fallbackModel = Debate.pickOperationalModel(participants, summaryModelOverride, defaultModel)
+  const fallbackModel = defaultModel || Debate.pickOperationalModel(participants, summaryModelOverride, defaultModel)
   const effectiveConclusionModel = conclusionModel && models.includes(conclusionModel)
     ? conclusionModel
     : fallbackModel

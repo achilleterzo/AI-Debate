@@ -35,12 +35,16 @@ export default function AppModals({
   debugMode,
   onDebugModeChange,
   running,
+  enabledTools,
+  onEnabledToolsChange,
 }) {
   return (
     <>
       {payloadModal && (
         <PayloadModalView
-          payload={payloadModal.title ? payloadModal.payload : payloadModal}
+          payload={payloadModal.title
+            ? (Object.prototype.hasOwnProperty.call(payloadModal, 'text') ? payloadModal.text : payloadModal.payload)
+            : payloadModal}
           title={payloadModal.title}
           onClose={onClosePayloadModal}
         />
@@ -80,6 +84,8 @@ export default function AppModals({
           debugMode={debugMode}
           onDebugModeChange={onDebugModeChange}
           running={running}
+          enabledTools={enabledTools}
+          onEnabledToolsChange={onEnabledToolsChange}
         />
       )}
       {confirmModal && (

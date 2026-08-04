@@ -141,7 +141,7 @@ export class Data {
         const diceOwnerName = diceOwner?.name || diceOwner?.tag || 'Shared dice result'
         const diceBackground = diceOwner?.bg || '#17152a'
         const diceBorder = diceOwner?.border || '#514a78'
-        body += `<div style="text-align:center;margin:4px 0 10px;"><div style="display:inline-block;background:${diceBackground};border:2px dashed ${diceBorder};border-radius:${diceOwner?.radiusOwn || '9px'};padding:7px 14px;color:#e0e0e0;font-size:12px;box-shadow:inset 0 0 0 1px ${diceBorder}44;"><strong style="color:${diceOwner?.label || '#c9bfff'};">🎲 ${esc(diceOwnerName)}</strong> · ${esc(msg.content)}</div></div>`
+        body += `<div style="text-align:center;margin:4px 0 10px;"><div style="display:inline-block;background:${diceBackground};border:2px dashed ${diceBorder};border-radius:12px;padding:7px 14px;color:#e0e0e0;font-size:12px;box-shadow:inset 0 0 0 1px ${diceBorder}44;"><strong style="color:${diceOwner?.label || '#c9bfff'};">🎲 ${esc(diceOwnerName)}</strong> · ${esc(msg.content)}</div></div>`
         continue
       }
 
@@ -204,7 +204,7 @@ export class Data {
     .msg-center{align-self:center;align-items:center;max-width:92%;}
     .label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;}
     .bubble{padding:10px 14px;font-size:13px;line-height:1.65;word-break:break-word;}
-    .tool-action{align-self:stretch;margin-top:4px;padding:4px 8px;border:1px solid #514a78;border-radius:8px;color:#aaa;font-size:10px;line-height:1.35;background:#171624;box-shadow:0 0 8px rgba(139,92,246,.22),inset 0 0 7px rgba(139,92,246,.08);}
+    .tool-action{align-self:flex-start;max-width:100%;box-sizing:border-box;margin-top:4px;padding:4px 8px;border:1px solid #514a78;border-radius:8px;color:#aaa;font-size:10px;line-height:1.35;background:#171624;box-shadow:0 0 8px rgba(139,92,246,.22),inset 0 0 7px rgba(139,92,246,.08);}
     .tool-name{color:#aaa;margin-left:5px;} .tool-details{color:#666;}
     .moderation-badge{display:inline-block;background:#2a180f;border:1px solid #f9731655;border-radius:999px;padding:2px 8px;font-size:10px;color:#fb923c;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;}
     .part-row{margin:2px 0;}

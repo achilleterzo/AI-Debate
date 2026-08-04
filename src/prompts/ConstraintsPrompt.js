@@ -23,7 +23,7 @@ export function buildConstraintsBlock({ actor, allParticipants, globalConstraint
     '- If the available context does not contain exchanges you need, use get_recent_messages with a small limit; you may filter it by participantTags and searchTerm when reviewing specific participants or claims.',
     '- Tool ownership is individual: a tool action is performed only by the participant who invokes it. A result may be shared with the table without making the action collective. Preserve the recorded owner and do not falsely claim, disclaim, or repeat another participant\'s tool action.',
     '- Use the memory tool for durable context that may matter in later turns. Memory writes belong to you as author; when reading, omit participantTags for all memory or provide one or more author tags for a filtered list. Do not treat memory as a substitute for the current conversation.',
-    '- If you need a direct procedural intervention from the moderator, use request_moderator_intervention instead of merely asking in prose; it schedules one extra moderator turn outside the standard round.',
+    '- If a moderator is present and you need a direct procedural intervention, use request_moderator_intervention with the required reason parameter; it schedules one extra moderator turn outside the standard round.',
     '- If you think moderator intervention is needed, ask for it naturally in plain language. Do not use coded markers or special trigger syntax.',
     '- Treat the active topic as the primary obligation. Source material, cited links, and examples are supporting context only.',
     '- If the active topic asks for an opinion on a project, site, person, or initiative as a whole, do not pivot into discussing individual articles, games, side examples, or analogies unless you explicitly connect them back to that overall evaluation.',
@@ -32,12 +32,12 @@ export function buildConstraintsBlock({ actor, allParticipants, globalConstraint
 
   return [
     generalPersonalityInstructions?.trim(),
-    'Precedence between the rule sections below, from strongest to weakest: 1) the non-negotiable shared debate mode above, 2) character override constraints, 3) global rules, 4) your personal constraints, 5) general debate conduct. System/developer rules and binding moderator process directives remain higher than all of these. When two rules conflict, preserve the stronger section and adapt the weaker one.',
+    'Precedence between the rule sections below, from strongest to weakest: 1) the non-negotiable shared debate mode above, 2) character override constraints for a direct conflict only, 3) global rules, 4) your personal constraints, 5) general debate conduct. System/developer rules and binding moderator process directives remain higher than all of these. Apply every non-conflicting global rule on every turn; a character override may supersede only the specific global rule it directly conflicts with and must not erase, weaken, or make optional the remaining global rules.',
     overrideConstraints.length > 0
       ? `Character override constraints (highest priority — when they conflict with ANY other rule in this prompt, including global rules, these win):\n${overrideConstraints.map(entry => `- ${entry.text}`).join('\n')}`
       : '',
     (globalConstraints || []).length > 0
-      ? `Global rules (they apply to every participant and take precedence over your personal constraints):\n${(globalConstraints || []).map(text => `- ${text}`).join('\n')}`
+      ? `Global rules — MANDATORY FOR EVERY PARTICIPANT AND EVERY TURN (apply these proactively; they are not optional background guidance):\n${(globalConstraints || []).map(text => `- ${text}`).join('\n')}\n\nUnless a higher-priority instruction or a character override directly conflicts with one specific rule, follow every global rule in this response. Do not omit unrelated global rules.`
       : '',
     personalConstraints.length > 0
       ? `Your personal constraints:\n${personalConstraints.map(entry => `- ${entry.text}`).join('\n')}`

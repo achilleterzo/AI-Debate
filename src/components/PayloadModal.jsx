@@ -3,7 +3,7 @@ import { useUiStrings } from '../i18n/UiStringsContext'
 export default function PayloadModal({ payload, onClose, title }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.payloadModal
-  const json = JSON.stringify(payload, null, 2)
+  const json = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)
 
   return (
     <div

@@ -19,6 +19,7 @@ import {
 } from '../settings/Settings'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from '../prompts/DefaultGeneralPersonalityInstructions'
 import { DEFAULT_DEBATE_MODE, normalizeDebateMode } from '../prompts/Modes'
+import { DEFAULT_ENABLED_TOOLS, normalizeEnabledTools } from '../tools/ToolSettings'
 
 export function useAppSettings() {
   const saved = Storage.loadSettings()
@@ -43,6 +44,7 @@ export function useAppSettings() {
   const [timeoutSec, setTimeoutSec] = useState(saved?.timeoutSec ?? DEFAULT_TIMEOUT_SEC)
   const [defaultModel, setDefaultModel] = useState(saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL)
   const [debateMode, setDebateMode] = useState(() => normalizeDebateMode(saved?.debateMode ?? DEFAULT_DEBATE_MODE))
+  const [enabledTools, setEnabledTools] = useState(() => normalizeEnabledTools(saved?.enabledTools ?? DEFAULT_ENABLED_TOOLS))
 
   return {
     saved,
@@ -58,7 +60,7 @@ export function useAppSettings() {
     summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
-    debateMode, setDebateMode,
+    debateMode, setDebateMode, enabledTools, setEnabledTools,
   }
 }
 
@@ -69,6 +71,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, globalConstraints,
     generalPersonalityInstructions, defaultModel,
     debateMode,
+    enabledTools,
   } = settings
   const { conclusionModel, customConclusionPrompt, standardConclusionPrompt } = conclusions
   useEffect(() => {
@@ -83,6 +86,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       globalConstraints: globalConstraints ?? [],
       generalPersonalityInstructions: generalPersonalityInstructions ?? DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS,
       debateMode: normalizeDebateMode(debateMode),
+      enabledTools,
     })
-  }, [participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode])
+  }, [participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools])
 }

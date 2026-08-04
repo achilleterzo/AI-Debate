@@ -13,7 +13,7 @@ import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
-import { createConversationToolExecutor, formatDiceRoll, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, ROLE_PLAY_TOOLS, readMemory, rollDice } from '../tools'
+import { createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
@@ -32,11 +32,16 @@ function continuationOverlap(previous, current) {
 
 function carryToolInvocations(history, fromSeq, toSeq) {
   const source = history.find(message => message.seq === fromSeq)
-  if (!source?.toolInvocations?.length) return history
+  if (!source?.toolInvocations?.length && !source?.toolEvents?.length) return history
   return history.map(message => message.seq === toSeq
     ? {
         ...message,
-        toolInvocations: [...(message.toolInvocations || []), ...source.toolInvocations],
+        ...(source.toolInvocations?.length
+          ? { toolInvocations: [...(message.toolInvocations || []), ...source.toolInvocations] }
+          : {}),
+        ...(source.toolEvents?.length
+          ? { toolEvents: [...(message.toolEvents || []), ...source.toolEvents] }
+          : {}),
       }
     : message)
 }
@@ -124,6 +129,10 @@ export class Debate {
 
   static REASONING_LANG_FROM_CONSTRAINT = '__constraint__'
 
+  static THINKING_LEVELS = ['none', 'low', 'medium', 'high', 'max']
+
+  static DEFAULT_THINKING_LEVEL = 'none'
+
   static MODERATOR_MODES = ['containment', 'facilitator', 'active']
 
   static DEFAULT_MODERATOR_MODE = 'containment'
@@ -158,6 +167,7 @@ export class Debate {
     return {
       id: idx,
       model,
+      localUser: false,
       endpointOverride: '',
       name: '',
       isModerator: false,
@@ -170,6 +180,7 @@ export class Debate {
       moodIntensity: Debate.DEFAULT_MOOD_INTENSITY,
       reasoningLang: '',
       reasoningLangSkipTranslation: false,
+      thinkingLevel: Debate.DEFAULT_THINKING_LEVEL,
       affinity: {},
       affinityLocks: {},
       characterType: null,
@@ -432,11 +443,13 @@ export class Debate {
       DEFAULT_MOOD_INTENSITY: Debate.DEFAULT_MOOD_INTENSITY,
       DEFAULT_EDUCATION_LEVEL: Debate.DEFAULT_EDUCATION_LEVEL,
       DEFAULT_AGE_GROUP: Debate.DEFAULT_AGE_GROUP,
+      DEFAULT_THINKING_LEVEL: Debate.DEFAULT_THINKING_LEVEL,
       normalizeAffinity: Debate.normalizeAffinity,
       normalizeAffinityLocks: Debate.normalizeAffinityLocks,
       normalizeConstraints: Debate.normalizeParticipantConstraints,
       normalizeModeratorMode: Debate.normalizeModeratorMode,
       normalizeModeratorPermissiveness,
+      normalizeThinkingLevel: Debate.normalizeThinkingLevel,
     }
   }
 
@@ -463,6 +476,8 @@ export class Debate {
       moodIntensity: participant.moodIntensity ?? Debate.DEFAULT_MOOD_INTENSITY,
       reasoningLang: participant.reasoningLang ?? '',
       reasoningLangSkipTranslation: !!participant.reasoningLangSkipTranslation,
+      thinkingLevel: Debate.normalizeThinkingLevel(participant.thinkingLevel),
+      localUser: !!participant.localUser || participant.model === Debate.USER_MODEL,
       characterType: participant.characterType ?? null,
       responseLength: participant.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : participant.responseLength,
       educationLevel: participant.educationLevel ?? Debate.DEFAULT_EDUCATION_LEVEL,
@@ -564,6 +579,10 @@ export class Debate {
     return [baseConclusionPrompt, modeGuidance, additionalGuidance].filter(Boolean).join('\n\n')
   }
 
+  static normalizeThinkingLevel(value) {
+    return Debate.THINKING_LEVELS.includes(value) ? value : Debate.DEFAULT_THINKING_LEVEL
+  }
+
   static shouldRewriteConclusionResult(result, uiLang) {
     const leakedReasoning = /\b(the user is asking|let me analyze|i need to|now i need to|here'?s my analysis)\b/i.test(result)
     const wrongLangHint = uiLang === 'it' && /\b(the|and|therefore|however|considerations|contradictions|blindspots|next steps)\b/i.test(result.slice(0, 600))
@@ -581,11 +600,11 @@ export class Debate {
   static pickOperationalModel(parts = [], overrideValue = '', defaultModel = '') {
     if (overrideValue) return overrideValue
     if (defaultModel) return defaultModel
-    return parts.find(participant => participant.model && participant.model !== Debate.USER_MODEL)?.model ?? parts[0]?.model ?? ''
+    return parts.find(participant => participant.model && !participant.localUser && participant.model !== Debate.USER_MODEL)?.model ?? ''
   }
 
   static hasConfiguredModel(participant, defaultModel = '') {
-    return Boolean(participant?.model || defaultModel)
+    return Boolean(participant?.localUser || participant?.model === Debate.USER_MODEL || participant?.model || defaultModel)
   }
 
   static buildLanguageLabel(uiLang, languages = []) {
@@ -888,12 +907,13 @@ export class Debate {
       }
     }
 
-    if (actor.model === Debate.USER_MODEL) return messages
+    if (actor.localUser || actor.model === Debate.USER_MODEL) return messages
 
     const previous = latestEvents.get(actor.id)
     const hasChanged = previous?.role === 'participant_joined' && (
       previous.participantSnapshot.model !== actor.model ||
       previous.participantSnapshot.name !== actor.name ||
+      !!previous.participantSnapshot.localUser !== !!actor.localUser ||
       !!previous.participantSnapshot.isModerator !== !!actor.isModerator ||
       (previous.participantSnapshot.endpointOverride ?? '') !== (actor.endpointOverride ?? '')
     )
@@ -971,6 +991,7 @@ export class Debate {
       globalConstraints,
       generalPersonalityInstructions,
       debateMode,
+      enabledTools,
       userInputRejectRef,
       setUserInputPending,
       turnRef,
@@ -1281,8 +1302,8 @@ export class Debate {
                 shouldIntervene: true,
                 scheduledFacilitation: true,
                 reactiveModeration: false,
-                moderationTargets: requestedModeratorTurn.participantTags || [],
-                reason: [requestedModeratorTurn.reason, requestedModeratorTurn.focus].filter(Boolean).join(' — ') || 'A participant requested direct moderator intervention.',
+                moderationTargets: [],
+                reason: requestedModeratorTurn.reason || 'A participant requested direct moderator intervention.',
               }
             : Debate.shouldModeratorIntervene({
                 actor,
@@ -1298,7 +1319,7 @@ export class Debate {
           }
         }
 
-        let activeMessageSeq = actor.model !== Debate.USER_MODEL ? nextSeq() : null
+        let activeMessageSeq = !actor.localUser && actor.model !== Debate.USER_MODEL ? nextSeq() : null
         if (activeMessageSeq != null) {
           const placeholder = { role: actor.tag, content: '', turn: turnLabel, seq: activeMessageSeq, participantSnapshot: { ...actor } }
           history = [...history, placeholder]
@@ -1453,7 +1474,7 @@ export class Debate {
           systemPrompt += `\n\n## Context files\nThe following articles have already been fetched for you. Do not search for them again.\n\n${urlContextBlocks.join('\n\n')}`
         }
 
-        if (actor.model === Debate.USER_MODEL) {
+        if (actor.localUser || actor.model === Debate.USER_MODEL) {
           try {
             const userText = await new Promise((resolve, reject) => {
               userInputRejectRef.current = reject
@@ -1485,18 +1506,19 @@ export class Debate {
             rollDice: isRolePlay
               ? args => {
                   const result = rollDice(args)
+                  const activeIndex = history.findIndex(message => message.seq === activeMessageSeq)
                   const diceMessage = {
                     role: 'dice',
                     content: formatDiceRoll(result),
                     turn: turnLabel,
                     seq: nextSeq(),
+                    beforeContent: !history[activeIndex]?.content?.trim(),
                     dice: result,
                     diceOwner: { id: actor.id, tag: actor.tag, name: actor.name },
                     participantSnapshot: { ...actor },
                   }
-                  const activeIndex = history.findIndex(message => message.seq === activeMessageSeq)
                   history = activeIndex >= 0
-                    ? [...history.slice(0, activeIndex), diceMessage, ...history.slice(activeIndex)]
+                    ? [...history.slice(0, activeIndex + 1), diceMessage, ...history.slice(activeIndex + 1)]
                     : [...history, diceMessage]
                   syncHistory()
                   return { ...result, shared: true, message: diceMessage.content }
@@ -1526,26 +1548,38 @@ export class Debate {
               if (actor.isModerator || !moderatorAvailable || pendingModeratorRequest) {
                 return { accepted: false, reason: actor.isModerator ? 'The moderator cannot request an extra moderator turn.' : 'A moderator intervention is already pending or unavailable.' }
               }
+              const reason = String(args?.reason || '').trim()
+              if (!reason) return { accepted: false, reason: 'A reason is required to request moderator intervention.' }
               pendingModeratorRequest = {
-                reason: String(args?.reason || '').trim(),
-                focus: String(args?.focus || '').trim(),
-                participantTags: Array.isArray(args?.participantTags) ? args.participantTags : [],
+                reason,
                 afterStep: cursorIndex + 1 < parts.length ? cursorIndex + 1 : 0,
               }
               return { accepted: true, message: 'Moderator intervention scheduled as an extra turn outside the standard round.' }
             },
           })
+          const availableTools = (parts.some(participant => participant.isModerator)
+            ? (isRolePlay ? ROLE_PLAY_TOOLS : LLM_TOOLS)
+            : (isRolePlay ? ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION : LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION))
+            .filter(tool => enabledTools?.[tool.function.name] !== false)
           const full = await streamChat({
             baseUrl: actorBaseUrl,
             model: actor.model,
             messages: contextMessages,
             systemPrompt,
             useTools: true,
-            tools: isRolePlay ? ROLE_PLAY_TOOLS : undefined,
+            tools: availableTools,
+            think: actor.thinkingLevel === 'none' ? false : Debate.normalizeThinkingLevel(actor.thinkingLevel),
             executeTool: conversationToolExecutor,
             onToolInvocation: invocation => {
               history = history.map(message => message.seq === activeMessageSeq
-                ? { ...message, toolInvocations: [...(message.toolInvocations || []), invocation] }
+                ? {
+                    ...message,
+                    toolInvocations: [...(message.toolInvocations || []), invocation],
+                    toolEvents: [
+                      ...(message.toolEvents || []),
+                      { type: 'invocation', invocation, beforeContent: !message.content?.trim() },
+                    ],
+                  }
                 : message)
               syncHistory()
             },
@@ -1584,6 +1618,12 @@ export class Debate {
             onComplete: ({ visibleContent, doneReason }) => {
               rawResponseContent = visibleContent || ''
               completionReason = doneReason || null
+            },
+            onThinking: thinking => {
+              history = history.map(message => message.seq === activeMessageSeq
+                ? { ...message, thinking }
+                : message)
+              syncHistory()
             },
             ...transportCallbacks(debugMode ? debugPayloads : null),
             onToken: text => {
@@ -1643,7 +1683,15 @@ export class Debate {
           let moderatedContent = resolvedContent
           const isProceduralModerationTurn = actor.isModerator
             && !isRolePlay
-            && (!!moderationDecision?.reactiveModeration || extraModeratorTurn)
+            && (
+              extraModeratorTurn
+              || !!moderationDecision?.reactiveModeration
+              || (
+                moderatorMode !== 'active'
+                && !!moderationDecision?.shouldIntervene
+                && !moderationDecision?.scheduledFacilitation
+              )
+            )
           // Directive-style rewrite only applies to containment interventions:
           // active moderators contribute content, and scheduled facilitation
           // turns are analytical by design — rewriting would destroy both.

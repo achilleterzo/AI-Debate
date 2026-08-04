@@ -2,10 +2,11 @@ import { topicToSlug } from '../utils/Slug'
 import { DEFAULT_RESPONSE_LENGTH } from '../prompts/ResponseLengths'
 
 export class Session {
-  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness }) {
+  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeThinkingLevel }) {
     return {
       id: p.id,
-      model: p.model,
+      model: p.model === '__user__' ? '' : p.model,
+      localUser: !!p.localUser || p.model === '__user__',
       endpointOverride: p.endpointOverride ?? '',
       name: p.name,
       isModerator: !!p.isModerator || p.mood === 'moderator',
@@ -18,6 +19,7 @@ export class Session {
       moodIntensity: p.moodIntensity ?? DEFAULT_MOOD_INTENSITY,
       reasoningLang: p.reasoningLang ?? '',
       reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
+      thinkingLevel: normalizeThinkingLevel(p.thinkingLevel ?? DEFAULT_THINKING_LEVEL),
       characterType: p.characterType ?? null,
       responseLength: p.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : p.responseLength,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,
@@ -29,9 +31,11 @@ export class Session {
     }
   }
 
-  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness }) {
+  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeThinkingLevel }) {
     return {
-      ...mkParticipant(i, p.model),
+      ...mkParticipant(i, p.model === '__user__' ? '' : p.model),
+      model: p.model === '__user__' ? '' : (p.model ?? ''),
+      localUser: !!p.localUser || p.model === '__user__',
       endpointOverride: p.endpointOverride ?? '',
       name: p.name ?? '',
       isModerator: !!p.isModerator || p.mood === 'moderator',
@@ -44,6 +48,7 @@ export class Session {
       moodIntensity: p.moodIntensity ?? DEFAULT_MOOD_INTENSITY,
       reasoningLang: p.reasoningLang ?? '',
       reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
+      thinkingLevel: normalizeThinkingLevel(p.thinkingLevel ?? DEFAULT_THINKING_LEVEL),
       characterType: p.characterType ?? null,
       responseLength: p.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : p.responseLength,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,

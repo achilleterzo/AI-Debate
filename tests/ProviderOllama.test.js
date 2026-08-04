@@ -44,6 +44,11 @@ describe('ollamaProvider.buildChatRequest', () => {
     const req = ollamaProvider.buildChatRequest({ baseUrl: 'http://x', model: 'm', messages: [], tools })
     expect(req.body.tools).toEqual(tools)
   })
+
+  it('includes native thinking only when requested', () => {
+    const req = ollamaProvider.buildChatRequest({ baseUrl: 'http://x', model: 'qwen3', messages: [], think: true })
+    expect(req.body.think).toBe(true)
+  })
 })
 
 describe('ollamaProvider.createStreamParser', () => {
@@ -59,6 +64,18 @@ describe('ollamaProvider.createStreamParser', () => {
     expect(events.map(e => e.type)).toEqual(['delta', 'delta', 'toolCalls', 'done'])
     expect(events[0].text).toBe('Hel')
     expect(events[2].toolCalls).toHaveLength(1)
+  })
+
+  it('emits native thinking separately from visible content', () => {
+    const parser = ollamaProvider.createStreamParser()
+    const events = [
+      ...parser.push(line({ message: { thinking: 'plan' } })),
+      ...parser.push(line({ message: { content: 'answer' } })),
+    ]
+
+    expect(events.map(e => e.type)).toEqual(['thinking', 'delta'])
+    expect(events[0].text).toBe('plan')
+    expect(events[1].text).toBe('answer')
   })
 
   it('reassembles a JSON object split across two chunks', () => {

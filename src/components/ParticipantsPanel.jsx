@@ -45,6 +45,13 @@ export default function ParticipantsPanel({
     { value: Debate.REASONING_LANG_FROM_CONSTRAINT, label: ui.reasoningLangFromConstraint },
     ...UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code })),
   ]
+  const thinkingLevelOptions = [
+    { value: 'none', label: ui.thinkingNone },
+    { value: 'low', label: ui.thinkingLow },
+    { value: 'medium', label: ui.thinkingMedium },
+    { value: 'high', label: ui.thinkingHigh },
+    { value: 'max', label: ui.thinkingMax },
+  ]
   // An empty model already means "fall back to the default"; this makes that
   // state an explicit choice instead of something reachable only by clearing.
   const defaultModelOption = {
@@ -150,11 +157,12 @@ export default function ParticipantsPanel({
       </div>
       {participants.map((p, idx) => {
         const isCollapsed = collapsed[idx] !== false
+        const localUser = !!p.localUser || p.model === userModel
         const characterLabel = characterTypes.find(ct => (p.characterType ?? null) === ct.value)?.label ?? ui.person
         const responseLabel = `${ui.verbosity}: ${responseLengths.find(rl => (p.responseLength ?? null) === rl.value)?.label ?? ui.free}`
-        const moodLabel = p.model === userModel ? ui.user : (moods.find(m => m.id === p.mood)?.label ?? ui.neutral)
+        const moodLabel = localUser ? ui.user : (moods.find(m => m.id === p.mood)?.label ?? ui.neutral)
         const moodDegreeLabel = moodIntensity[p.moodIntensity ?? defaultMoodIntensity]?.label ?? ''
-        const moodBadgeLabel = p.model === userModel ? moodLabel : `${moodLabel} (${moodDegreeLabel})`
+        const moodBadgeLabel = localUser ? moodLabel : `${moodLabel} (${moodDegreeLabel})`
         const ageLabel = ageGroups[p.ageGroup ?? defaultAgeGroup]?.label ?? '-'
         const permissiveness = Math.min(4, Math.max(0, Math.round(Number.isFinite(Number(p.moderatorPermissiveness)) ? Number(p.moderatorPermissiveness) : Debate.DEFAULT_MODERATOR_PERMISSIVENESS)))
         const eduLabel = educationLevels.find(e => e.value === (p.educationLevel ?? null))?.label ?? ui.modelDefault
@@ -240,8 +248,8 @@ export default function ParticipantsPanel({
                 <span style={{ fontSize: 10, color: '#9b9b9b', border: '1px solid #2f2f2f', borderRadius: 999, padding: '1px 7px' }}>{moodBadgeLabel}</span>
                 {(p.educationLevel ?? null) !== null && <span style={{ fontSize: 10, color: '#8fb9ff', border: '1px solid #2b3f5f', borderRadius: 999, padding: '1px 7px' }}>{eduLabel}</span>}
                 <span style={{ fontSize: 10, color: '#d9a95d', border: '1px solid #3a2f1f', borderRadius: 999, padding: '1px 7px' }}>{ageLabel}</span>
-                {p.model !== userModel && !!p.endpointOverride?.trim() && <span style={{ fontSize: 10, color: '#93c5fd', border: '1px solid #27466a', borderRadius: 999, padding: '1px 7px' }}>{ui.endpointBadge}</span>}
-                {p.model !== userModel && p.isModerator && <span style={{ fontSize: 10, color: '#ef4444', border: '1px solid #5f2b2b', borderRadius: 999, padding: '1px 7px' }}>{common.moderator}</span>}
+                {!!p.endpointOverride?.trim() && <span style={{ fontSize: 10, color: '#93c5fd', border: '1px solid #27466a', borderRadius: 999, padding: '1px 7px' }}>{ui.endpointBadge}</span>}
+                {p.isModerator && <span style={{ fontSize: 10, color: '#ef4444', border: '1px solid #5f2b2b', borderRadius: 999, padding: '1px 7px' }}>{common.moderator}</span>}
               </div>
 
               {participants.length > 2 && (
@@ -255,7 +263,7 @@ export default function ParticipantsPanel({
 
             {!isCollapsed && (
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {p.model !== userModel && (
+            {(
               <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', gap: 3 }}>
                   {characterTypes.map(ct => {
@@ -306,7 +314,7 @@ export default function ParticipantsPanel({
                   title={ui.fantasyName}
                   spellCheck={false}
                 />
-              {wand && p.model !== userModel && (
+              {wand && (
                 <MagicWand
                   wand={wand}
                   mode={participantMode(idx)}
@@ -322,19 +330,18 @@ export default function ParticipantsPanel({
                     const local = models.filter(m => !m.endsWith('cloud')).sort()
                     return [
                       defaultModelOption,
-                      { label: ui.user, options: [{ value: userModel, label: ui.userManualTurn }] },
                       ...(cloud.length ? [{ label: common.cloud, options: cloud.map(m => ({ value: m, label: m })) }] : []),
                       ...(local.length ? [{ label: common.local, options: local.map(m => ({ value: m, label: m })) }] : []),
                     ]
                   })()}
-                  value={p.model ? { value: p.model, label: p.model === userModel ? ui.userManualTurn : p.model } : defaultModelOption}
+                  value={p.model && p.model !== userModel ? { value: p.model, label: p.model } : defaultModelOption}
                   onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, model: opt?.value ?? '' } : x))}
                   placeholder={common.chooseModel}
                   menuPlacement="auto"
                   noOptionsMessage={() => ui.noModelsAvailable}
                 />
               </div>
-              {p.model !== userModel && (() => {
+              {(() => {
                 const st = endpointStatuses?.[p.id]?.state ?? 'none'
                 const hasOverride = !!p.endpointOverride?.trim()
                 const dot = st === 'ok' ? '#4ade80' : st === 'err' ? '#f87171' : st === 'checking' ? '#f59e0b' : '#666'
@@ -369,7 +376,7 @@ export default function ParticipantsPanel({
                   </button>
                 )
               })()}
-              {p.model !== userModel && <ReactSelect
+              <ReactSelect
                 styles={moodSelectStyles}
                 options={moodOptions}
                 value={moodOptions.find(o => o.value === p.mood) ?? null}
@@ -378,8 +385,8 @@ export default function ParticipantsPanel({
                 isSearchable={false}
                 menuPlacement="auto"
                 title={ui.participantMood}
-              />}
-              {p.model !== userModel && moods.find(m => m.id === p.mood)?.instruction && (
+              />
+              {moods.find(m => m.id === p.mood)?.instruction && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }} title={moodIntensity[p.moodIntensity ?? defaultMoodIntensity].label}>
                   <span style={{ fontSize: 10, color: '#555', whiteSpace: 'nowrap' }}>
                     {moodIntensity[p.moodIntensity ?? defaultMoodIntensity].label}
@@ -394,8 +401,18 @@ export default function ParticipantsPanel({
               )}
             </div>
 
-            {p.model !== userModel && (
+            {(
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }} title={ui.thinkingLevelTitle}>{ui.thinkingLevel}:</span>
+                <div style={{ minWidth: 130 }}>
+                  <ReactSelect
+                    styles={moodSelectStyles}
+                    options={thinkingLevelOptions}
+                    value={thinkingLevelOptions.find(o => o.value === Debate.normalizeThinkingLevel(p.thinkingLevel)) ?? thinkingLevelOptions[0]}
+                    onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, thinkingLevel: opt?.value ?? Debate.DEFAULT_THINKING_LEVEL } : x))}
+                    menuPlacement="auto"
+                  />
+                </div>
                 <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }} title={ui.reasoningLangTitle}>{ui.thinkingLanguage}:</span>
                 <div style={{ minWidth: 170 }}>
                   <ReactSelect
@@ -430,7 +447,7 @@ export default function ParticipantsPanel({
               </div>
             )}
 
-            {p.model !== userModel && (
+            {(
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 11, color: '#666' }}>{ui.relationalAffinity}</span>
                 {participants.filter(x => x.id !== p.id).map(other => {
@@ -495,8 +512,8 @@ export default function ParticipantsPanel({
               </div>
             )}
 
-            {p.model !== userModel && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                   <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }}>{ui.age}:</span>
                   <input
@@ -529,7 +546,34 @@ export default function ParticipantsPanel({
                 >
                   {educationLevels.map(e => <option key={e.value ?? ''} value={e.value ?? ''}>{e.label}</option>)}
                 </select>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }} title={ui.moderatorRole}>
+                </>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={ui.localUserTitle}>
+                  <span style={{ fontSize: 11, color: localUser ? '#22d3ee' : '#666', whiteSpace: 'nowrap' }}>{ui.localUser}</span>
+                  <div
+                    onClick={() => setParticipants(prev => prev.map((x, i) => i === idx
+                      ? {
+                          ...x,
+                          localUser: !(x.localUser || x.model === userModel),
+                          ...(x.model === userModel ? { model: defaultModel || '' } : {}),
+                        }
+                      : x))}
+                    role="switch"
+                    aria-checked={localUser}
+                    style={{
+                      width: 34, height: 18, borderRadius: 9, position: 'relative',
+                      background: localUser ? '#22d3ee' : '#444',
+                      transition: 'background 0.2s', cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', top: 2, left: localUser ? 18 : 2,
+                      width: 14, height: 14, borderRadius: '50%', background: '#fff',
+                      transition: 'left 0.2s',
+                    }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorRole}>
                   <span style={{ fontSize: 11, color: p.isModerator ? '#22d3ee' : '#666', whiteSpace: 'nowrap' }}>{common.moderator}</span>
                 <div
                   onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, isModerator: !x.isModerator } : x))}
@@ -549,10 +593,10 @@ export default function ParticipantsPanel({
                   }} />
                 </div>
                 </div>
-              </div>
-            )}
+                </div>
+            </div>
 
-             {p.model !== userModel && p.isModerator && (
+             {p.isModerator && (
                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingLeft: 2 }}>
                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }} title={ui.moderatorPermissivenessTitle(ui.moderatorPermissivenessLevels[permissiveness])}>
                    <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorPermissiveness}</span>
@@ -642,7 +686,7 @@ export default function ParticipantsPanel({
               </div>
             )}
 
-            {p.model !== userModel && (
+            {(
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 {(p.constraints ?? []).map((rawConstraint, ci) => {
                   const constraint = typeof rawConstraint === 'string' ? rawConstraint : rawConstraint?.text ?? ''

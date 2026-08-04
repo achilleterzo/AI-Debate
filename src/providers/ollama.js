@@ -30,6 +30,9 @@ function parseLine(line, events) {
     return
   }
 
+  if (json.message?.thinking) {
+    events.push({ type: 'thinking', text: json.message.thinking })
+  }
   if (json.message?.tool_calls?.length) {
     events.push({ type: 'toolCalls', toolCalls: json.message.tool_calls })
   }
@@ -67,7 +70,7 @@ export const ollamaProvider = {
     }
   },
 
-  buildChatRequest({ baseUrl, model, messages, tools = null }) {
+  buildChatRequest({ baseUrl, model, messages, tools = null, think = null }) {
     return {
       url: `${baseUrl}/api/chat`,
       headers: { 'Content-Type': 'application/json' },
@@ -76,6 +79,7 @@ export const ollamaProvider = {
         messages,
         stream: true,
         ...(tools ? { tools } : {}),
+        ...(think != null ? { think } : {}),
       },
     }
   },

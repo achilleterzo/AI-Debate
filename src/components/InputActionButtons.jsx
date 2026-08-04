@@ -134,7 +134,14 @@ export default function InputActionButtons({
             {ui.intervene}
           </button>
           <button
-            style={{ ...styles.connectBtn(stopping), minHeight: 44, alignSelf: 'stretch' }}
+            style={{
+              ...styles.connectBtn(stopping),
+              minHeight: 44,
+              alignSelf: 'stretch',
+              background: stopping ? '#3f1d1d' : '#7f1d1d',
+              borderColor: '#b91c1c',
+              color: stopping ? '#a88' : '#fee2e2',
+            }}
             onClick={onStop}
             disabled={stopping}
           >
@@ -158,7 +165,17 @@ export default function InputActionButtons({
           >
             {messages.some(m => m.role === 'error') ? ui.resumePingPong : topic.trim() ? ui.continueWithPrompt : ui.continue}
           </button>
-          <button style={{ ...styles.connectBtn(false), minHeight: 44, alignSelf: 'stretch' }} onClick={onReset}>
+          <button
+            style={{
+              ...styles.connectBtn(false),
+              minHeight: 44,
+              alignSelf: 'stretch',
+              background: '#7f1d1d',
+              borderColor: '#b91c1c',
+              color: '#fee2e2',
+            }}
+            onClick={onReset}
+          >
             {ui.resetButton}
           </button>
         </>
