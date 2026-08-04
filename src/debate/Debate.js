@@ -127,7 +127,7 @@ export class Debate {
 
   static USER_MODEL = '__user__'
 
-  static REASONING_LANG_FROM_CONSTRAINT = '__constraint__'
+  static REASONING_LANG_CUSTOM = '__custom__'
 
   static THINKING_LEVELS = ['none', 'low', 'medium', 'high', 'max']
 
@@ -179,6 +179,7 @@ export class Debate {
       mood: Debate.DEFAULT_MOOD,
       moodIntensity: Debate.DEFAULT_MOOD_INTENSITY,
       reasoningLang: '',
+      reasoningLangCustom: '',
       reasoningLangSkipTranslation: false,
       thinkingLevel: Debate.DEFAULT_THINKING_LEVEL,
       affinity: {},
@@ -475,6 +476,7 @@ export class Debate {
       mood: participant.mood,
       moodIntensity: participant.moodIntensity ?? Debate.DEFAULT_MOOD_INTENSITY,
       reasoningLang: participant.reasoningLang ?? '',
+      reasoningLangCustom: participant.reasoningLangCustom ?? '',
       reasoningLangSkipTranslation: !!participant.reasoningLangSkipTranslation,
       thinkingLevel: Debate.normalizeThinkingLevel(participant.thinkingLevel),
       localUser: !!participant.localUser || participant.model === Debate.USER_MODEL,
@@ -678,7 +680,7 @@ export class Debate {
       AGE_GROUPS,
       DEFAULT_AGE_GROUP: Debate.DEFAULT_AGE_GROUP,
       LANGUAGES,
-      REASONING_LANG_FROM_CONSTRAINT: Debate.REASONING_LANG_FROM_CONSTRAINT,
+      REASONING_LANG_CUSTOM: Debate.REASONING_LANG_CUSTOM,
       DEBATE_MODES,
       DEFAULT_DEBATE_MODE,
     }
@@ -1514,6 +1516,22 @@ export class Debate {
           let rawResponseContent = ''
           let completionReason = null
           const debugPayloads = []
+
+          // Single place that creates the procedural moderation message, shared
+          // by the tool executor and by the fallback below, so both produce an
+          // identical message.
+          const emitModerationMessage = reason => {
+            moderationApplied = true
+            history = [...history, {
+              role: actor.tag,
+              content: reason,
+              turn: turnLabel,
+              seq: nextSeq(),
+              messageType: 'moderation',
+              participantSnapshot: { ...actor },
+            }]
+            syncHistory()
+          }
           const conversationToolExecutor = createConversationToolExecutor({
             getMessages: () => history,
             rollDice: isRolePlay
@@ -1573,17 +1591,7 @@ export class Debate {
               if (!actor.isModerator) return { accepted: false, reason: 'Only the debate moderator can apply moderation.' }
               const reason = String(args?.reason || '').trim()
               if (!reason) return { accepted: false, reason: 'A reason is required to apply moderation.' }
-              moderationApplied = true
-              const moderationMessage = {
-                role: actor.tag,
-                content: reason,
-                turn: turnLabel,
-                seq: nextSeq(),
-                messageType: 'moderation',
-                participantSnapshot: { ...actor },
-              }
-              history = [...history, moderationMessage]
-              syncHistory()
+              emitModerationMessage(reason)
               return { accepted: true, message: 'Moderation applied as a separate procedural message.' }
             },
           })
@@ -1672,6 +1680,56 @@ export class Debate {
           const finalContent = [full, rawResponseContent, activeStreamContent]
             .find(content => String(content || '').trim()) || ''
           let resolvedContent = finalContent
+
+          // The prompt demands an apply_moderation call whenever a procedural
+          // intervention is due, but models comply unreliably. Retry once with
+          // an explicit reminder, then fall back to building the message from
+          // whatever the model produced: the intervention must not depend on
+          // the model choosing to emit a tool call.
+          const moderationRequired = actor.isModerator
+            && !isRolePlay
+            && !!moderationDecision?.reactiveModeration
+          if (moderationRequired && !moderationApplied) {
+            console.warn(`[moderation] ${actor.name || actor.tag}: apply_moderation not called — retrying once`)
+            let retryContent = ''
+            try {
+              await streamChat({
+                baseUrl: actorBaseUrl,
+                model: actor.model,
+                messages: [
+                  ...contextMessages,
+                  { role: 'user', content: 'You did not emit the required apply_moderation tool call. Emit exactly one apply_moderation tool call now, with a concise reason/directive. Do not write any visible text.' },
+                ],
+                systemPrompt,
+                useTools: true,
+                tools: availableTools.filter(tool => tool.function.name === 'apply_moderation'),
+                think: false,
+                executeTool: conversationToolExecutor,
+                onEstimate: handlePromptEstimate,
+                ...transportCallbacks(debugMode ? debugPayloads : null),
+                onToken: token => { retryContent = token },
+                timeoutMs,
+              })
+            } catch (retryError) {
+              console.warn(`[moderation] retry failed: ${retryError.message}`)
+            }
+
+            if (!moderationApplied) {
+              // Last resort: the visible text is the intervention the model
+              // wrote instead of calling the tool. [SKIP_TURN] means it kept
+              // silent, so the trigger reason is used instead.
+              const spoken = [resolvedContent, retryContent]
+                .map(text => String(text || '').trim())
+                .find(text => text && !/^\[SKIP_TURN\]$/i.test(text))
+              const reason = spoken || String(roundModerationSignal?.reason || '').trim()
+              if (reason) {
+                console.warn(`[moderation] falling back to a synthesised moderation message`)
+                emitModerationMessage(reason)
+                if (spoken && spoken === resolvedContent.trim()) resolvedContent = ''
+              }
+            }
+          }
+
           if (hasToolContinuation && previousToolMessageSeq != null && resolvedContent.trim()) {
             const reconciled = reconcileToolContinuation(history, previousToolMessageSeq, activeMessageSeq, resolvedContent)
             history = reconciled.history
@@ -1709,14 +1767,15 @@ export class Debate {
               continue
             }
           }
-          const shouldSkipModeratorTurn = actor.isModerator
-            && moderationApplied
-            && /^\s*\[SKIP_TURN\]\s*$/i.test(resolvedContent)
-          if (shouldSkipModeratorTurn) {
-            history = history.map(message => message.seq === activeMessageSeq
-              ? { ...message, content: '' }
-              : message)
-             syncHistory()
+          // [SKIP_TURN] is an internal marker and must never reach the chat,
+          // whether or not a moderation message was produced. With one, the
+          // placeholder stays so its tool pill survives; without one there is
+          // nothing left to show, so the turn is dropped entirely.
+          if (actor.isModerator && /^\s*\[SKIP_TURN\]\s*$/i.test(resolvedContent)) {
+            history = moderationApplied
+              ? history.map(message => message.seq === activeMessageSeq ? { ...message, content: '' } : message)
+              : history.filter(message => message.seq !== activeMessageSeq)
+            syncHistory()
             setStreamingRole(null)
             setStreamingSeq(null)
             continue

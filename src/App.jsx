@@ -105,6 +105,7 @@ function AppInner({ settings }) {
   const [payloadModal, setPayloadModal] = useState(null)
   const [constraintModal, setConstraintModal] = useState(null)
   const [endpointModal, setEndpointModal] = useState(null)
+  const [customLangModal, setCustomLangModal] = useState(null)
   const [promptSettingsModal, setPromptSettingsModal] = useState(false)
   const [confirmModal, setConfirmModal] = useState(null)
   const confirmActionRef = useRef(null)
@@ -325,6 +326,23 @@ function AppInner({ settings }) {
     if (!p) return
     const label = p.name?.trim() ? `${p.name} (${p.tag})` : p.tag
     setEndpointModal({ target: 'participant', idx, initialValue: p.endpointOverride ?? '', participantLabel: label })
+  }
+
+  const handleConfigureCustomLang = idx => {
+    const participant = participants[idx]
+    if (!participant) return
+    setCustomLangModal({ idx, initialValue: participant.reasoningLangCustom ?? '' })
+  }
+
+  const handleSaveCustomLang = rawValue => {
+    if (!customLangModal) return
+    const value = (rawValue ?? '').trim()
+    setParticipants(prev => prev.map((p, i) => i === customLangModal.idx
+      // An empty custom language would leave the selector claiming a language
+      // that is not there, so it falls back to following the output language.
+      ? { ...p, reasoningLangCustom: value, ...(value ? {} : { reasoningLang: '' }) }
+      : p))
+    setCustomLangModal(null)
   }
 
   const handleConfigureSummaryEndpoint = () => {
@@ -711,6 +729,7 @@ function AppInner({ settings }) {
           onDeleteConstraint={handleDeleteParticipantConstraint}
           onRequestRemoveParticipant={handleRequestRemoveParticipant}
           onConfigureEndpoint={handleConfigureParticipantEndpoint}
+          onConfigureCustomLang={handleConfigureCustomLang}
           endpointStatuses={endpointStatuses}
           wand={wand}
           defaultModel={defaultModel}
@@ -892,6 +911,9 @@ function AppInner({ settings }) {
         endpointModal={endpointModal}
         onCloseEndpointModal={() => setEndpointModal(null)}
         onConfirmEndpoint={handleSaveEndpoint}
+        customLangModal={customLangModal}
+        onCloseCustomLangModal={() => setCustomLangModal(null)}
+        onConfirmCustomLang={handleSaveCustomLang}
         endpointHistory={endpointHistory}
         onDeleteEndpointHistoryEntry={entry => setEndpointHistory(Storage.deleteEndpointFromHistory(entry))}
         promptSettingsModal={promptSettingsModal}

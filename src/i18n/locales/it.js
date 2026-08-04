@@ -160,7 +160,11 @@ export default {
     addConstraintButton: 'Aggiungi vincolo',
     addParticipant: 'Aggiungi partecipante',
     reasoningLangSameAsOutput: "Stessa dell'output",
-    reasoningLangFromConstraint: 'Specificata da un vincolo',
+    reasoningLangCustom: 'Altro (specificare)…',
+    reasoningLangCustomTitle: 'Lingua di ragionamento personalizzata',
+    reasoningLangCustomEdit: 'Modifica la lingua personalizzata',
+    reasoningLangCustomPlaceholder: 'es. Latino, Napoletano, Klingon',
+    reasoningLangCustomHint: 'Va nel prompt così come la scrivi: qualsiasi lingua, dialetto o idioma inventato.',
     reasoningLangTitle:
       'Lingua usata per il ragionamento interno; la risposta finale viene comunque tradotta nella lingua di output',
     thinkingLevel: 'Ragionamento',

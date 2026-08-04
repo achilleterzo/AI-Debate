@@ -249,7 +249,11 @@ export const UI_STRINGS = {
     addConstraintButton: 'Add constraint',
     addParticipant: 'Add participant',
     reasoningLangSameAsOutput: 'Same as output',
-    reasoningLangFromConstraint: 'Specified by a constraint',
+    reasoningLangCustom: 'Other (specify)…',
+    reasoningLangCustomTitle: 'Custom thinking language',
+    reasoningLangCustomEdit: 'Edit the custom language',
+    reasoningLangCustomPlaceholder: 'e.g. Latin, Neapolitan, Klingon',
+    reasoningLangCustomHint: 'Written as-is into the prompt: any language, dialect or invented tongue.',
     reasoningLangTitle:
       'Language used for internal reasoning; the final response is still translated into the output language',
     thinkingLevel: 'Reasoning',

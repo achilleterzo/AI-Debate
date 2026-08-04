@@ -33,6 +33,7 @@ export default function ParticipantsPanel({
   onDeleteConstraint,
   onRequestRemoveParticipant,
   onConfigureEndpoint = () => {},
+  onConfigureCustomLang = () => {},
   endpointStatuses = {},
   wand = null,
   defaultModel = '',
@@ -42,7 +43,7 @@ export default function ParticipantsPanel({
   const common = UI_STRINGS.common
   const reasoningLangOptions = [
     { value: '', label: ui.reasoningLangSameAsOutput },
-    { value: Debate.REASONING_LANG_FROM_CONSTRAINT, label: ui.reasoningLangFromConstraint },
+    { value: Debate.REASONING_LANG_CUSTOM, label: ui.reasoningLangCustom },
     ...UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code })),
   ]
   const thinkingLevelOptions = [
@@ -418,12 +419,39 @@ export default function ParticipantsPanel({
                   <ReactSelect
                     styles={moodSelectStyles}
                     options={reasoningLangOptions}
-                    value={reasoningLangOptions.find(o => o.value === (p.reasoningLang || '')) ?? reasoningLangOptions[0]}
-                    onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, reasoningLang: opt?.value ?? '' } : x))}
+                    value={(() => {
+                      const selected = reasoningLangOptions.find(o => o.value === (p.reasoningLang || '')) ?? reasoningLangOptions[0]
+                      // Show what was typed rather than the generic "Other" entry.
+                      return selected.value === Debate.REASONING_LANG_CUSTOM && p.reasoningLangCustom?.trim()
+                        ? { ...selected, label: p.reasoningLangCustom.trim() }
+                        : selected
+                    })()}
+                    onChange={opt => {
+                      const value = opt?.value ?? ''
+                      setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, reasoningLang: value } : x))
+                      if (value === Debate.REASONING_LANG_CUSTOM) onConfigureCustomLang?.(idx)
+                    }}
                     formatOptionLabel={opt => opt.code ? formatLanguageLabel(opt) : opt.label}
                     menuPlacement="auto"
                   />
                 </div>
+                {p.reasoningLang === Debate.REASONING_LANG_CUSTOM && (
+                  <button
+                    onClick={() => onConfigureCustomLang?.(idx)}
+                    title={ui.reasoningLangCustomEdit}
+                    aria-label={ui.reasoningLangCustomEdit}
+                    style={{
+                      width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                      border: '1px solid #4a2f63', background: '#1f1726', color: '#caa9ee',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={ui.thinkingLanguageSkipTranslationTitle}>
                   <span style={{ fontSize: 11, color: p.reasoningLangSkipTranslation ? '#c084fc' : '#666', whiteSpace: 'nowrap' }}>{ui.thinkingLanguageSkipTranslation}</span>
                   <div

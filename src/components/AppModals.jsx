@@ -1,6 +1,7 @@
 import PayloadModalView from './PayloadModal'
 import ConstraintModalView from './ConstraintModal'
 import EndpointModalView from './EndpointModal'
+import CustomLanguageModalView from './CustomLanguageModal'
 import PromptSettingsModalView from './PromptSettingsModal'
 import ConfirmModalView from './ConfirmModal'
 import { modelSelectStyles, moodSelectStyles } from './Style'
@@ -16,6 +17,9 @@ export default function AppModals({
   endpointModal,
   onCloseEndpointModal,
   onConfirmEndpoint,
+  customLangModal,
+  onCloseCustomLangModal,
+  onConfirmCustomLang,
   endpointHistory = [],
   onDeleteEndpointHistoryEntry,
   promptSettingsModal,
@@ -86,6 +90,13 @@ export default function AppModals({
           running={running}
           enabledTools={enabledTools}
           onEnabledToolsChange={onEnabledToolsChange}
+        />
+      )}
+      {customLangModal && (
+        <CustomLanguageModalView
+          state={customLangModal}
+          onClose={onCloseCustomLangModal}
+          onConfirm={onConfirmCustomLang}
         />
       )}
       {confirmModal && (

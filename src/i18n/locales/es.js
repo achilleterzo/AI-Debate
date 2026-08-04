@@ -143,7 +143,11 @@ export default {
     addConstraintButton: 'Añadir restricción',
     addParticipant: 'Añadir participante',
     reasoningLangSameAsOutput: 'Igual que la salida',
-    reasoningLangFromConstraint: 'Especificado por una restricción',
+    reasoningLangCustom: 'Otro (especificar)…',
+    reasoningLangCustomTitle: 'Idioma de razonamiento personalizado',
+    reasoningLangCustomEdit: 'Editar el idioma personalizado',
+    reasoningLangCustomPlaceholder: 'p. ej. Latín, Napolitano, Klingon',
+    reasoningLangCustomHint: 'Se escribe tal cual en el prompt: cualquier idioma, dialecto o lengua inventada.',
     reasoningLangTitle:
       'Idioma usado para el razonamiento interno; la respuesta final se sigue traduciendo al idioma de salida',
     thinkingLanguage: 'Idioma de razonamiento',

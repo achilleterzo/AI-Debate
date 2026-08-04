@@ -142,7 +142,11 @@ export default {
     addConstraintButton: 'Ajouter une contrainte',
     addParticipant: 'Ajouter un participant',
     reasoningLangSameAsOutput: 'Identique à la sortie',
-    reasoningLangFromConstraint: 'Spécifiée par une contrainte',
+    reasoningLangCustom: 'Autre (préciser)…',
+    reasoningLangCustomTitle: 'Langue de raisonnement personnalisée',
+    reasoningLangCustomEdit: 'Modifier la langue personnalisée',
+    reasoningLangCustomPlaceholder: 'ex. Latin, Napolitain, Klingon',
+    reasoningLangCustomHint: 'Transmise telle quelle au prompt : toute langue, dialecte ou idiome inventé.',
     reasoningLangTitle:
       'Langue utilisée pour le raisonnement interne ; la réponse finale est toujours traduite dans la langue de sortie',
     thinkingLanguage: 'Langue de raisonnement',

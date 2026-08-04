@@ -15,7 +15,7 @@ const constants = {
     { code: 'en', label: 'English' },
     { code: 'it', label: 'Italiano' },
   ],
-  REASONING_LANG_FROM_CONSTRAINT: '__constraint__',
+  REASONING_LANG_CUSTOM: '__custom__',
 }
 
 const participants = [
@@ -89,12 +89,30 @@ describe('buildSystemPrompt priorities', () => {
     expect(prompt).not.toContain('Character override constraints')
   })
 
-  it('still detects the reasoning language from object-shaped constraints', () => {
+  it('names a custom thinking language exactly as typed, without a language code', () => {
+    const prompt = build({ reasoningLang: '__custom__', reasoningLangCustom: 'Napoletano' })
+    expect(prompt).toContain('Do all internal reasoning and deliberation in Napoletano.')
+    expect(prompt).not.toContain('language code: Napoletano')
+  })
+
+  it('keeps the custom language in the visible answer when translation is skipped', () => {
     const prompt = build({
-      reasoningLang: '__constraint__',
-      constraints: [{ text: 'Think in Italiano', override: false }],
+      reasoningLang: '__custom__',
+      reasoningLangCustom: 'Latino',
+      reasoningLangSkipTranslation: true,
     })
-    expect(prompt).toContain('Do all internal reasoning and deliberation in Italiano')
+    expect(prompt).toContain('write your final visible response in Latino as well')
+  })
+
+  it('falls back to the output language when the custom entry is blank', () => {
+    const prompt = build({ reasoningLang: '__custom__', reasoningLangCustom: '   ' })
+    expect(prompt).toContain('Respond in English (language code: en).')
+    expect(prompt).not.toContain('internal reasoning')
+  })
+
+  it('still resolves a language picked from the fixed list', () => {
+    const prompt = build({ reasoningLang: 'it' })
+    expect(prompt).toContain('Do all internal reasoning and deliberation in Italiano (language code: it)')
   })
 })
 

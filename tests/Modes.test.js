@@ -13,7 +13,7 @@ const constants = {
   AGE_GROUPS: [],
   DEFAULT_AGE_GROUP: 2,
   LANGUAGES: [{ code: 'en', label: 'English' }],
-  REASONING_LANG_FROM_CONSTRAINT: '__constraint__',
+  REASONING_LANG_CUSTOM: '__custom__',
 }
 
 const actor = { id: 0, tag: 'A', name: 'A', mood: 'diplomatic', moodIntensity: 2, affinity: {}, constraints: [] }

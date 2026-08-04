@@ -26,7 +26,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     AGE_GROUPS,
     DEFAULT_AGE_GROUP,
     LANGUAGES,
-    REASONING_LANG_FROM_CONSTRAINT,
+    REASONING_LANG_CUSTOM,
   } = constants
 
   const mood = MOODS.find(m => m.id === actor.mood) ?? MOODS.find(m => m.id === DEFAULT_MOOD)
@@ -37,7 +37,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   const responseLength = RESPONSE_LENGTHS.find(r => r.value === actor.responseLength)
   const educationLevel = EDUCATION_LEVELS.find(e => e.value === actor.educationLevel)
   const ageGroup = AGE_GROUPS[actor.ageGroup ?? DEFAULT_AGE_GROUP]
-  const identityBlock = buildLanguagePrompt({ actor, uiLang, languages: LANGUAGES, reasoningLangFromConstraint: REASONING_LANG_FROM_CONSTRAINT, globalConstraints })
+  const identityBlock = buildLanguagePrompt({ actor, uiLang, languages: LANGUAGES, reasoningLangCustom: REASONING_LANG_CUSTOM })
 
   const roster = allParticipants
     .filter(p => p.id !== actor.id)
