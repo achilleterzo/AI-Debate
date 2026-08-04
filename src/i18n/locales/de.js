@@ -145,7 +145,7 @@ export default {
     reasoningLangCustom: 'Andere (angeben)…',
     reasoningLangCustomTitle: 'Eigene Denksprache',
     reasoningLangCustomEdit: 'Eigene Sprache bearbeiten',
-    reasoningLangCustomPlaceholder: 'z. B. Latein, Neapolitanisch, Klingonisch',
+    reasoningLangCustomPlaceholder: 'z. B. Latein, Bairisch, Klingonisch',
     reasoningLangCustomHint: 'Wird unverändert in den Prompt übernommen: jede Sprache, Mundart oder Kunstsprache.',
     reasoningLangTitle:
       'Sprache für internes Denken; die endgültige Antwort wird trotzdem in die Ausgabesprache übersetzt',

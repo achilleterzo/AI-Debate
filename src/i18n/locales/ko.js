@@ -145,7 +145,7 @@ export default {
     reasoningLangCustom: '기타(직접 입력)…',
     reasoningLangCustomTitle: '사용자 지정 사고 언어',
     reasoningLangCustomEdit: '사용자 지정 언어 편집',
-    reasoningLangCustomPlaceholder: '예: 라틴어, 나폴리어, 클링온어',
+    reasoningLangCustomPlaceholder: '예: 한문, 경상도 사투리, 클링온어',
     reasoningLangCustomHint: '입력한 그대로 프롬프트에 전달됩니다. 방언이나 가상 언어도 가능합니다.',
     reasoningLangTitle: '내부 추론에 사용되는 언어. 최종 응답은 그대로 출력 언어로 번역됩니다',
     thinkingLanguage: '사고 언어',

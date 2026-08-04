@@ -252,7 +252,7 @@ export const UI_STRINGS = {
     reasoningLangCustom: 'Other (specify)…',
     reasoningLangCustomTitle: 'Custom thinking language',
     reasoningLangCustomEdit: 'Edit the custom language',
-    reasoningLangCustomPlaceholder: 'e.g. Latin, Neapolitan, Klingon',
+    reasoningLangCustomPlaceholder: 'e.g. Latin, Scots, Klingon',
     reasoningLangCustomHint: 'Written as-is into the prompt: any language, dialect or invented tongue.',
     reasoningLangTitle:
       'Language used for internal reasoning; the final response is still translated into the output language',

@@ -146,7 +146,7 @@ export default {
     reasoningLangCustom: 'Otro (especificar)…',
     reasoningLangCustomTitle: 'Idioma de razonamiento personalizado',
     reasoningLangCustomEdit: 'Editar el idioma personalizado',
-    reasoningLangCustomPlaceholder: 'p. ej. Latín, Napolitano, Klingon',
+    reasoningLangCustomPlaceholder: 'p. ej. Latín, Andaluz, Klingon',
     reasoningLangCustomHint: 'Se escribe tal cual en el prompt: cualquier idioma, dialecto o lengua inventada.',
     reasoningLangTitle:
       'Idioma usado para el razonamiento interno; la respuesta final se sigue traduciendo al idioma de salida',

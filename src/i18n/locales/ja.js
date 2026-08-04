@@ -141,7 +141,7 @@ export default {
     reasoningLangCustom: 'その他（指定）…',
     reasoningLangCustomTitle: 'カスタム思考言語',
     reasoningLangCustomEdit: 'カスタム言語を編集',
-    reasoningLangCustomPlaceholder: '例: ラテン語、ナポリ語、クリンゴン語',
+    reasoningLangCustomPlaceholder: '例: 古典日本語、関西弁、クリンゴン語',
     reasoningLangCustomHint: '入力したままプロンプトに渡されます。方言や架空の言語も指定できます。',
     reasoningLangTitle: '内部の推論に使う言語。最終的な返信は出力言語に翻訳されます',
     thinkingLanguage: '思考言語',
