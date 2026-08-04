@@ -9,6 +9,11 @@ import { STRUCTURED_TOOL_CALL_PROTOCOL } from '../prompts/ToolProtocol'
 import { buildTopicPromptBlocks } from '../prompts/TopicPrompt'
 import { REASONING_CONTEXT_BLOCK } from '../prompts/ReasoningContext'
 
+function taggedSection(tag, content) {
+  const normalized = String(content || '').trim()
+  return normalized ? `<${tag}>\n${normalized}\n</${tag}>` : ''
+}
+
 export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, constants }) {
   const {
     MOODS,
@@ -54,34 +59,40 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   const moderationBlock = actor.isModerator && externalModerationTrigger
     ? `\n\nModeration trigger:\nneeded=${externalModerationTrigger.needed ? 'true' : 'false'}\nreason=${externalModerationTrigger.reason || ''}`
     : ''
+  const moderationToolRequirement = actor.isModerator
+    && mode.id !== 'role_play'
+    && externalModerationTrigger?.needed
+    ? 'A procedural intervention is required in this turn. Before writing ANY visible response, you MUST emit one structured apply_moderation tool call with the concise reason/directive. Do not explain, quote, or simulate the intervention in visible text. The tool call creates the separate moderation message. After the tool result, output exactly [SKIP_TURN] unless your active moderator style explicitly requires a separate substantive contribution.'
+    : ''
 
   const constraintsBlock = buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions })
 
   return [
-    REASONING_CONTEXT_BLOCK,
-    identityBlock,
-    characterType ? `Character type: ${characterType.label}.` : '',
-    responseLength?.instruction ? `Verbosity rule: ${responseLength.instruction}` : '',
-    DEFAULT_DELIVERY_STYLE,
-    educationLevel?.instruction ? `Education style: ${educationLevel.instruction}` : '',
-    ageGroup?.instruction ? `Age style: ${ageGroup.instruction}` : '',
-    mood?.instruction ? `Mood: ${mood.instruction}` : '',
-    mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
-    STRUCTURED_TOOL_CALL_PROTOCOL,
-    modeBlock,
-    rolePlayBlock,
-    rolePlayParticipantRule,
-    moderatorAuthorityBoundary,
-    affinityBlock,
-    topicDirectiveBlock,
-    activeTopicBlock,
-    sourcePriorityBlock,
-    characterContext ? `Character context:\n${characterContext}` : '',
-    roster ? `Other participants:\n${roster}` : '',
-    constraintsBlock ? `Constraints and behavior rules:\n${constraintsBlock}` : '',
-    moderatorDecisionBlock,
-    moderatorDirectiveBlock,
-    moderationBlock,
-    docsBlock,
+    taggedSection('reasoning_focus', REASONING_CONTEXT_BLOCK),
+    taggedSection('identity', identityBlock),
+    taggedSection('character_profile', characterType ? `Character type: ${characterType.label}.` : ''),
+    taggedSection('response_style', [
+      responseLength?.instruction ? `Verbosity rule: ${responseLength.instruction}` : '',
+      DEFAULT_DELIVERY_STYLE,
+      educationLevel?.instruction ? `Education style: ${educationLevel.instruction}` : '',
+      ageGroup?.instruction ? `Age style: ${ageGroup.instruction}` : '',
+      mood?.instruction ? `Mood: ${mood.instruction}` : '',
+      mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
+    ].filter(Boolean).join('\n\n')),
+    taggedSection('tool_protocol', STRUCTURED_TOOL_CALL_PROTOCOL),
+    taggedSection('debate_mode', modeBlock),
+    taggedSection('role_play', [rolePlayBlock, rolePlayParticipantRule].filter(Boolean).join('\n\n')),
+    taggedSection('moderator_authority', moderatorAuthorityBoundary),
+    taggedSection('relational_affinity', affinityBlock),
+    taggedSection('topic_directives', topicDirectiveBlock),
+    taggedSection('active_topic', activeTopicBlock),
+    taggedSection('source_priority', sourcePriorityBlock),
+    taggedSection('character_context', characterContext),
+    taggedSection('participants', roster ? `Other participants:\n${roster}` : ''),
+    taggedSection('constraints', constraintsBlock ? `Constraints and behavior rules:\n${constraintsBlock}` : ''),
+    taggedSection('moderator_instructions', [moderatorDecisionBlock, moderatorDirectiveBlock].filter(Boolean).join('\n\n')),
+    taggedSection('moderation_trigger', moderationBlock),
+    taggedSection('moderation_tool_requirement', moderationToolRequirement),
+    taggedSection('attached_context', docsBlock),
   ].filter(Boolean).join('\n\n')
 }

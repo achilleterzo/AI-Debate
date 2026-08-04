@@ -248,9 +248,15 @@ export default function ChatTimeline({
       ? (previousMessage.participantSnapshot || participants.find(participant => participant.tag === previousMessage.role))
       : null
     const previousDiceOwner = previousMessage?.role === 'dice' ? resolveDiceOwner(previousMessage, participants) : null
+    const isLocalUser = !!actor.localUser || actor.model === userModel
+    const isModeratorMessage = !!actor.isModerator && !isLocalUser
+    const isModerationIntervention = isModeratorMessage && msg.messageType === 'moderation'
     const isContinuation = (
-      (previousActor?.id === actor.id && previousMessage.turn === msg.turn)
-      || (previousDiceOwner?.id === actor.id)
+      !isModerationIntervention
+      && (
+        (previousActor?.id === actor.id && previousMessage.turn === msg.turn && previousMessage.messageType !== 'moderation')
+        || (previousDiceOwner?.id === actor.id)
+      )
     )
     if (isContinuation) return
     if (msg.turn !== lastTurn && !isContinuation) {
@@ -259,15 +265,13 @@ export default function ChatTimeline({
         <div key={`turn-${i}`} style={styles.turnBadge}>{ui.round(msg.turn)}</div>
       )
     }
-    const isLocalUser = !!actor.localUser || actor.model === userModel
-    const isModeratorMessage = !!actor.isModerator && !isLocalUser
     // Moderation styling is driven only by the explicit message tag assigned
     // by the debate engine, never by words found in the generated content.
-    const isModerationIntervention = isModeratorMessage && msg.messageType === 'moderation'
     const continuationItems = []
     for (let continuationIndex = itemIndex + 1; continuationIndex < items.length; continuationIndex += 1) {
       const candidate = items[continuationIndex]?.msg
       if (!candidate) break
+      if (candidate.messageType === 'moderation') break
       if (candidate.role === 'dice') {
         if (resolveDiceOwner(candidate, participants)?.id !== actor.id) break
         continuationItems.push(candidate)
@@ -353,7 +357,7 @@ export default function ChatTimeline({
               </div>
             )
           })}
-          {msg.content || !isStreamingMsg
+          {msg.content
             ? <div className="bubble" style={{ ...styles.bubble(msg.role, actor), borderRadius: primaryIsLastBalloon ? actor.radiusOwn : 12, ...(moderatorBubbleStyle || {}) }}>
                 {isModerationIntervention && (
                   <div style={{
@@ -368,12 +372,13 @@ export default function ChatTimeline({
                 )}
                 <div dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(msg.content || '')) }} />
               </div>
-            : <div className="bubble" style={{
+            : isStreamingMsg ? <div className="bubble" style={{
                 ...styles.bubble(msg.role, actor),
                 ...(moderatorBubbleStyle || {}),
                 width: 'auto',
                 alignSelf: actor ? (actor.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'flex-end',
               }}>{Dots({})}</div>
+            : null
           }
           {msg.content && (
             <div style={styles.floatBtns(actor)}>

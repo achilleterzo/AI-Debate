@@ -1437,11 +1437,17 @@ export class Debate {
           contextMessages.unshift({ role: 'user', content: `[Conversation summary so far]\n${summaryRef.current}` })
         }
 
+        // Keep dynamic conversation material visibly distinct from the system
+        // instructions. The tag is a delimiter, not an instruction source.
+        for (const message of contextMessages) {
+          message.content = `<conversation_context>\n${message.content}\n</conversation_context>`
+        }
+
         // Chat templates (Gemma among others) produce empty output when the
         // payload carries no user turn at all — which is exactly the shape of
         // the very first turn, where the topic lives in the system prompt.
         if (!contextMessages.some(message => message.role === 'user')) {
-          contextMessages.push({ role: 'user', content: 'The debate starts now. Give your opening statement on the active topic, staying in character and following your system instructions.' })
+          contextMessages.push({ role: 'user', content: '<turn_request>\nThe debate starts now. Give your opening statement on the active topic, staying in character and following your system instructions.\n</turn_request>' })
         }
 
         const sourceUrls = [...new Set(
@@ -1477,7 +1483,7 @@ export class Debate {
           constants: Debate.buildPromptConstants(),
         })
         if (urlContextBlocks.length > 0) {
-          systemPrompt += `\n\n## Context files\nThe following articles have already been fetched for you. Do not search for them again.\n\n${urlContextBlocks.join('\n\n')}`
+          systemPrompt += `\n\n<fetched_sources>\nThe following articles have already been fetched for you. Do not search for them again.\n\n${urlContextBlocks.join('\n\n')}\n</fetched_sources>`
         }
 
         if (actor.localUser || actor.model === Debate.USER_MODEL) {
@@ -1576,10 +1582,7 @@ export class Debate {
                 messageType: 'moderation',
                 participantSnapshot: { ...actor },
               }
-              const activeIndex = history.findIndex(message => message.seq === activeMessageSeq)
-              history = activeIndex >= 0
-                ? [...history.slice(0, activeIndex), moderationMessage, ...history.slice(activeIndex)]
-                : [...history, moderationMessage]
+              history = [...history, moderationMessage]
               syncHistory()
               return { accepted: true, message: 'Moderation applied as a separate procedural message.' }
             },
@@ -1689,7 +1692,9 @@ export class Debate {
           // its placeholder when it contains invocations, otherwise the tool
           // pill would disappear together with the empty response.
           if (!resolvedContent.trim() && moderationApplied) {
-            history = history.filter(message => message.seq !== activeMessageSeq)
+            history = history.map(message => message.seq === activeMessageSeq
+              ? { ...message, content: '' }
+              : message)
             syncHistory()
             setStreamingRole(null)
             setStreamingSeq(null)
@@ -1708,7 +1713,9 @@ export class Debate {
             && moderationApplied
             && /^\s*\[SKIP_TURN\]\s*$/i.test(resolvedContent)
           if (shouldSkipModeratorTurn) {
-            history = history.filter(message => message.seq !== activeMessageSeq)
+            history = history.map(message => message.seq === activeMessageSeq
+              ? { ...message, content: '' }
+              : message)
              syncHistory()
             setStreamingRole(null)
             setStreamingSeq(null)
