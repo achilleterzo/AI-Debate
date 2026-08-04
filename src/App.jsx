@@ -271,7 +271,7 @@ function AppInner({ settings }) {
     inputAreaRef,
     headerBodyMaxHeight,
     showScrollBtn,
-    is2xlLayout,
+    isWideLayout,
     handleChatScroll,
     scrollToBottom,
   } = useAppLayout({ messages, conclusions, streamingRole, headerOpen, summary, summaryVisible })
@@ -620,11 +620,11 @@ function AppInner({ settings }) {
   }, [openConfirm, ui.clearSettingsTitle, ui.clearSettingsMessage, common.delete])
 
   return (
-    <div className="h-screen w-full items-stretch 2xl:flex 2xl:flex-row" style={{ ...styles.app, flexDirection: is2xlLayout ? 'row' : 'column', alignItems: 'stretch' }}>
+    <div className="h-screen w-full items-stretch 2xl:flex 2xl:flex-row" style={{ ...styles.app, flexDirection: isWideLayout ? 'row' : 'column', alignItems: 'stretch' }}>
       <GlobalStyles />
       {/* ── left column: menu + participants ── */}
-      <div className="relative z-10 w-full shrink-0 2xl:w-[800px]" style={{ width: is2xlLayout ? 800 : '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10 }}>
-      <div style={{ ...styles.header, borderRight: is2xlLayout ? '1px solid #2e2e2e' : 'none', height: is2xlLayout ? '100vh' : 'auto' }}>
+      <div className="relative z-10 w-full shrink-0 2xl:w-[800px]" style={{ width: isWideLayout ? 800 : '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10 }}>
+      <div style={{ ...styles.header, borderRight: isWideLayout ? '1px solid #2e2e2e' : 'none', height: isWideLayout ? '100vh' : 'auto' }}>
 
         {/* hamburger | centered title | model status */}
         <HeaderTop
@@ -637,7 +637,7 @@ function AppInner({ settings }) {
           updateAvailable={updateCheck.updateAvailable}
           ollamaOk={ollamaOk}
           modelsCount={models.length}
-          is2xlLayout={is2xlLayout}
+          isWideLayout={isWideLayout}
           headerOpen={headerOpen}
           onToggleHeaderOpen={() => setHeaderOpen(v => !v)}
         />
@@ -645,17 +645,17 @@ function AppInner({ settings }) {
         {/* accordion: endpoint + participants + rounds */}
         <div style={{
           ...styles.headerBody,
-          maxHeight: is2xlLayout ? 'none' : `${headerBodyMaxHeight}px`,
-          display: (is2xlLayout || headerOpen) ? 'flex' : 'none',
-          position: is2xlLayout ? 'relative' : 'absolute',
-          left: is2xlLayout ? 'auto' : 0,
-          right: is2xlLayout ? 'auto' : 0,
-          top: is2xlLayout ? 'auto' : '100%',
-          zIndex: is2xlLayout ? 'auto' : 130,
+          maxHeight: isWideLayout ? 'none' : `${headerBodyMaxHeight}px`,
+          display: (isWideLayout || headerOpen) ? 'flex' : 'none',
+          position: isWideLayout ? 'relative' : 'absolute',
+          left: isWideLayout ? 'auto' : 0,
+          right: isWideLayout ? 'auto' : 0,
+          top: isWideLayout ? 'auto' : '100%',
+          zIndex: isWideLayout ? 'auto' : 130,
           background: '#1a1a1a',
-          borderBottom: is2xlLayout ? 'none' : '1px solid #2e2e2e',
-          boxShadow: is2xlLayout ? 'none' : '0 10px 24px #0009',
-          flex: is2xlLayout ? 1 : 'none',
+          borderBottom: isWideLayout ? 'none' : '1px solid #2e2e2e',
+          boxShadow: isWideLayout ? 'none' : '0 10px 24px #0009',
+          flex: isWideLayout ? 1 : 'none',
         }}>
 
         <ConnectionSettings
@@ -739,7 +739,11 @@ function AppInner({ settings }) {
 </div>
 
       {/* ── right column: summary + chat + prompt ── */}
-      <div className="flex min-w-0 flex-1 flex-col" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: is2xlLayout ? '100vh' : 'auto', position: 'relative' }}>
+      {/* minHeight:0 is what makes the chat scrollable in single-column mode:
+          without it this flex child grows with its content inside a clipped
+          100vh parent, so the chat never scrolls and the prompt bar is pushed
+          out of view. */}
+      <div className="flex min-w-0 flex-1 flex-col" style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', height: isWideLayout ? '100vh' : 'auto', position: 'relative' }}>
       <SummaryPanel
         panelRef={summaryPanelRef}
         streamingRole={streamingRole}
@@ -794,7 +798,7 @@ function AppInner({ settings }) {
           defaultMoodIntensity={Debate.DEFAULT_MOOD_INTENSITY}
           DotsComponent={DotsView}
            onResume={() => handleResume()}
-          is2xlLayout={is2xlLayout}
+          isWideLayout={isWideLayout}
         />
         {summaryInProgress && <SummaryProgressBadge />}
         <ConclusionsPanel

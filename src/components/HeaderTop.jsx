@@ -13,7 +13,7 @@ export default function HeaderTop({
   updateAvailable,
   ollamaOk,
   modelsCount,
-  is2xlLayout,
+  isWideLayout,
   headerOpen,
   onToggleHeaderOpen,
 }) {
@@ -40,7 +40,7 @@ export default function HeaderTop({
           title={ollamaOk === null ? ui.connectionConnecting : ollamaOk ? ui.connectionConnected(modelsCount) : ui.connectionUnreachable}
         />
         {ollamaOk && <span style={styles.modelCount}>{ui.modelsCount(modelsCount)}</span>}
-        {!is2xlLayout && (
+        {!isWideLayout && (
           <button
             onClick={onToggleHeaderOpen}
             title={headerOpen ? ui.collapseSettings : ui.expandSettings}

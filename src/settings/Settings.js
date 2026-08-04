@@ -1,4 +1,14 @@
 export const DEFAULT_URL = 'http://localhost:11434'
+
+/**
+ * Below this width the settings column collapses into the accordion and the
+ * app becomes a single column. The left column is a fixed 800px, so this is
+ * about the narrowest window that still leaves the chat a usable share.
+ *
+ * Keep in sync with the #root media query in index.css, which caps the app
+ * width in single-column mode.
+ */
+export const TWO_COLUMN_MIN_WIDTH = 1200
 export const DEFAULT_MAX_TURNS = 6
 export const DEFAULT_USE_SUMMARY = true
 export const DEFAULT_DYNAMIC_AFFINITY = true

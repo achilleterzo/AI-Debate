@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { TWO_COLUMN_MIN_WIDTH } from '../settings/Settings'
 
 export function useAppLayout({ messages, conclusions = [], streamingRole, headerOpen, summary, summaryVisible }) {
   const bottomRef = useRef(null)
@@ -11,7 +12,7 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
   const showScrollBtnRef = useRef(false)
   const [headerBodyMaxHeight, setHeaderBodyMaxHeight] = useState(360)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
-  const [is2xlLayout, setIs2xlLayout] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1536)
+  const [isWideLayout, setIsWideLayout] = useState(() => typeof window !== 'undefined' && window.innerWidth >= TWO_COLUMN_MIN_WIDTH)
 
   const scheduleAutoScroll = useCallback(() => {
     if (!autoScrollRef.current || scrollFrameRef.current != null) return
@@ -31,8 +32,8 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
   useEffect(() => { showScrollBtnRef.current = showScrollBtn }, [showScrollBtn])
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 1536px)')
-    const apply = () => setIs2xlLayout(mediaQuery.matches)
+    const mediaQuery = window.matchMedia(`(min-width: ${TWO_COLUMN_MIN_WIDTH}px)`)
+    const apply = () => setIsWideLayout(mediaQuery.matches)
     apply()
     mediaQuery.addEventListener('change', apply)
     return () => mediaQuery.removeEventListener('change', apply)
@@ -131,7 +132,7 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
     inputAreaRef,
     headerBodyMaxHeight,
     showScrollBtn,
-    is2xlLayout,
+    isWideLayout,
     handleChatScroll,
     scrollToBottom,
   }

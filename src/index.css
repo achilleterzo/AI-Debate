@@ -46,7 +46,8 @@ pre, pre *, code {
   margin: 0 auto;
 }
 
-@media (min-width: 1536px) {
+/* Keep in sync with TWO_COLUMN_MIN_WIDTH in src/settings/Settings.js. */
+@media (min-width: 1200px) {
   #root {
     max-width: none;
     margin: 0;

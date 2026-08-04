@@ -74,7 +74,7 @@ export default function ChatTimeline({
   defaultMoodIntensity,
   DotsComponent: Dots,
   onResume,
-  is2xlLayout,
+  isWideLayout,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.chat
@@ -90,7 +90,7 @@ export default function ChatTimeline({
 
   const elems = []
   let lastTurn = null
-  const regularBalloonMaxWidth = is2xlLayout ? 656 : null
+  const regularBalloonMaxWidth = isWideLayout ? 656 : null
 
   items.forEach((item, itemIndex) => {
     if (item.kind === 'conclusion') {
