@@ -34,6 +34,21 @@ export const REQUEST_MODERATOR_INTERVENTION_TOOL = {
   },
 }
 
+export const APPLY_MODERATION_TOOL = {
+  type: 'function',
+  function: {
+    name: 'apply_moderation',
+    description: 'Apply a procedural moderation intervention. Available only to the debate moderator; the reason is shown as a separate moderation message.',
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: 'The concise reason and directive for the moderation intervention.' },
+      },
+      required: ['reason'],
+    },
+  },
+}
+
 export function formatRecentMessages(messages = [], { limit = 10, participantTags = [], searchTerm = '' } = {}) {
   const requestedLimit = Math.min(50, Math.max(1, Number(limit) || 10))
   const tags = new Set((Array.isArray(participantTags) ? participantTags : [participantTags])
@@ -54,7 +69,7 @@ export function formatRecentMessages(messages = [], { limit = 10, participantTag
   return JSON.stringify({ messages: eligible })
 }
 
-export function createConversationToolExecutor({ getMessages, requestModeratorIntervention, rollDice, memory }) {
+export function createConversationToolExecutor({ getMessages, requestModeratorIntervention, applyModeration, rollDice, memory }) {
   return async (name, args = {}) => {
     if (name === GET_RECENT_MESSAGES_TOOL.function.name) {
       return formatRecentMessages(getMessages?.() || [], args)
@@ -68,6 +83,10 @@ export function createConversationToolExecutor({ getMessages, requestModeratorIn
       return result == null
         ? JSON.stringify({ accepted: false, reason: 'Dice are available only in Role Play mode.' })
         : JSON.stringify(result)
+    }
+    if (name === APPLY_MODERATION_TOOL.function.name) {
+      const result = await applyModeration?.(args)
+      return JSON.stringify(result || { accepted: false, reason: 'Moderation is not available.' })
     }
     if (name === 'memory') {
       const result = await memory?.(args)

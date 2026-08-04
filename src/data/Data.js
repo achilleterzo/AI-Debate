@@ -51,7 +51,7 @@ export class Data {
 
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const md = s => marked.parse(s || '', { breaks: true })
-    const toolIcons = { web_search: '🔍', get_recent_messages: '🕘', request_moderator_intervention: '🙋', roll_dice: '🎲', memory: '🧠' }
+    const toolIcons = { web_search: '🔍', get_recent_messages: '🕘', request_moderator_intervention: '🙋', apply_moderation: '🛑', roll_dice: '🎲', memory: '🧠' }
     const toolDescription = invocation => {
       const args = invocation?.arguments || {}
       if (invocation?.name === 'web_search') return args.query || ''
@@ -165,7 +165,7 @@ export class Data {
       const radius = actor.radiusOwn || '12px'
       const name = esc(actor.name || actor.tag)
       const isModerationIntervention = !!actor.isModerator && msg.messageType === 'moderation'
-      const alignClass = actor.isModerator ? 'msg-center' : (isLeft ? 'msg-left' : 'msg-right')
+      const alignClass = isModerationIntervention ? 'msg-center' : (isLeft ? 'msg-left' : 'msg-right')
       const moderatorBadge = isModerationIntervention ? '<div class="moderation-badge">Moderazione</div>' : ''
       const radiusFinal = isModerationIntervention ? '12px' : radius
 

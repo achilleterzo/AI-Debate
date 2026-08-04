@@ -74,6 +74,7 @@ export default {
     webSearch: 'Ricerca web',
     getRecentMessages: 'Messaggi recenti',
     requestModeratorIntervention: 'Richiedi intervento del moderatore',
+    applyModeration: 'Applica moderazione',
     memory: 'Memoria',
     rollDice: 'Lancio dei dadi',
     interfaceLanguage: "Lingua dell'interfaccia",

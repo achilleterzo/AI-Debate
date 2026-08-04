@@ -2,6 +2,7 @@ export const TOOL_SETTINGS = [
   { id: 'web_search', icon: '🔍', labelKey: 'webSearch' },
   { id: 'get_recent_messages', icon: '🕘', labelKey: 'getRecentMessages' },
   { id: 'request_moderator_intervention', icon: '🙋', labelKey: 'requestModeratorIntervention' },
+  { id: 'apply_moderation', icon: '🛑', labelKey: 'applyModeration', moderatorOnly: true },
   { id: 'memory', icon: '🧠', labelKey: 'memory' },
   { id: 'roll_dice', icon: '🎲', labelKey: 'rollDice', rolePlayOnly: true },
 ]

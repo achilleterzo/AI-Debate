@@ -171,6 +171,7 @@ export default function PromptSettingsModal({
                             <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{tool.icon}</span>
                             <span style={{ fontSize: 12, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ui[tool.labelKey]} <span style={{ color: '#777' }}>({tool.id})</span></span>
                             {tool.rolePlayOnly && <span style={{ fontSize: 10, color: '#9b8bd4', border: '1px solid #443b64', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap' }}>{ui.toolRolePlayOnly}</span>}
+                            {tool.moderatorOnly && <span style={{ fontSize: 10, color: '#fb923c', border: '1px solid #6b4228', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap' }}>{ui.moderator}</span>}
                           </div>
                           <div
                             onClick={() => !running && onEnabledToolsChange?.({ ...enabledTools, [tool.id]: !enabled })}

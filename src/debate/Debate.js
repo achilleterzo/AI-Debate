@@ -13,7 +13,7 @@ import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
-import { createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
+import { createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
@@ -1321,7 +1321,13 @@ export class Debate {
 
         let activeMessageSeq = !actor.localUser && actor.model !== Debate.USER_MODEL ? nextSeq() : null
         if (activeMessageSeq != null) {
-          const placeholder = { role: actor.tag, content: '', turn: turnLabel, seq: activeMessageSeq, participantSnapshot: { ...actor } }
+          const placeholder = {
+            role: actor.tag,
+            content: '',
+            turn: turnLabel,
+            seq: activeMessageSeq,
+            participantSnapshot: { ...actor },
+          }
           history = [...history, placeholder]
           syncHistory()
           setStreamingSeq(activeMessageSeq)
@@ -1498,6 +1504,7 @@ export class Debate {
         try {
           let previousToolMessageSeq = null
           let hasToolContinuation = false
+          let moderationApplied = false
           let rawResponseContent = ''
           let completionReason = null
           const debugPayloads = []
@@ -1556,11 +1563,33 @@ export class Debate {
               }
               return { accepted: true, message: 'Moderator intervention scheduled as an extra turn outside the standard round.' }
             },
+            applyModeration: args => {
+              if (!actor.isModerator) return { accepted: false, reason: 'Only the debate moderator can apply moderation.' }
+              const reason = String(args?.reason || '').trim()
+              if (!reason) return { accepted: false, reason: 'A reason is required to apply moderation.' }
+              moderationApplied = true
+              const moderationMessage = {
+                role: actor.tag,
+                content: reason,
+                turn: turnLabel,
+                seq: nextSeq(),
+                messageType: 'moderation',
+                participantSnapshot: { ...actor },
+              }
+              const activeIndex = history.findIndex(message => message.seq === activeMessageSeq)
+              history = activeIndex >= 0
+                ? [...history.slice(0, activeIndex), moderationMessage, ...history.slice(activeIndex)]
+                : [...history, moderationMessage]
+              syncHistory()
+              return { accepted: true, message: 'Moderation applied as a separate procedural message.' }
+            },
           })
-          const availableTools = (parts.some(participant => participant.isModerator)
+          const availableTools = [
+            ...(parts.some(participant => participant.isModerator)
             ? (isRolePlay ? ROLE_PLAY_TOOLS : LLM_TOOLS)
-            : (isRolePlay ? ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION : LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION))
-            .filter(tool => enabledTools?.[tool.function.name] !== false)
+            : (isRolePlay ? ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION : LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION)),
+            ...(actor.isModerator ? MODERATOR_TOOLS : []),
+          ].filter(tool => enabledTools?.[tool.function.name] !== false)
           const full = await streamChat({
             baseUrl: actorBaseUrl,
             model: actor.model,
@@ -1659,6 +1688,13 @@ export class Debate {
           // A tool-first turn may have no visible assistant text at all. Keep
           // its placeholder when it contains invocations, otherwise the tool
           // pill would disappear together with the empty response.
+          if (!resolvedContent.trim() && moderationApplied) {
+            history = history.filter(message => message.seq !== activeMessageSeq)
+            syncHistory()
+            setStreamingRole(null)
+            setStreamingSeq(null)
+            continue
+          }
           if (!resolvedContent.trim() && hasToolContinuation && previousToolMessageSeq == null) {
             const activeMessage = history.find(message => message.seq === activeMessageSeq)
             if (activeMessage?.toolInvocations?.length) {
@@ -1669,9 +1705,7 @@ export class Debate {
             }
           }
           const shouldSkipModeratorTurn = actor.isModerator
-            && moderatorMode !== 'active'
-            && !moderationDecision?.scheduledFacilitation
-            && !moderationDecision?.reactiveModeration
+            && moderationApplied
             && /^\s*\[SKIP_TURN\]\s*$/i.test(resolvedContent)
           if (shouldSkipModeratorTurn) {
             history = history.filter(message => message.seq !== activeMessageSeq)
@@ -1681,17 +1715,6 @@ export class Debate {
             continue
           }
           let moderatedContent = resolvedContent
-          const isProceduralModerationTurn = actor.isModerator
-            && !isRolePlay
-            && (
-              extraModeratorTurn
-              || !!moderationDecision?.reactiveModeration
-              || (
-                moderatorMode !== 'active'
-                && !!moderationDecision?.shouldIntervene
-                && !moderationDecision?.scheduledFacilitation
-              )
-            )
           // Directive-style rewrite only applies to containment interventions:
           // active moderators contribute content, and scheduled facilitation
           // turns are analytical by design — rewriting would destroy both.
@@ -1751,7 +1774,6 @@ export class Debate {
               content: moderatedContent,
               ...(rawResponseContent ? { rawContent: rawResponseContent } : {}),
               ...(completionReason ? { completionReason } : {}),
-              ...(isProceduralModerationTurn ? { messageType: 'moderation' } : {}),
               ...(debugMode && debugPayloads.length > 0 ? { payload: debugPayloads.at(-1), debugPayloads } : {}),
             } : message)
           } else if (actor.isModerator) {

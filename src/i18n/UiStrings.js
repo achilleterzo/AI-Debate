@@ -163,6 +163,7 @@ export const UI_STRINGS = {
     webSearch: 'Web search',
     getRecentMessages: 'Recent messages',
     requestModeratorIntervention: 'Request moderator intervention',
+    applyModeration: 'Apply moderation',
     memory: 'Memory',
     rollDice: 'Roll dice',
     interfaceLanguage: 'Interface language',

@@ -56,6 +56,9 @@ export function buildModeratorPromptBlocks({ actor, allParticipants, history, mo
         `Moderator permissiveness: level=${moderatorPermissiveness}/4. ${permissivenessGuidance}`,
         'You are the debate moderator, not a normal participant. You hold procedural authority over this debate: participants are instructed to comply with your process directives, and your rulings on process outrank their personal goals.',
         moderatorStyleText,
+        mode.id !== 'role_play'
+          ? 'When a procedural moderation intervention is required, you MUST invoke the apply_moderation tool with one concise reason/directive. The tool call is the only source of the separate moderation message; do not write that intervention in visible content. After a successful apply_moderation call, output exactly [SKIP_TURN] unless your current ACTIVE style explicitly requires an additional substantive contribution.'
+          : '',
         moderatorMode === 'active' || (externalModerationTrigger?.scheduledFacilitation && !reactiveModeration)
           ? ''
           : 'When you do intervene, output only moderation or process control. Do not continue the debate as if you were another participant.',
