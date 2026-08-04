@@ -444,7 +444,7 @@ function AppInner({ settings }) {
       setConstraintModal(null)
     }
   }
-  const resetChat = useCallback(resetAffinities => {
+  const resetChat = useCallback(() => {
     setMessages([])
     setTopicValue('')
     setSummary('')
@@ -454,21 +454,20 @@ function AppInner({ settings }) {
     setMemory([])
     memoryRef.current = []
     seqRef.current = 0
-    if (resetAffinities) {
-      setParticipants(prev => prev.map(resetUnlockedAffinities))
-    }
+    setParticipants(prev => prev.map(resetUnlockedAffinities))
   }, [setConclusions, setMemory, setMessages, setParticipants, setSummary, setSummaryDebug, setTopicValue, memoryRef, seqRef, summaryRef])
 
   const handleReset = () => {
     if (running) return
-    setConfirmModal({
-      title: ui.resetChatTitle,
-      message: ui.resetChatMessage,
-      options: [
-        { label: ui.resetChatOnly, action: () => resetChat(false) },
-        { label: ui.resetChatAndAffinities, action: () => resetChat(true), danger: true },
-      ],
-    })
+    openConfirm(
+      {
+        title: ui.resetChatTitle,
+        message: ui.resetChatMessage,
+        confirmLabel: ui.resetButton,
+        danger: true,
+      },
+      () => resetChat(),
+    )
   }
 
   const handleConnect = () => {

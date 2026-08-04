@@ -250,7 +250,7 @@ export default {
     continue: 'Continua',
     resetButton: 'Azzera',
     resetChatTitle: 'Azzera dibattito',
-    resetChatMessage: 'Scegli cosa vuoi azzerare.',
+    resetChatMessage: 'Verranno azzerati chat, memoria, conclusioni e affinità non bloccate. Le affinità bloccate saranno preservate.',
     resetChatOnly: 'Azzera chat',
     resetChatAndAffinities: 'Azzera chat + affinità',
     start: 'Avvia',

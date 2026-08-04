@@ -13,6 +13,21 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [is2xlLayout, setIs2xlLayout] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1536)
 
+  const scheduleAutoScroll = useCallback(() => {
+    if (!autoScrollRef.current || scrollFrameRef.current != null) return
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null
+      if (!autoScrollRef.current) return
+      const chat = chatRef.current
+      if (!chat) return
+      chat.scrollTop = chat.scrollHeight
+      if (showScrollBtnRef.current) {
+        showScrollBtnRef.current = false
+        setShowScrollBtn(false)
+      }
+    })
+  }, [])
+
   useEffect(() => { showScrollBtnRef.current = showScrollBtn }, [showScrollBtn])
 
   useEffect(() => {
@@ -50,6 +65,31 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
   }, [headerOpen, recomputeHeaderBodyMaxHeight, summary, summaryVisible])
 
   useEffect(() => {
+    const chat = chatRef.current
+    if (!chat) return undefined
+
+    const mutationObserver = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => {
+      Array.from(chat.children).forEach(child => resizeObserver?.observe(child))
+      scheduleAutoScroll()
+    })
+    mutationObserver?.observe(chat, { childList: true, subtree: true, characterData: true })
+
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+      scheduleAutoScroll()
+    })
+    const observeChildren = () => {
+      resizeObserver?.observe(chat)
+      Array.from(chat.children).forEach(child => resizeObserver?.observe(child))
+    }
+    observeChildren()
+
+    return () => {
+      mutationObserver?.disconnect()
+      resizeObserver?.disconnect()
+    }
+  }, [scheduleAutoScroll])
+
+  useEffect(() => {
     if (messages.length === 0) {
       if (scrollFrameRef.current != null) {
         window.cancelAnimationFrame(scrollFrameRef.current)
@@ -63,22 +103,8 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
       return
     }
     if (!autoScrollRef.current) return
-    if (scrollFrameRef.current != null) return
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      scrollFrameRef.current = null
-      if (!autoScrollRef.current) return
-      const chat = chatRef.current
-      if (chat) {
-        chat.scrollTop = chat.scrollHeight
-        if (showScrollBtnRef.current) {
-          showScrollBtnRef.current = false
-          setShowScrollBtn(false)
-        }
-        return
-      }
-      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
-    })
-  }, [conclusions, messages, streamingRole])
+    scheduleAutoScroll()
+  }, [conclusions, messages, streamingRole, scheduleAutoScroll])
 
   const handleChatScroll = useCallback(() => {
     const chat = chatRef.current

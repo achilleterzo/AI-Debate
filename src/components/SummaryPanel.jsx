@@ -53,29 +53,29 @@ export default function SummaryPanel({
           {streamingRole ? '⟳' : '◆'}
         </span>
         {ui.contextSummary}
+        {summary && (
+          <button
+            className="float-btn"
+            style={{ ...styles.floatBtn(false), position: 'static', opacity: 1 }}
+            title={ui.copySummary}
+            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(summary) }}
+          ><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"/><path d="M3 8H2a1 1 0 01-1-1V2a1 1 0 011-1h5a1 1 0 011 1v1"/></svg></button>
+        )}
+        {debugMode && summaryDebug?.payload && (
+          <button
+            className="float-btn"
+            style={{ ...styles.floatBtn(false), position: 'static', opacity: 1 }}
+            title={ui.inspectSummaryPayload}
+            onClick={e => {
+              e.stopPropagation()
+              onInspectPayload()
+            }}
+          >⚙</button>
+        )}
         <span style={{ color: '#4a9eff', fontSize: 10, fontWeight: 600 }} title={ui.contextEstimate(contextEstimate.baseChars, contextEstimate.estTokens)}>
           ~{contextEstimate.estTokens} tok
         </span>
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-          {summary && (
-            <button
-              className="float-btn"
-              style={{ ...styles.floatBtn(false), position: 'static', opacity: 1 }}
-              title={ui.copySummary}
-              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(summary) }}
-            ><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"/><path d="M3 8H2a1 1 0 01-1-1V2a1 1 0 011-1h5a1 1 0 011 1v1"/></svg></button>
-          )}
-          {debugMode && summaryDebug?.payload && (
-            <button
-              className="float-btn"
-              style={{ ...styles.floatBtn(false), position: 'static', opacity: 1 }}
-              title={ui.inspectSummaryPayload}
-              onClick={e => {
-                e.stopPropagation()
-                onInspectPayload()
-              }}
-            >⚙</button>
-          )}
           <PromptEstimateBadge
             estimate={lastPromptEstimate}
             request={lastRequest}

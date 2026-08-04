@@ -25,6 +25,17 @@ function describeToolInvocation(invocation) {
   return Object.values(args).filter(value => typeof value === 'string').join(' · ')
 }
 
+function resolveDiceOwner(msg, participants) {
+  return participants.find(participant => (
+    (msg.diceOwner?.id != null && participant.id === msg.diceOwner.id)
+    || (msg.diceOwner?.tag && participant.tag === msg.diceOwner.tag)
+  )) || msg.participantSnapshot || msg.diceOwner || null
+}
+
+function isRenderableParticipantMessage(message) {
+  return message && !['participant_joined', 'participant_left', 'dice', 'topic', 'interjection', 'error'].includes(message.role)
+}
+
 export default function ChatTimeline({
   messages,
   running,
@@ -62,7 +73,7 @@ export default function ChatTimeline({
   let lastTurn = null
   const regularBalloonMaxWidth = is2xlLayout ? 656 : null
 
-  items.forEach(item => {
+  items.forEach((item, itemIndex) => {
     if (item.kind === 'conclusion') {
       const c = item.c
       const cidx = item.cidx
@@ -168,10 +179,18 @@ export default function ChatTimeline({
     }
 
     if (msg.role === 'dice') {
+      const previousMessage = items[itemIndex - 1]?.msg
+      const previousActor = isRenderableParticipantMessage(previousMessage)
+        ? (previousMessage.participantSnapshot || participants.find(participant => participant.tag === previousMessage.role))
+        : null
+      const diceOwner = resolveDiceOwner(msg, participants)
+      if (previousActor && diceOwner && previousActor.id === diceOwner.id) return
+      const diceOwnerName = diceOwner?.name || diceOwner?.tag || msg.diceOwner?.name || msg.diceOwner?.tag || 'Shared dice result'
+      const diceAlign = diceOwner ? (diceOwner.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'center'
       elems.push(
-        <div key={`dice-${i}`} style={{ textAlign: 'center', margin: '10px 0' }}>
-          <div style={{ display: 'inline-block', maxWidth: '92%', background: '#17152a', border: '1px solid #6d5bb544', borderRadius: 9, padding: '7px 14px', color: '#c9bfff', fontSize: 12 }}>
-            <span style={{ fontWeight: 700, marginRight: 7 }}>🎲 Shared dice result</span>
+        <div key={`dice-${i}`} style={{ display: 'flex', justifyContent: diceAlign, width: '100%', margin: '4px 0 10px' }}>
+          <div style={{ display: 'inline-block', maxWidth: '92%', background: diceOwner?.bg || '#17152a', border: `2px dashed ${diceOwner?.border || '#514a78'}`, borderRadius: diceOwner?.radiusOwn || 9, padding: '7px 14px', color: '#e0e0e0', fontSize: 12, boxShadow: `inset 0 0 0 1px ${diceOwner?.border || '#514a78'}44` }}>
+            <span style={{ fontWeight: 700, marginRight: 7, color: diceOwner?.label || '#c9bfff' }}>🎲 {diceOwnerName}</span>
             <span>{msg.content}</span>
           </div>
         </div>
@@ -202,20 +221,47 @@ export default function ChatTimeline({
       return
     }
 
-    if (msg.turn !== lastTurn) {
+    // Use participant snapshot at send time, with live fallback
+    const actor = msg.participantSnapshot || participants.find(p => p.tag === msg.role)
+    if (!actor) return
+    const previousMessage = items[itemIndex - 1]?.msg
+    const previousActor = isRenderableParticipantMessage(previousMessage)
+      ? (previousMessage.participantSnapshot || participants.find(participant => participant.tag === previousMessage.role))
+      : null
+    const previousDiceOwner = previousMessage?.role === 'dice' ? resolveDiceOwner(previousMessage, participants) : null
+    const isContinuation = (
+      (previousActor?.id === actor.id && previousMessage.turn === msg.turn)
+      || (previousDiceOwner?.id === actor.id)
+    )
+    if (isContinuation) return
+    if (msg.turn !== lastTurn && !isContinuation) {
       lastTurn = msg.turn
       elems.push(
         <div key={`turn-${i}`} style={styles.turnBadge}>{ui.round(msg.turn)}</div>
       )
     }
-
-    // Use participant snapshot at send time, with live fallback
-    const actor = msg.participantSnapshot || participants.find(p => p.tag === msg.role)
-    if (!actor) return
     const isModeratorMessage = !!actor.isModerator && actor.model !== userModel
     // Moderation styling is driven only by the explicit message tag assigned
     // by the debate engine, never by words found in the generated content.
     const isModerationIntervention = isModeratorMessage && msg.messageType === 'moderation'
+    const continuationItems = []
+    for (let continuationIndex = itemIndex + 1; continuationIndex < items.length; continuationIndex += 1) {
+      const candidate = items[continuationIndex]?.msg
+      if (!candidate) break
+      if (candidate.role === 'dice') {
+        if (resolveDiceOwner(candidate, participants)?.id !== actor.id) break
+        continuationItems.push(candidate)
+        continue
+      }
+      const candidateActor = candidate.participantSnapshot || participants.find(participant => participant.tag === candidate.role)
+      if (candidateActor?.id !== actor.id || candidate.turn !== msg.turn) break
+      continuationItems.push(candidate)
+    }
+    const continuationText = [msg.content, ...continuationItems.filter(candidate => candidate.role !== 'dice').map(candidate => candidate.content)]
+      .filter(Boolean)
+      .join('\n\n')
+    const groupedPayloadMessage = [msg, ...continuationItems]
+      .find(candidate => candidate.payload || candidate.debugPayloads?.length > 0)
     const isStreamingMsg = streamingSeq != null ? msg.seq === streamingSeq : streamingRole === msg.role
     const moderatorBubbleStyle = isModerationIntervention
       ? {
@@ -227,14 +273,14 @@ export default function ChatTimeline({
       : null
     elems.push(
       <div key={`msg-${i}`} style={{ ...styles.msgWrap(msg.role, actor), ...(isModerationIntervention ? { alignItems: 'center' } : {}) }}>
-        <div style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', color: '#ef4444' } : {}), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        {!isContinuation && <div style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', color: '#ef4444' } : {}), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <span>{actor.name || actor.tag} · {actor.model === userModel ? `👤 ${common.user}` : `${actor.model} · ${(() => { const m = moods.find(x => x.id === actor.mood); const intensity = moodIntensity[actor.moodIntensity ?? defaultMoodIntensity]; return m ? `${m.emoji} ${m.label} (${intensity.label})` : '' })()}`} <span style={{ fontWeight: 400, color: '#555' }}>({ui.round(msg.turn)})</span></span>
           {isStreamingMsg && (
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.75, animation: 'spin 1s linear infinite' }}>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
             </svg>
           )}
-        </div>
+        </div>}
         <div className="balloon-group" style={{
           ...styles.balloonWrap(actor),
           ...(isModerationIntervention ? { width: '92%', maxWidth: regularBalloonMaxWidth || 980, alignSelf: 'center' } : {}),
@@ -267,21 +313,21 @@ export default function ChatTimeline({
                 style={styles.floatBtn(copiedIdx === i)}
                 title={ui.copyResponse}
                 onClick={() => {
-                  navigator.clipboard.writeText(msg.content).then(() => {
+                    navigator.clipboard.writeText(continuationText).then(() => {
                     setCopiedIdx(i)
                     setTimeout(() => setCopiedIdx(null), 1500)
                   })
                 }}
               >{copiedIdx === i ? '✓' : <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"/><path d="M3 8H2a1 1 0 01-1-1V2a1 1 0 011-1h5a1 1 0 011 1v1"/></svg>}</button>
-              {msg.payload && (
+              {groupedPayloadMessage && (
                 <button
                   className="float-btn"
                   style={styles.floatBtn(false)}
                   title={ui.inspectPayload}
                   onClick={() => setPayloadModal(
-                    msg.debugPayloads?.length > 1
-                      ? { rounds: msg.debugPayloads }
-                      : msg.payload
+                    groupedPayloadMessage.debugPayloads?.length > 1
+                      ? { rounds: groupedPayloadMessage.debugPayloads }
+                      : groupedPayloadMessage.payload
                   )}
                 >⚙</button>
               )}
@@ -290,13 +336,37 @@ export default function ChatTimeline({
           {msg.toolInvocations?.map((invocation, toolIndex) => (
             <div
               key={`${invocation.name}-${toolIndex}`}
-              style={{ alignSelf: 'stretch', marginTop: 4, padding: '4px 8px', border: '1px solid #30303a', borderRadius: 7, color: '#888', fontSize: 10, lineHeight: 1.35, background: '#15151c' }}
+              style={{
+                alignSelf: 'stretch', marginTop: 4, padding: '4px 8px',
+                border: '1px solid #514a78', borderRadius: 8,
+                color: '#aaa', fontSize: 10, lineHeight: 1.35,
+                background: '#171624',
+                boxShadow: '0 0 8px rgba(139, 92, 246, 0.22), inset 0 0 7px rgba(139, 92, 246, 0.08)',
+              }}
             >
               <span style={{ marginRight: 5 }}>{TOOL_ICONS[invocation.name] || '🛠️'}</span>
               <span style={{ color: '#aaa' }}>{invocation.name}</span>
               {describeToolInvocation(invocation) && <span style={{ color: '#666' }}> · {describeToolInvocation(invocation)}</span>}
             </div>
           ))}
+          {continuationItems.map((continuation, continuationIndex) => {
+            if (continuation.role === 'dice') {
+              const diceOwner = resolveDiceOwner(continuation, participants)
+              const diceOwnerName = diceOwner?.name || diceOwner?.tag || 'Shared dice result'
+              const diceBorder = diceOwner?.border || actor.border || '#514a78'
+              return (
+                <div key={`continuation-dice-${continuationIndex}`} style={{ alignSelf: 'stretch', marginTop: 4, marginBottom: 0, padding: '7px 14px', background: diceOwner?.bg || actor.bg || '#17152a', border: `2px dashed ${diceBorder}`, borderRadius: diceOwner?.radiusOwn || actor.radiusOwn || 9, color: '#e0e0e0', fontSize: 12, boxShadow: `inset 0 0 0 1px ${diceBorder}44` }}>
+                  <span style={{ fontWeight: 700, marginRight: 7, color: diceOwner?.label || actor.label || '#c9bfff' }}>🎲 {diceOwnerName}</span>
+                  <span>{continuation.content}</span>
+                </div>
+              )
+            }
+            return (
+              <div key={`continuation-message-${continuationIndex}`} className="bubble" style={{ ...styles.bubble(continuation.role, actor), marginTop: 4 }}>
+                <div dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(continuation.content || '')) }} />
+              </div>
+            )
+          })}
         </div>
       </div>
     )

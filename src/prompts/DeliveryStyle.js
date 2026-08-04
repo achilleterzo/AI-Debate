@@ -1,0 +1,1 @@
+export const DEFAULT_DELIVERY_STYLE = 'Default delivery style: speak plainly and directly. Favor argumentative prose over performance. Avoid narrated gestures, stage directions, acted pauses, cinematic scene-setting, or theatrical framing unless they are explicitly required by a stronger instruction or by the participant\'s core identity.'

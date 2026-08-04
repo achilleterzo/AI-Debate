@@ -338,7 +338,7 @@ export const UI_STRINGS = {
     continue: 'Continue',
     resetButton: 'Reset',
     resetChatTitle: 'Reset debate',
-    resetChatMessage: 'Choose what you want to reset.',
+    resetChatMessage: 'This resets the chat, memory, conclusions, and unlocked affinities. Locked affinities are preserved.',
     resetChatOnly: 'Reset chat',
     resetChatAndAffinities: 'Reset chat + affinities',
     start: 'Start',

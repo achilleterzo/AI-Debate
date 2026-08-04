@@ -51,6 +51,15 @@ export class Data {
 
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const md = s => marked.parse(s || '', { breaks: true })
+    const toolIcons = { web_search: '🔍', get_recent_messages: '🕘', request_moderator_intervention: '🙋', roll_dice: '🎲', memory: '🧠' }
+    const toolDescription = invocation => {
+      const args = invocation?.arguments || {}
+      if (invocation?.name === 'web_search') return args.query || ''
+      if (invocation?.name === 'get_recent_messages') return [args.searchTerm, Array.isArray(args.participantTags) && args.participantTags.length ? `@${args.participantTags.join(', @')}` : null].filter(Boolean).join(' · ')
+      if (invocation?.name === 'request_moderator_intervention') return args.reason || args.focus || ''
+      if (invocation?.name === 'roll_dice' && args.count && args.sides) return `${args.count}d${args.sides}`
+      return Object.values(args).filter(value => typeof value === 'string').join(' · ')
+    }
     const now = new Date().toLocaleString('it-IT')
     const mode = debateModeInfo(debateMode)
 
@@ -125,7 +134,14 @@ export class Data {
       }
 
       if (msg.role === 'dice') {
-        body += `<div style="text-align:center;margin:10px 0;"><div style="display:inline-block;background:#17152a;border:1px solid #6d5bb544;border-radius:9px;padding:7px 14px;color:#c9bfff;font-size:12px;"><strong>🎲 Shared dice result</strong> · ${esc(msg.content)}</div></div>`
+        const diceOwner = participants.find(participant => (
+          (msg.diceOwner?.id != null && participant.id === msg.diceOwner.id)
+          || (msg.diceOwner?.tag && participant.tag === msg.diceOwner.tag)
+        )) || msg.participantSnapshot || msg.diceOwner || null
+        const diceOwnerName = diceOwner?.name || diceOwner?.tag || 'Shared dice result'
+        const diceBackground = diceOwner?.bg || '#17152a'
+        const diceBorder = diceOwner?.border || '#514a78'
+        body += `<div style="text-align:center;margin:4px 0 10px;"><div style="display:inline-block;background:${diceBackground};border:2px dashed ${diceBorder};border-radius:${diceOwner?.radiusOwn || '9px'};padding:7px 14px;color:#e0e0e0;font-size:12px;box-shadow:inset 0 0 0 1px ${diceBorder}44;"><strong style="color:${diceOwner?.label || '#c9bfff'};">🎲 ${esc(diceOwnerName)}</strong> · ${esc(msg.content)}</div></div>`
         continue
       }
 
@@ -148,11 +164,16 @@ export class Data {
       const isLeft = actor.radiusOwn === '12px 12px 12px 2px'
       const radius = actor.radiusOwn || '12px'
       const name = esc(actor.name || actor.tag)
+      const isModerationIntervention = !!actor.isModerator && msg.messageType === 'moderation'
       const alignClass = actor.isModerator ? 'msg-center' : (isLeft ? 'msg-left' : 'msg-right')
-      const moderatorBadge = actor.isModerator ? '<div class="moderation-badge">Moderazione</div>' : ''
-      const radiusFinal = actor.isModerator ? '12px' : radius
+      const moderatorBadge = isModerationIntervention ? '<div class="moderation-badge">Moderazione</div>' : ''
+      const radiusFinal = isModerationIntervention ? '12px' : radius
 
-      body += `<div class="msg ${alignClass}"><div class="label" style="color:${actor.label}">${name}</div><div class="bubble" style="background:${actor.isModerator ? '#2a180f' : actor.bg};border:${actor.isModerator ? '2px dashed #fb923ccc' : `1px solid ${actor.border}`};border-radius:${radiusFinal};">${moderatorBadge}${md(msg.content)}</div></div>`
+      const toolActions = (msg.toolInvocations || []).map(invocation => {
+        const details = toolDescription(invocation)
+        return `<div class="tool-action"><span>${toolIcons[invocation.name] || '🛠️'}</span><span class="tool-name">${esc(invocation.name)}</span>${details ? `<span class="tool-details"> · ${esc(details)}</span>` : ''}</div>`
+      }).join('')
+      body += `<div class="msg ${alignClass}"><div class="label" style="color:${actor.label}">${name}</div><div class="bubble" style="background:${isModerationIntervention ? '#2a180f' : actor.bg};border:${isModerationIntervention ? '2px dashed #fb923ccc' : `1px solid ${actor.border}`};border-radius:${radiusFinal};">${moderatorBadge}${md(msg.content)}</div>${toolActions}</div>`
     }
 
     const html = `<!DOCTYPE html>
@@ -183,6 +204,8 @@ export class Data {
     .msg-center{align-self:center;align-items:center;max-width:92%;}
     .label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;}
     .bubble{padding:10px 14px;font-size:13px;line-height:1.65;word-break:break-word;}
+    .tool-action{align-self:stretch;margin-top:4px;padding:4px 8px;border:1px solid #514a78;border-radius:8px;color:#aaa;font-size:10px;line-height:1.35;background:#171624;box-shadow:0 0 8px rgba(139,92,246,.22),inset 0 0 7px rgba(139,92,246,.08);}
+    .tool-name{color:#aaa;margin-left:5px;} .tool-details{color:#666;}
     .moderation-badge{display:inline-block;background:#2a180f;border:1px solid #f9731655;border-radius:999px;padding:2px 8px;font-size:10px;color:#fb923c;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;}
     .part-row{margin:2px 0;}
     .bubble p{margin:0 0 8px;} .bubble p:last-child{margin:0;}
@@ -288,7 +311,12 @@ export class Data {
         continue
       }
       if (msg.role === 'dice') {
-        out += `**🎲 Shared dice result:** ${msg.content}\n\n`
+        const diceOwner = participants.find(participant => (
+          (msg.diceOwner?.id != null && participant.id === msg.diceOwner.id)
+          || (msg.diceOwner?.tag && participant.tag === msg.diceOwner.tag)
+        )) || msg.participantSnapshot || msg.diceOwner || null
+        const diceOwnerName = diceOwner?.name || diceOwner?.tag || 'Dice'
+        out += `**🎲 ${diceOwnerName}** ${msg.content}\n\n`
         continue
       }
       if (msg.role === 'participant_left' || msg.role === 'participant_joined') {
@@ -302,7 +330,7 @@ export class Data {
       const actor = Data.resolveActor(msg, participants)
       if (!actor) continue
       const name = actor.name || actor.tag
-      const moderationLabel = actor.isModerator ? ' · Moderazione' : ''
+      const moderationLabel = actor.isModerator && msg.messageType === 'moderation' ? ' · Moderazione' : ''
       out += `### ${name}${moderationLabel}\n\n${msg.content}\n\n---\n\n`
     }
 
@@ -357,7 +385,8 @@ export class Data {
           content: m.content,
           actor: actor ? (actor.name || actor.tag) : null,
           actorIsModerator: !!actor?.isModerator,
-          kind: actor?.isModerator ? 'moderation' : 'message',
+          messageType: m.messageType ?? null,
+          kind: actor?.isModerator && m.messageType === 'moderation' ? 'moderation' : 'message',
           dice: m.dice ?? null,
         }
       }),

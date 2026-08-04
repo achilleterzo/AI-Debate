@@ -22,6 +22,21 @@ function compactMessages(arr, { keepLast = Infinity, maxPerMsg = 12000 } = {}) {
 
 function cleanVisibleText(text) {
   let visible = String(text || '').replace(/<think>[\s\S]*?<\/think>/g, '').trimStart()
+  // Some Ollama/Gemma responses leak internal channel markers as visible
+  // content after a tool round. They are transport control tokens, not prose.
+  visible = visible
+    .replace(/<\|?channel\|?>/gi, '')
+    .replace(/<\|?(?:analysis|final|message)\|?>/gi, '')
+    .replace(/<\|?(?:tool_call|tool_calls)\|?>/gi, '')
+    .replace(/<\|?(?:turn|turns)\|?>/gi, '')
+  visible = visible.replace(/```(?:json)?\s*([\s\S]*?)```/gi, (block, jsonText) => {
+    try {
+      const parsed = JSON.parse(jsonText.trim())
+      return parsed && (parsed.action === 'write' || parsed.action === 'read') ? '' : block
+    } catch {
+      return block
+    }
+  })
   visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*?<\|tool[▁_]calls[▁_]end\|>/g, '').trimEnd()
   return visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
 }
@@ -36,6 +51,12 @@ function cleanToolContinuationText(text, previousSegment = '') {
   return visible
 }
 
+/*
+ * Tools are intentionally not parsed from assistant prose. The provider must
+ * return a structured tool_calls event; visible function-like text is not an
+ * invocation and must remain ordinary model output.
+ */
+/*
 function parseInlineToolArguments(raw) {
   const diceMatch = String(raw || '').trim().match(/^(\d+)\s*d\s*(\d+)$/i)
   if (diceMatch) return { count: Number(diceMatch[1]), sides: Number(diceMatch[2]) }
@@ -56,6 +77,50 @@ function parseInlineToolArguments(raw) {
   return args
 }
 
+function parseInlineObjectArguments(raw) {
+  const source = String(raw || '').trim().replace(/^\{/, '').replace(/\}$/, '')
+  const args = {}
+  let token = ''
+  let quote = null
+  let escaped = false
+  const parts = []
+  for (const char of `${source},`) {
+    if (escaped) { token += char; escaped = false; continue }
+    if (char === '\\' && quote) { token += char; escaped = true; continue }
+    if (quote) {
+      token += char
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'") { quote = char; token += char; continue }
+    if (char === ',') { if (token.trim()) parts.push(token.trim()); token = ''; continue }
+    token += char
+  }
+  for (const part of parts) {
+    let separator = -1
+    quote = null
+    for (let index = 0; index < part.length; index += 1) {
+      const char = part[index]
+      if (char === '"' || char === "'") quote = quote === char ? null : (quote || char)
+      if (char === ':' && !quote) { separator = index; break }
+    }
+    if (separator < 1) continue
+    const key = part.slice(0, separator).trim().replace(/^['"]|['"]$/g, '')
+    const value = part.slice(separator + 1).trim()
+    if (!key || !value) continue
+    if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
+      args[key] = value.slice(1, -1).replace(/\\(['"])/g, '$1')
+    } else if (/^-?\d+(?:\.\d+)?$/.test(value)) {
+      args[key] = Number(value)
+    } else if (value === 'true' || value === 'false') {
+      args[key] = value === 'true'
+    } else {
+      try { args[key] = JSON.parse(value) } catch { args[key] = value }
+    }
+  }
+  return args
+}
+
 function stripInlineToolSyntax(text, tools = []) {
   const names = new Set((tools || []).map(tool => tool?.function?.name).filter(Boolean))
   if (names.size === 0) return text
@@ -64,6 +129,7 @@ function stripInlineToolSyntax(text, tools = []) {
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
+*/
 
 export async function streamChat({
   baseUrl,
@@ -197,7 +263,10 @@ export async function streamChat({
         case 'error':
           throw new Error(event.message)
         case 'toolCalls':
-          toolCalls = event.toolCalls
+          // Ollama may emit tool calls across multiple streaming chunks.
+          // Keep every chunk as prescribed by the API instead of replacing
+          // the calls received earlier in the same assistant turn.
+          toolCalls = [...toolCalls, ...event.toolCalls]
           break
         case 'delta': {
           full += event.text
@@ -205,8 +274,7 @@ export async function streamChat({
           const visible = separateToolRounds
             ? cleanToolContinuationText(full, previousToolSegment)
             : cleanVisibleText(full)
-          const renderedVisible = stripInlineToolSyntax(visible, tools)
-          onToken(separateToolRounds ? renderedVisible : [visiblePrefix, renderedVisible].filter(Boolean).join('\n\n'))
+          onToken(separateToolRounds ? visible : [visiblePrefix, visible].filter(Boolean).join('\n\n'))
           break
         }
         case 'done':
@@ -216,8 +284,7 @@ export async function streamChat({
             const visible = separateToolRounds
               ? cleanToolContinuationText(full, previousToolSegment)
               : cleanVisibleText(full)
-            const renderedVisible = stripInlineToolSyntax(visible, tools)
-            onToken(separateToolRounds ? renderedVisible : [visiblePrefix, renderedVisible].filter(Boolean).join('\n\n'))
+            onToken(separateToolRounds ? visible : [visiblePrefix, visible].filter(Boolean).join('\n\n'))
           }
           console.log(`${label} done — tokens: ${tokenCount}, full length: ${full.length}`)
           break
@@ -251,37 +318,6 @@ export async function streamChat({
       ? cleanToolContinuationText(full, previousToolSegment)
       : cleanVisibleText(full)
 
-    if (toolCalls.length === 0) {
-      const mdToolRe = /<function>([\w]+)<\/function>\s*```(?:json)?\s*([\s\S]*?)```/g
-      let match
-      while ((match = mdToolRe.exec(full)) !== null) {
-        try {
-          const fnName = match[1]
-          const args = JSON.parse(match[2].trim())
-          toolCalls.push({ function: { name: fnName, arguments: args } })
-        } catch {
-          // Ignore malformed inline tool call payloads.
-        }
-      }
-      if (toolCalls.length > 0) {
-        full = full.replace(/<function>[\w]+<\/function>\s*```(?:json)?[\s\S]*?```/g, '').trim()
-      }
-    }
-
-    if (toolCalls.length === 0) {
-      const knownToolNames = new Set((tools || []).map(tool => tool?.function?.name).filter(Boolean))
-      const inlineToolRe = /`?\b([A-Za-z_]\w*)`?\s*\(([^()\n]*)\)/g
-      let inlineMatch
-      while ((inlineMatch = inlineToolRe.exec(full)) !== null) {
-        const fnName = inlineMatch[1]
-        if (!knownToolNames.has(fnName)) continue
-        toolCalls.push({ function: { name: fnName, arguments: parseInlineToolArguments(inlineMatch[2]) } })
-      }
-      if (toolCalls.length > 0) {
-        full = full.replace(/`?\b([A-Za-z_]\w*)`?\s*\([^()\n]*\)/g, (match, fnName) => knownToolNames.has(fnName) ? '' : match).replace(/\s{2,}/g, ' ').trim()
-      }
-    }
-
     const debugResponse = {
       message: {
         role: 'assistant',
@@ -294,7 +330,7 @@ export async function streamChat({
     onResponse?.({ request: debugRequest, response: debugResponse })
     onComplete?.({
       rawContent: rawStreamContent,
-      visibleContent: stripInlineToolSyntax(rawVisibleContent, tools),
+      visibleContent: rawVisibleContent,
       content: full,
       doneReason,
       toolCalls,
@@ -318,24 +354,24 @@ export async function streamChat({
           const cachedResult = Web.getCachedSearchResult(queryStr)
           if (cachedResult) {
             console.log(`[webSearch] cache hit (tool loop): "${queryStr}"`)
-            apiMessages = [...apiMessages, { role: 'tool', content: cachedResult, name: 'web_search' }]
+            apiMessages = [...apiMessages, { role: 'tool', tool_name: 'web_search', content: cachedResult }]
           } else {
             const sourceResult = await Web.searchTopicSources(queryStr, { sourceUrls })
             if (sourceResult) {
               console.log(`[webSearch] source hit: "${queryStr}"`)
-              apiMessages = [...apiMessages, { role: 'tool', content: sourceResult, name: 'web_search' }]
+              apiMessages = [...apiMessages, { role: 'tool', tool_name: 'web_search', content: sourceResult }]
               continue
             }
             onToken(separateToolRounds
               ? [full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n')
               : [visiblePrefix, full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n'))
             const result = await Web.search(queryStr, { noResultsMessage: noResultsMessage(queryStr) })
-            apiMessages = [...apiMessages, { role: 'tool', content: result, name: 'web_search' }]
+            apiMessages = [...apiMessages, { role: 'tool', tool_name: 'web_search', content: result }]
           }
         } else if (typeof executeTool === 'function') {
           const result = await executeTool(toolName, toolArgs)
           if (result != null) {
-            apiMessages = [...apiMessages, { role: 'tool', content: String(result), name: toolName }]
+            apiMessages = [...apiMessages, { role: 'tool', tool_name: toolName, content: String(result) }]
           }
         }
       }

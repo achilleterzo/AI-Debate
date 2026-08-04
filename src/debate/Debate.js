@@ -30,6 +30,17 @@ function continuationOverlap(previous, current) {
   return 0
 }
 
+function carryToolInvocations(history, fromSeq, toSeq) {
+  const source = history.find(message => message.seq === fromSeq)
+  if (!source?.toolInvocations?.length) return history
+  return history.map(message => message.seq === toSeq
+    ? {
+        ...message,
+        toolInvocations: [...(message.toolInvocations || []), ...source.toolInvocations],
+      }
+    : message)
+}
+
 function reconcileToolContinuation(history, previousSeq, currentSeq, currentContent) {
   const previousIndex = history.findIndex(message => message.seq === previousSeq)
   const currentIndex = history.findIndex(message => message.seq === currentSeq)
@@ -38,12 +49,29 @@ function reconcileToolContinuation(history, previousSeq, currentSeq, currentCont
   const previousContent = history[previousIndex].content || ''
   const previous = normalizeForDuplicateCheck(previousContent)
   const current = normalizeForDuplicateCheck(currentContent)
-  if (!previous || !current) return { history, activeSeq: currentSeq, content: currentContent }
+  if (!current) return { history, activeSeq: currentSeq, content: currentContent }
+
+  // A provider is allowed to emit the tool call before any visible text.
+  // In that case the first message is an empty anchor carrying the tool
+  // invocation, while the next assistant segment contains the actual answer.
+  // Merge that answer back into the anchor instead of leaving an empty
+  // message behind and relying on the timeline to infer the relationship.
+  if (!previous) {
+    const historyWithTools = carryToolInvocations(history, currentSeq, previousSeq)
+    return {
+      history: historyWithTools
+        .map(message => message.seq === previousSeq ? { ...message, content: currentContent } : message)
+        .filter(message => message.seq !== currentSeq),
+      activeSeq: previousSeq,
+      content: currentContent,
+    }
+  }
 
   // A repeated or shorter continuation contains no new information.
   if (current === previous || previous.includes(current)) {
+    const historyWithTools = carryToolInvocations(history, currentSeq, previousSeq)
     return {
-      history: history.filter(message => message.seq !== currentSeq),
+      history: historyWithTools.filter(message => message.seq !== currentSeq),
       activeSeq: previousSeq,
       content: previousContent,
     }
@@ -53,8 +81,9 @@ function reconcileToolContinuation(history, previousSeq, currentSeq, currentCont
   // complete union in the first message instead of showing a fragile suffix.
   if (current.startsWith(previous)) {
     const merged = currentContent.trim()
+    const historyWithTools = carryToolInvocations(history, currentSeq, previousSeq)
     return {
-      history: history
+      history: historyWithTools
         .map(message => message.seq === previousSeq ? { ...message, content: merged } : message)
         .filter(message => message.seq !== currentSeq),
       activeSeq: previousSeq,
@@ -67,8 +96,9 @@ function reconcileToolContinuation(history, previousSeq, currentSeq, currentCont
   const overlap = continuationOverlap(previousContent, currentContent)
   if (overlap > 0) {
     const merged = `${previousContent.trim()} ${currentContent.trim().slice(overlap).trimStart()}`.trim()
+    const historyWithTools = carryToolInvocations(history, currentSeq, previousSeq)
     return {
-      history: history
+      history: historyWithTools
         .map(message => message.seq === previousSeq ? { ...message, content: merged } : message)
         .filter(message => message.seq !== currentSeq),
       activeSeq: previousSeq,
@@ -1524,13 +1554,20 @@ export class Debate {
               // already received and let the continuation render in its own
               // balloon, so tool rounds cannot overwrite the first response.
               hasToolContinuation = true
-              // A tool-first response has no visible segment to split. Keep
-              // the current placeholder and let the continuation fill it.
-              if (!content?.trim()) return
               previousToolMessageSeq = activeMessageSeq
-              history = history.map(message => message.seq === activeMessageSeq
-                ? { ...message, content: content.trim(), rawContent: rawResponseContent || content.trim(), completionReason }
-                : message)
+              // Ollama commonly emits a tool-only assistant message first.
+              // It is not an empty answer: it is the transport half of the
+              // same assistant turn. Keep the active sequence unchanged so
+              // the following visible response fills this message directly.
+              if (!content?.trim()) {
+                previousToolMessageSeq = null
+                return
+              }
+              if (content?.trim()) {
+                history = history.map(message => message.seq === activeMessageSeq
+                  ? { ...message, content: content.trim(), rawContent: rawResponseContent || content.trim(), completionReason }
+                  : message)
+              }
               activeMessageSeq = nextSeq()
               history = [...history, {
                 role: actor.tag,
@@ -1555,29 +1592,47 @@ export class Debate {
             },
             timeoutMs,
           })
-          let finalContent = full && full.trim()
-            ? (rawResponseContent.trim() || full)
-            : (history.find(message => message.seq === activeMessageSeq)?.content ?? '')
-          if (hasToolContinuation && previousToolMessageSeq != null && finalContent.trim()) {
-            const reconciled = reconcileToolContinuation(history, previousToolMessageSeq, activeMessageSeq, finalContent)
+          const activeStreamContent = history.find(message => message.seq === activeMessageSeq)?.content ?? ''
+          // The provider can report the visible text through either the
+          // stream return value, onComplete, or the last onToken callback.
+          // Prefer the first non-empty representation so a tool-only first
+          // response can never mask the following assistant response.
+          const finalContent = [full, rawResponseContent, activeStreamContent]
+            .find(content => String(content || '').trim()) || ''
+          let resolvedContent = finalContent
+          if (hasToolContinuation && previousToolMessageSeq != null && resolvedContent.trim()) {
+            const reconciled = reconcileToolContinuation(history, previousToolMessageSeq, activeMessageSeq, resolvedContent)
             history = reconciled.history
             activeMessageSeq = reconciled.activeSeq
             setStreamingSeq(activeMessageSeq)
-            finalContent = reconciled.content
+            resolvedContent = reconciled.content
             syncHistory()
           }
-          if (!finalContent.trim() && hasToolContinuation && previousToolMessageSeq != null) {
-            history = history.filter(message => message.seq !== activeMessageSeq)
+          if (!resolvedContent.trim() && hasToolContinuation && previousToolMessageSeq != null) {
+            history = carryToolInvocations(history, activeMessageSeq, previousToolMessageSeq)
+              .filter(message => message.seq !== activeMessageSeq)
             activeMessageSeq = previousToolMessageSeq
             setStreamingSeq(activeMessageSeq)
             syncHistory()
-            finalContent = history.find(message => message.seq === activeMessageSeq)?.content ?? ''
+            resolvedContent = history.find(message => message.seq === activeMessageSeq)?.content ?? ''
+          }
+          // A tool-first turn may have no visible assistant text at all. Keep
+          // its placeholder when it contains invocations, otherwise the tool
+          // pill would disappear together with the empty response.
+          if (!resolvedContent.trim() && hasToolContinuation && previousToolMessageSeq == null) {
+            const activeMessage = history.find(message => message.seq === activeMessageSeq)
+            if (activeMessage?.toolInvocations?.length) {
+              syncHistory()
+              setStreamingRole(null)
+              setStreamingSeq(null)
+              continue
+            }
           }
           const shouldSkipModeratorTurn = actor.isModerator
             && moderatorMode !== 'active'
             && !moderationDecision?.scheduledFacilitation
             && !moderationDecision?.reactiveModeration
-            && /^\s*\[SKIP_TURN\]\s*$/i.test(finalContent)
+            && /^\s*\[SKIP_TURN\]\s*$/i.test(resolvedContent)
           if (shouldSkipModeratorTurn) {
             history = history.filter(message => message.seq !== activeMessageSeq)
              syncHistory()
@@ -1585,7 +1640,7 @@ export class Debate {
             setStreamingSeq(null)
             continue
           }
-          let moderatedContent = finalContent
+          let moderatedContent = resolvedContent
           const isProceduralModerationTurn = actor.isModerator
             && !isRolePlay
             && (!!moderationDecision?.reactiveModeration || extraModeratorTurn)
@@ -1593,7 +1648,7 @@ export class Debate {
           // active moderators contribute content, and scheduled facilitation
           // turns are analytical by design — rewriting would destroy both.
           const skipModeratorRewrite = moderatorMode === 'active' || (moderationDecision?.scheduledFacilitation && !moderationDecision?.reactiveModeration)
-          if (actor.isModerator && finalContent.trim() && !skipModeratorRewrite && !Debate.isModerationDirectiveStyle(finalContent)) {
+          if (actor.isModerator && resolvedContent.trim() && !skipModeratorRewrite && !Debate.isModerationDirectiveStyle(resolvedContent)) {
             let rewrite = ''
             const draftMessageSeq = activeMessageSeq
             const rewriteMessageSeq = nextSeq()
@@ -1618,7 +1673,7 @@ export class Debate {
                 systemPrompt: `You are a strict process moderator. Do not summarize positions. Output only operational moderation in ${Debate.buildLanguageLabel(uiLang, LANGUAGES)} (language code: ${uiLang}).`,
                 messages: [{
                   role: 'user',
-                  content: `Rewrite this moderator draft as a REAL moderation intervention (not a recap, not a synthesis).\n\nDraft:\n${finalContent}\n\nOutput format (mandatory, 3 short lines, in the user's language):\n1) <brief reason for intervention now>\n2) <directive: what must change immediately>\n3) <next turn: who should answer and with what focus>\n\nUse labels naturally in that language. Avoid the word "trigger".\nMax 5 total sentences. No preamble.`,
+                  content: `Rewrite this moderator draft as a REAL moderation intervention (not a recap, not a synthesis).\n\nDraft:\n${resolvedContent}\n\nOutput format (mandatory, 3 short lines, in the user's language):\n1) <brief reason for intervention now>\n2) <directive: what must change immediately>\n3) <next turn: who should answer and with what focus>\n\nUse labels naturally in that language. Avoid the word "trigger".\nMax 5 total sentences. No preamble.`,
                 }],
                 onToken: token => {
                   rewrite = token

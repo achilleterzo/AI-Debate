@@ -340,7 +340,54 @@ describe('streamChat content assembly through the provider seam', () => {
     expect(result).toBe('')
   })
 
-  it('executes textual inline tool calls instead of displaying the command', async () => {
+  it('does not expose leaked channel markers as assistant content', async () => {
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const content = call === 1 ? '<channel|>' : 'Valid continuation.'
+      const line = JSON.stringify({ message: { content } }) + '\n'
+      const done = JSON.stringify({ done: true, done_reason: 'stop', message: { content: '' } }) + '\n'
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(line))
+            controller.enqueue(new TextEncoder().encode(done))
+            controller.close()
+          },
+        }),
+      }
+    }))
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'continue' }],
+      onToken: () => {},
+    })
+
+    expect(result).toBe('Valid continuation.')
+  })
+
+  it('does not expose malformed structured tool JSON or transport turn markers', async () => {
+    const fetchMock = mockEmptyThenContentFetch([
+      '```json\n{"action":"write","content":"do not execute this"}\n```<turn|>',
+      'Valid continuation after invalid tool syntax.',
+    ])
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'continue' }],
+      onToken: () => {},
+    })
+
+    expect(result).toBe('Valid continuation after invalid tool syntax.')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not execute textual inline tool calls', async () => {
     let call = 0
     vi.stubGlobal('fetch', vi.fn(async () => {
       call += 1
@@ -379,9 +426,9 @@ describe('streamChat content assembly through the provider seam', () => {
       onToken: token => tokens.push(token),
     })
 
-    expect(invocations).toEqual([{ name: 'roll_dice', args: { count: 2, sides: 10 } }])
-    expect(result).toBe('I will roll now.\n\nThe result is decisive.')
-    expect(tokens.some(token => token.includes('roll_dice(count=2'))).toBe(false)
+    expect(invocations).toEqual([])
+    expect(result).toContain('roll_dice(count=2, sides=10)')
+    expect(tokens.some(token => token.includes('roll_dice(count=2'))).toBe(true)
   })
 
   it('recognizes backticked dice notation emitted as text', async () => {
@@ -423,9 +470,48 @@ describe('streamChat content assembly through the provider seam', () => {
       onToken: () => {},
     })
 
-    expect(receivedArgs).toEqual({ name: 'roll_dice', args: { count: 1, sides: 20 } })
-    expect(result).toContain('The roll decides the outcome.')
-    expect(result).not.toContain('roll_dice')
+    expect(receivedArgs).toBeNull()
+    expect(result).toContain('`roll_dice`(1d20)')
+    expect(result).not.toContain('The roll decides the outcome.')
+  })
+
+  it('recognizes inline tool calls written with an object argument', async () => {
+    let call = 0
+    let receivedArgs = null
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const content = call === 1 ? "I record this. memory {action: 'write', content: 'A durable note'}" : 'The note is stored.'
+      const lines = [
+        JSON.stringify({ message: { content } }) + '\n',
+        JSON.stringify({ done: true, done_reason: 'stop', message: { content: '' } }) + '\n',
+      ]
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+            controller.close()
+          },
+        }),
+      }
+    }))
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'continue' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'memory' } }],
+      executeTool: async (name, args) => {
+        receivedArgs = { name, args }
+        return 'saved'
+      },
+      onToken: () => {},
+    })
+
+    expect(receivedArgs).toBeNull()
+    expect(result).toContain("memory {action: 'write', content: 'A durable note'}")
+    expect(result).not.toContain('The note is stored.')
   })
 })
 

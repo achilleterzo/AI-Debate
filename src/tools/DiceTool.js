@@ -32,5 +32,6 @@ export function rollDice({ count = 1, sides = 20 } = {}) {
 }
 
 export function formatDiceRoll(result) {
-  return `Dice result: ${result.count}d${result.sides} → [${result.rolls.join(', ')}] = ${result.total}`
+  if (result.count === 1) return `(1d${result.sides}) -> ${result.rolls[0]}`
+  return `(${result.count}d${result.sides}) -> [${result.rolls.join('+')}] = ${result.total}`
 }

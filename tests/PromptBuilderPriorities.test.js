@@ -123,6 +123,9 @@ describe('buildSystemPrompt moderator modes and hierarchy', () => {
     expect(prompt).toContain('current request payload and its tools array are the source of truth')
     expect(prompt).toContain('never write a tool name, pseudo-call, Markdown code')
     expect(prompt).toContain('A tool instruction and a tool invocation are different events')
+    expect(prompt).toContain('NON-NEGOTIABLE STRUCTURED TOOL-CALL PROTOCOL')
+    expect(prompt).toContain('The tool result is then returned in the conversation as a tool message')
+    expect(prompt).toContain('continue with a complete assistant response after the tool result')
   })
 
   it('omits the hierarchy rule when there is no moderator', () => {
