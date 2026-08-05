@@ -71,10 +71,13 @@ export default function EndpointModelGroup({
           width: 28,
           minHeight: 28,
           borderRadius: '6px 0 0 6px',
-          border: `1px solid ${hasOverride ? '#2f4f6f' : '#2e2e2e'}`,
-          // The select draws the shared edge, so the group shows one border
+          // Longhands only: mixing `border` with `borderRight` makes React warn
+          // about conflicting style properties on re-render. The right edge is
+          // dropped because the select draws it, so the group shows one border
           // line instead of two stacked ones.
-          borderRight: 'none',
+          borderWidth: '1px 0 1px 1px',
+          borderStyle: 'solid',
+          borderColor: hasOverride ? '#2f4f6f' : '#2e2e2e',
           background: hasOverride ? '#152131' : '#161616',
           color: hasOverride ? '#9ac8ff' : '#666',
           cursor: disabled ? 'default' : 'pointer',

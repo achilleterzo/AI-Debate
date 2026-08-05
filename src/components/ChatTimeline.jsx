@@ -251,10 +251,13 @@ export default function ChatTimeline({
     const isLocalUser = !!actor.localUser || actor.model === userModel
     const isModeratorMessage = !!actor.isModerator && !isLocalUser
     const isModerationIntervention = isModeratorMessage && msg.messageType === 'moderation'
+    // What the moderator writes after apply_moderation is a continuation of the
+    // moderation itself: the group anchored on the moderation message already
+    // absorbs it, so treating it as a fresh group would render it twice.
     const isContinuation = (
       !isModerationIntervention
       && (
-        (previousActor?.id === actor.id && previousMessage.turn === msg.turn && previousMessage.messageType !== 'moderation')
+        (previousActor?.id === actor.id && previousMessage.turn === msg.turn)
         || (previousDiceOwner?.id === actor.id)
       )
     )
@@ -284,6 +287,10 @@ export default function ChatTimeline({
     const continuationText = [msg.content, ...continuationItems.filter(candidate => candidate.role !== 'dice').map(candidate => candidate.content)]
       .filter(Boolean)
       .join('\n\n')
+    // A moderation intervention is one statement: the reason passed to the tool
+    // and the directive written right after it go in the same balloon, instead
+    // of leaving the directive hanging outside the moderation frame.
+    const primaryContent = isModerationIntervention ? continuationText : msg.content
     const toolEvents = msg.toolEvents?.length
       ? msg.toolEvents
       : (msg.toolInvocations || []).map(invocation => ({ type: 'invocation', invocation, beforeContent: false }))
@@ -357,7 +364,7 @@ export default function ChatTimeline({
               </div>
             )
           })}
-          {msg.content
+          {primaryContent
             ? <div className="bubble" style={{ ...styles.bubble(msg.role, actor), borderRadius: primaryIsLastBalloon ? actor.radiusOwn : 12, ...(moderatorBubbleStyle || {}) }}>
                 {isModerationIntervention && (
                   <div style={{
@@ -370,7 +377,7 @@ export default function ChatTimeline({
                     {ui.moderation}
                   </div>
                 )}
-                <div dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(msg.content || '')) }} />
+                <div dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(primaryContent || '')) }} />
               </div>
             : isStreamingMsg ? <div className="bubble" style={{
                 ...styles.bubble(msg.role, actor),
@@ -380,7 +387,7 @@ export default function ChatTimeline({
               }}>{Dots({})}</div>
             : null
           }
-          {msg.content && (
+          {primaryContent && (
             <div style={styles.floatBtns(actor)}>
               <button
                 className="float-btn"
@@ -421,6 +428,8 @@ export default function ChatTimeline({
                 </div>
               )
             }
+            // Already folded into the moderation balloon above.
+            if (isModerationIntervention) return null
             return (
               <div key={`continuation-message-${continuationIndex}`} className="bubble" style={{ ...styles.bubble(continuation.role, actor), borderRadius: continuationItems.slice(continuationIndex + 1).some(candidate => candidate.role !== 'dice') ? 12 : actor.radiusOwn }}>
                 <div dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(continuation.content || '')) }} />

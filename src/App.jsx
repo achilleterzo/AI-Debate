@@ -89,7 +89,8 @@ function AppInner({ settings }) {
     saved, endpointInput, setEndpointInput, baseUrl, setBaseUrl, participants, setParticipants,
     globalConstraints, setGlobalConstraints, generalPersonalityInstructions, setGeneralPersonalityInstructions, debateMode, setDebateMode,
     maxTurns, setMaxTurns, useSummary, setUseSummary,
-    dynamicAffinity, setDynamicAffinity, moderationCooling, setModerationCooling,
+    dynamicAffinity, setDynamicAffinity, randomTurnOrder, setRandomTurnOrder,
+    moderationCooling, setModerationCooling,
     summaryModelEnabled, setSummaryModelEnabled,
     summaryModelOverride, setSummaryModelOverride,
     summaryEndpointOverride, setSummaryEndpointOverride,
@@ -163,6 +164,7 @@ function AppInner({ settings }) {
     uiLang,
     debugMode,
     dynamicAffinity,
+    randomTurnOrder,
     moderationCooling,
     globalConstraints,
     generalPersonalityInstructions,
@@ -721,6 +723,8 @@ function AppInner({ settings }) {
         />
 
         <AffinitySettings
+          randomTurnOrder={randomTurnOrder}
+          onRandomTurnOrderChange={setRandomTurnOrder}
           dynamicAffinity={dynamicAffinity}
           onDynamicAffinityChange={setDynamicAffinity}
           moderationCooling={moderationCooling}

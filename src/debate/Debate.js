@@ -127,6 +127,10 @@ export class Debate {
 
   static USER_MODEL = '__user__'
 
+  // Floor for the recent context window, so a two-participant debate still
+  // carries enough back-and-forth to answer coherently.
+  static RECENT_CONTEXT_MIN_MESSAGES = 6
+
   static REASONING_LANG_CUSTOM = '__custom__'
 
   static THINKING_LEVELS = ['none', 'low', 'medium', 'high', 'max']
@@ -344,10 +348,23 @@ export class Debate {
     return kept
   }
 
-  static getContextSincePreviousTurn(history = [], actorTag) {
-    const previousTurnIndex = history.findLastIndex(message => message.role === actorTag && message.content?.trim())
-    return history.slice(previousTurnIndex < 0 ? 0 : previousTurnIndex)
+  /**
+   * Recent window handed to a participant when a summary already covers the
+   * older part of the debate.
+   *
+   * Sized on the roster, not on the actor's own last turn: with a per-actor
+   * window whoever had just spoken saw almost nothing, while whoever had been
+   * silent for a while dragged in a large slice of the debate — so the payload
+   * differed wildly from one participant to the next. One slot per participant
+   * keeps roughly a full round in view for everybody, and the floor stops a
+   * two-person debate from shrinking to a couple of lines.
+   */
+  static getRecentContext(history = [], participantCount = 0) {
+    const count = Number.isFinite(participantCount) ? Math.floor(participantCount) : 0
+    const size = Math.max(Debate.RECENT_CONTEXT_MIN_MESSAGES, count)
+    return history
       .filter(message => !['error', 'participant_joined', 'participant_left'].includes(message.role))
+      .slice(-size)
   }
 
   static appendInterjection(history = [], interjection) {
@@ -494,6 +511,30 @@ export class Debate {
       constraints: Debate.normalizeParticipantConstraints(participant.constraints),
       characterContext: participant.characterContext ?? null,
     }))
+  }
+
+  /**
+   * Speaking order for one round, as participant ids.
+   *
+   * Every moderator keeps its own slot: its turn is procedural — it opens,
+   * closes or polices the round — so moving it would change *when* moderation
+   * lands, not just who speaks first. Only the other participants are shuffled,
+   * among the positions the moderators leave free.
+   */
+  static buildRoundOrder(participants = [], { randomize = false, random = Math.random } = {}) {
+    const ids = participants.map(participant => participant.id)
+    if (!randomize || ids.length < 2) return ids
+
+    const movable = participants.filter(participant => !participant.isModerator).map(participant => participant.id)
+    for (let index = movable.length - 1; index > 0; index -= 1) {
+      const swap = Math.floor(random() * (index + 1))
+      const current = movable[index]
+      movable[index] = movable[swap]
+      movable[swap] = current
+    }
+
+    let cursor = 0
+    return participants.map(participant => participant.isModerator ? participant.id : movable[cursor++])
   }
 
   static reorderParticipants(participants = [], fromIndex, toIndex) {
@@ -995,6 +1036,7 @@ export class Debate {
       setSummaryInProgress,
       setSummary,
       dynamicAffinity,
+      randomTurnOrder,
       moderationCooling,
       setParticipants,
       setSummaryDebug,
@@ -1161,6 +1203,8 @@ export class Debate {
       if (stopRef.current) break
       if (roundLimit > 0 && round >= roundLimit && step === 0) break
 
+      const roundOrder = Debate.buildRoundOrder(parts, { randomize: !!randomTurnOrder })
+
        let roundModerationSignal = { needed: false, reason: '', targets: [] }
 
       {
@@ -1276,9 +1320,13 @@ export class Debate {
 
         parts = participantsRef.current
         const cursorIndex = s < parts.length ? s : 0
+        // The order is resolved by id so a participant added or removed mid
+        // round cannot shift everyone else; the index is the fallback when the
+        // roster changed under it.
+        const scheduledId = roundOrder[cursorIndex]
         const rawActor = requestedModeratorTurn
           ? parts.find(participant => participant.isModerator)
-          : parts[cursorIndex]
+          : (parts.find(participant => participant.id === scheduledId) ?? parts[cursorIndex])
         if (!rawActor) break
         const actor = rawActor.model ? rawActor : { ...rawActor, model: defaultModel || rawActor.model }
         const actorBaseUrl = actor.endpointOverride?.trim() || baseUrl
@@ -1424,7 +1472,10 @@ export class Debate {
 
         const hasSummary = useSummary && !!summaryRef.current
         if (hasSummary) {
-          const recentMessages = Debate.getContextSincePreviousTurn(realHistory, actor.tag)
+          // The actor's own messages inside this window still go in as
+          // `assistant` (see pushHistoryMsg), so it keeps reading its previous
+          // turns as its own words rather than as someone else's.
+          const recentMessages = Debate.getRecentContext(realHistory, parts.length)
           for (const message of recentMessages) await pushHistoryMsg(message)
         } else {
           for (const message of realHistory) await pushHistoryMsg(message)

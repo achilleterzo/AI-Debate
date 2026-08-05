@@ -213,20 +213,49 @@ describe('Debate topic variations', () => {
 })
 
 describe('Debate context windows', () => {
-  it('keeps messages from the actor previous turn through the current turn in chronological order', () => {
-    const history = [
+  const history = [
+    { role: 'topic', content: 'Initial topic' },
+    { role: 'A', content: 'A opening' },
+    { role: 'B', content: 'B reply' },
+    { role: 'participant_joined', content: '' },
+    { role: 'interjection', content: 'Focus on evidence' },
+    { role: 'A', content: 'A follow-up' },
+    { role: 'error', content: 'boom' },
+    { role: 'B', content: 'B latest reply' },
+  ]
+
+  it('keeps the last messages in chronological order, whoever wrote them', () => {
+    expect(Debate.getRecentContext(history, 2)).toEqual([
       { role: 'topic', content: 'Initial topic' },
       { role: 'A', content: 'A opening' },
       { role: 'B', content: 'B reply' },
       { role: 'interjection', content: 'Focus on evidence' },
       { role: 'A', content: 'A follow-up' },
       { role: 'B', content: 'B latest reply' },
-      { role: 'participant_joined', content: '' },
-    ]
-
-    expect(Debate.getContextSincePreviousTurn(history, 'A')).toEqual([
-      { role: 'A', content: 'A follow-up' },
-      { role: 'B', content: 'B latest reply' },
     ])
+  })
+
+  it('drops lifecycle and error entries before counting, so the window holds real turns', () => {
+    const window = Debate.getRecentContext(history, 3)
+    expect(window).toHaveLength(6)
+    expect(window.some(message => ['error', 'participant_joined', 'participant_left'].includes(message.role))).toBe(false)
+  })
+
+  it('never goes below the floor, however small the roster', () => {
+    expect(Debate.getRecentContext(history, 0)).toHaveLength(Debate.RECENT_CONTEXT_MIN_MESSAGES)
+    expect(Debate.getRecentContext(history, 1)).toHaveLength(Debate.RECENT_CONTEXT_MIN_MESSAGES)
+    expect(Debate.getRecentContext(history)).toHaveLength(Debate.RECENT_CONTEXT_MIN_MESSAGES)
+  })
+
+  it('widens with the roster instead of tracking a single participant', () => {
+    const long = Array.from({ length: 30 }, (_, index) => ({ role: index % 2 ? 'A' : 'B', content: `msg ${index}` }))
+    expect(Debate.getRecentContext(long, 8)).toHaveLength(8)
+    expect(Debate.getRecentContext(long, 8).at(-1)).toEqual({ role: 'A', content: 'msg 29' })
+    expect(Debate.getRecentContext(long, 12)).toHaveLength(12)
+  })
+
+  it('returns what it has when the history is shorter than the window', () => {
+    expect(Debate.getRecentContext([{ role: 'A', content: 'only one' }], 4)).toEqual([{ role: 'A', content: 'only one' }])
+    expect(Debate.getRecentContext([], 4)).toEqual([])
   })
 })

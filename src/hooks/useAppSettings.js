@@ -7,6 +7,7 @@ import {
   DEFAULT_FALLBACK_MODEL,
   DEFAULT_MAX_TURNS,
   DEFAULT_MODERATION_COOLING,
+  DEFAULT_RANDOM_TURN_ORDER,
   DEFAULT_SUMMARY_ACCUMULATE,
   DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD,
   DEFAULT_SUMMARY_MODEL_ENABLED,
@@ -33,6 +34,7 @@ export function useAppSettings() {
   const [maxTurns, setMaxTurns] = useState(saved?.maxTurns ?? DEFAULT_MAX_TURNS)
   const [useSummary, setUseSummary] = useState(saved?.useSummary ?? DEFAULT_USE_SUMMARY)
   const [dynamicAffinity, setDynamicAffinity] = useState(saved?.dynamicAffinity ?? DEFAULT_DYNAMIC_AFFINITY)
+  const [randomTurnOrder, setRandomTurnOrder] = useState(saved?.randomTurnOrder ?? DEFAULT_RANDOM_TURN_ORDER)
   const [moderationCooling, setModerationCooling] = useState(() => normalizeModerationCooling(saved?.moderationCooling ?? DEFAULT_MODERATION_COOLING))
   // Sessions saved before this switch existed have no flag: an override
   // already configured back then stays active instead of being silently
@@ -58,7 +60,8 @@ export function useAppSettings() {
     globalConstraints, setGlobalConstraints,
     generalPersonalityInstructions, setGeneralPersonalityInstructions,
     maxTurns, setMaxTurns, useSummary, setUseSummary,
-    dynamicAffinity, setDynamicAffinity, moderationCooling, setModerationCooling,
+    dynamicAffinity, setDynamicAffinity, randomTurnOrder, setRandomTurnOrder,
+    moderationCooling, setModerationCooling,
     summaryModelEnabled, setSummaryModelEnabled,
     summaryModelOverride, setSummaryModelOverride,
     summaryEndpointOverride, setSummaryEndpointOverride,
@@ -72,7 +75,7 @@ export function useAppSettings() {
 
 export function usePersistedAppSettings({ settings, conclusions }) {
   const {
-    participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity,
+    participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder,
     moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride,
     summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, globalConstraints,
     generalPersonalityInstructions, defaultModel,
@@ -83,7 +86,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
   useEffect(() => {
     Storage.saveSettings({
       participants: Debate.serializeParticipantsForSession(participants),
-      maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling,
+      maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling,
       summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold,
       summarizeAttachments, uiLang, interfaceLang, defaultModel,
       conclusionModel,
@@ -94,5 +97,5 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       debateMode: normalizeDebateMode(debateMode),
       enabledTools,
     })
-  }, [participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools])
+  }, [participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools])
 }

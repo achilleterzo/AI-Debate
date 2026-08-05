@@ -12,6 +12,7 @@ export const TWO_COLUMN_MIN_WIDTH = 1200
 export const DEFAULT_MAX_TURNS = 6
 export const DEFAULT_USE_SUMMARY = true
 export const DEFAULT_DYNAMIC_AFFINITY = true
+export const DEFAULT_RANDOM_TURN_ORDER = true
 export const DEFAULT_SUMMARY_MODEL_ENABLED = false
 export const DEFAULT_SUMMARY_MODEL_OVERRIDE = ''
 export const DEFAULT_SUMMARY_ACCUMULATE = true
