@@ -2,32 +2,44 @@ import { useEffect, useMemo, useState } from 'react'
 import { Debate } from '../debate/Debate'
 import { getProvider } from '../providers/index.js'
 
-export function useEndpointStatuses(participants) {
+// Key for the summary endpoint inside the status map. Participant ids are
+// numbers, so a string can never collide with one.
+export const SUMMARY_ENDPOINT_ID = 'summary'
+
+// Stable identity: a literal default would make the memos below see a new
+// array on every render.
+const NO_EXTRA_ENDPOINTS = []
+
+/**
+ * Reachability of every custom endpoint in play, keyed by participant id plus
+ * whatever `extraEndpoints` adds — pass it a memoized `[{ id, url }]` list.
+ */
+export function useEndpointStatuses(participants, extraEndpoints = NO_EXTRA_ENDPOINTS) {
   const [results, setResults] = useState({})
-  const signature = useMemo(
-    () => participants.map(participant => `${participant.id}|${participant.model}|${(participant.endpointOverride ?? '').trim()}`).join('::'),
-    [participants],
-  )
 
-  const statuses = useMemo(() => {
-    const activeIds = participants
+  const targets = useMemo(() => [
+    ...participants
       .filter(participant => !participant.localUser && participant.model !== Debate.USER_MODEL && participant.endpointOverride?.trim())
-      .map(participant => participant.id)
+      .map(participant => ({ id: participant.id, url: participant.endpointOverride.trim().replace(/\/$/, '') })),
+    ...extraEndpoints
+      .filter(endpoint => endpoint?.url?.trim())
+      .map(endpoint => ({ id: endpoint.id, url: endpoint.url.trim().replace(/\/$/, '') })),
+  ], [participants, extraEndpoints])
 
-    return Object.fromEntries(activeIds.map(id => [id, results[id] ?? { state: 'checking' }]))
-  }, [participants, results])
+  const signature = useMemo(() => targets.map(target => `${target.id}|${target.url}`).join('::'), [targets])
+
+  const statuses = useMemo(
+    () => Object.fromEntries(targets.map(target => [target.id, results[target.id] ?? { state: 'checking' }])),
+    [targets, results],
+  )
 
   useEffect(() => {
     let cancelled = false
-    const active = participants
-      .filter(participant => !participant.localUser && participant.model !== Debate.USER_MODEL && participant.endpointOverride?.trim())
-      .map(participant => ({ id: participant.id, url: participant.endpointOverride.trim().replace(/\/$/, '') }))
-
-    if (active.length === 0) return
+    if (targets.length === 0) return
 
     ;(async () => {
       const next = {}
-      await Promise.all(active.map(async endpoint => {
+      await Promise.all(targets.map(async endpoint => {
         if (!/^https?:\/\//i.test(endpoint.url)) {
           next[endpoint.id] = { state: 'err' }
           return
@@ -39,7 +51,7 @@ export function useEndpointStatuses(participants) {
     })()
 
     return () => { cancelled = true }
-  }, [participants, signature])
+  }, [targets, signature])
 
   return statuses
 }

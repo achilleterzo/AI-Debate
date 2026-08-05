@@ -1,6 +1,7 @@
-import ReactSelect from 'react-select'
 import { SUMMARY_ACCUMULATE_STEPS } from '../settings/Settings'
 import { useUiStrings } from '../i18n/UiStringsContext'
+import EndpointModelGroup from './EndpointModelGroup'
+import { styles } from './Style'
 
 export default function SummarySettings({
   useSummary,
@@ -14,29 +15,18 @@ export default function SummarySettings({
   summaryModelOverride,
   onSummaryModelOverrideChange,
   models,
-  modelSelectStyles,
   running,
   defaultModel = '',
   summaryEndpointOverride = '',
+  summaryEndpointState = '',
   onConfigureEndpoint,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
-  const common = UI_STRINGS.common
-
-  // Same explicit entry as the participant model picker: an empty override
-  // means "use the default model", and that has to be selectable rather than
-  // only reachable by clearing the field.
-  const defaultModelOption = {
-    value: '',
-    label: defaultModel
-      ? `${UI_STRINGS.participants.useDefaultModel} · ${defaultModel}`
-      : UI_STRINGS.participants.useDefaultModelUnset,
-  }
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 0 2px' }}>
+      <div style={styles.settingsRow}>
         <div
           onClick={() => !running && onUseSummaryChange(!useSummary)}
           title={useSummary ? ui.perRoundSummaryOn : ui.perRoundSummaryOff}
@@ -57,64 +47,23 @@ export default function SummarySettings({
           </div>
           <span style={{ fontSize: 12, color: summaryModelEnabled ? '#a78bfa' : '#666', whiteSpace: 'nowrap' }}>{ui.summaryModel}</span>
         </div>
-        {/* Endpoint first, then the model it serves. Both are hidden while the
-            override is off: the summary then runs on the default model. */}
-        {summaryModelEnabled && (() => {
-          const hasOverride = !!summaryEndpointOverride?.trim()
-          return (
-            <button
-              onClick={() => !running && onConfigureEndpoint?.()}
-              disabled={running || !useSummary}
-              title={hasOverride
-                ? UI_STRINGS.participants.customEndpointTitle(summaryEndpointOverride, null)
-                : UI_STRINGS.participants.configureCustomEndpoint}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                border: `1px solid ${hasOverride ? '#2f4f6f' : '#2e2e2e'}`,
-                background: hasOverride ? '#152131' : '#161616',
-                color: hasOverride ? '#9ac8ff' : '#666',
-                cursor: running || !useSummary ? 'default' : 'pointer',
-                opacity: running || !useSummary ? 0.5 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M2 12h20" />
-                <path d="M12 2c3 3 4 6 4 10s-1 7-4 10c-3-3-4-6-4-10s1-7 4-10z" />
-              </svg>
-            </button>
-          )
-        })()}
+        {/* Hidden while the override is off: the summary then runs on the
+            default model. */}
         {summaryModelEnabled && (
-          <div style={{ flex: 1, minWidth: 140 }}>
-            <ReactSelect
-              styles={modelSelectStyles}
-              options={(() => {
-                const cloud = models.filter(m => m.endsWith('cloud')).sort()
-                const local = models.filter(m => !m.endsWith('cloud')).sort()
-                return [
-                  defaultModelOption,
-                  ...(cloud.length ? [{ label: common.cloud, options: cloud.map(m => ({ value: m, label: m })) }] : []),
-                  ...(local.length ? [{ label: common.local, options: local.map(m => ({ value: m, label: m })) }] : []),
-                ]
-              })()}
-              value={summaryModelOverride ? { value: summaryModelOverride, label: summaryModelOverride } : defaultModelOption}
-              onChange={opt => onSummaryModelOverrideChange(opt?.value ?? '')}
-              placeholder={common.chooseModel}
-              isDisabled={running || !useSummary}
-              menuPlacement="auto"
-              noOptionsMessage={() => common.noModels}
-            />
-          </div>
+          <EndpointModelGroup
+            models={models}
+            model={summaryModelOverride}
+            onModelChange={onSummaryModelOverrideChange}
+            defaultModel={defaultModel}
+            endpointOverride={summaryEndpointOverride}
+            endpointState={summaryEndpointState}
+            onConfigureEndpoint={onConfigureEndpoint}
+            disabled={running || !useSummary}
+            minWidth={140}
+          />
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '2px 0 6px' }}>
+      <div style={{ ...styles.settingsRow, flexWrap: 'wrap' }}>
         <div
           onClick={() => !running && onSummarizeAttachmentsChange(!summarizeAttachments)}
           title={summarizeAttachments ? ui.summarizeAttachmentsTitleOn : ui.summarizeAttachmentsTitleOff}
@@ -128,7 +77,7 @@ export default function SummarySettings({
         <div style={{ width: 1, height: 18, background: '#2e2e2e', flexShrink: 0 }} />
         {/* The context size always applies: it is what bounds the payload when
             no summary is running. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={ui.accumulateSummaryOn(summaryAccumulateThreshold)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.accumulateSummaryOn(summaryAccumulateThreshold)}>
           <span style={{ fontSize: 12, color: '#a78bfa', whiteSpace: 'nowrap' }}>
             {ui.accumulateSummaryCompact(summaryAccumulateThreshold)}
           </span>

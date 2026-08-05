@@ -10,6 +10,7 @@ import {
   normalizeModeratorFacilitationInterval,
 } from '../settings/Settings'
 import { participantMode } from '../services/Suggestions'
+import EndpointModelGroup from './EndpointModelGroup'
 import MagicWand from './MagicWand'
 
 export default function ParticipantsPanel({
@@ -18,7 +19,6 @@ export default function ParticipantsPanel({
   userModel,
   characterTypes,
   responseLengths,
-  modelSelectStyles,
   moodSelectStyles,
   moodOptions,
   formatMoodOption,
@@ -58,13 +58,6 @@ export default function ParticipantsPanel({
     { value: 'high', label: ui.thinkingHigh },
     { value: 'max', label: ui.thinkingMax },
   ]
-  // An empty model already means "fall back to the default"; this makes that
-  // state an explicit choice instead of something reachable only by clearing.
-  const defaultModelOption = {
-    value: '',
-    label: defaultModel ? `${ui.useDefaultModel} · ${defaultModel}` : ui.useDefaultModelUnset,
-  }
-
   const describeDraft = draft => [
     draft.mood ? moods.find(mood => mood.id === draft.mood)?.label : null,
     draft.ageGroup != null ? ageGroups[draft.ageGroup]?.label : null,
@@ -330,60 +323,16 @@ export default function ParticipantsPanel({
                   onPick={draft => applyDraft(idx, draft)}
                 />
               )}
-              <div style={{ flex: 1 }}>
-                <ReactSelect
-                  styles={modelSelectStyles}
-                  options={(() => {
-                    const cloud = models.filter(m => m.endsWith('cloud')).sort()
-                    const local = models.filter(m => !m.endsWith('cloud')).sort()
-                    return [
-                      defaultModelOption,
-                      ...(cloud.length ? [{ label: common.cloud, options: cloud.map(m => ({ value: m, label: m })) }] : []),
-                      ...(local.length ? [{ label: common.local, options: local.map(m => ({ value: m, label: m })) }] : []),
-                    ]
-                  })()}
-                  value={p.model && p.model !== userModel ? { value: p.model, label: p.model } : defaultModelOption}
-                  onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, model: opt?.value ?? '' } : x))}
-                  placeholder={common.chooseModel}
-                  menuPlacement="auto"
-                  noOptionsMessage={() => ui.noModelsAvailable}
-                />
-              </div>
-              {(() => {
-                const st = endpointStatuses?.[p.id]?.state ?? 'none'
-                const hasOverride = !!p.endpointOverride?.trim()
-                const dot = st === 'ok' ? '#4ade80' : st === 'err' ? '#f87171' : st === 'checking' ? '#f59e0b' : '#666'
-                const title = hasOverride
-                  ? ui.customEndpointTitle(p.endpointOverride, st)
-                  : ui.configureCustomEndpoint
-                return (
-                  <button
-                    onClick={() => onConfigureEndpoint?.(idx)}
-                    title={title}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
-                      border: `1px solid ${hasOverride ? '#2f4f6f' : '#2e2e2e'}`,
-                      background: hasOverride ? '#152131' : '#161616',
-                      color: hasOverride ? '#9ac8ff' : '#666',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      position: 'relative',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10"/>
-                      <path d="M2 12h20"/>
-                      <path d="M12 2c3 3 4 6 4 10s-1 7-4 10c-3-3-4-6-4-10s1-7 4-10z"/>
-                    </svg>
-                    <span style={{ position: 'absolute', right: 2, top: 2, width: 6, height: 6, borderRadius: '50%', background: dot, boxShadow: '0 0 0 1px #111' }} />
-                  </button>
-                )
-              })()}
+              <EndpointModelGroup
+                models={models}
+                model={p.model && p.model !== userModel ? p.model : ''}
+                onModelChange={value => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, model: value } : x))}
+                defaultModel={defaultModel}
+                endpointOverride={p.endpointOverride}
+                endpointState={endpointStatuses?.[p.id]?.state ?? ''}
+                onConfigureEndpoint={() => onConfigureEndpoint?.(idx)}
+                noOptionsMessage={ui.noModelsAvailable}
+              />
               <ReactSelect
                 styles={moodSelectStyles}
                 options={moodOptions}

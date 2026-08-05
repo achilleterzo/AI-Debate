@@ -41,7 +41,7 @@ import { useSnapshots } from './hooks/useSnapshots'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
 import { useMagicWand } from './hooks/useMagicWand'
 import { useConclusions } from './hooks/useConclusions'
-import { useEndpointStatuses } from './hooks/useEndpointStatuses'
+import { SUMMARY_ENDPOINT_ID, useEndpointStatuses } from './hooks/useEndpointStatuses'
 import { useAppLayout } from './hooks/useAppLayout'
 import { useSplashScreen } from './hooks/useSplashScreen'
 import { useTopicComposer } from './hooks/useTopicComposer'
@@ -270,7 +270,13 @@ function AppInner({ settings }) {
   usePersistedAppSettings({ settings, conclusions: conclusionsState })
 
   const splash = useSplashScreen()
-  const endpointStatuses = useEndpointStatuses(participants)
+  // The summary endpoint rides along with the participant ones so its button
+  // gets the same reachability badge.
+  const summaryEndpointTargets = useMemo(
+    () => [{ id: SUMMARY_ENDPOINT_ID, url: effectiveSummaryEndpointOverride }],
+    [effectiveSummaryEndpointOverride],
+  )
+  const endpointStatuses = useEndpointStatuses(participants, summaryEndpointTargets)
   const {
     bottomRef,
     chatRef,
@@ -695,14 +701,6 @@ function AppInner({ settings }) {
           debateModeOptions={DEBATE_MODE_OPTIONS}
         />
 
-        <AffinitySettings
-          dynamicAffinity={dynamicAffinity}
-          onDynamicAffinityChange={setDynamicAffinity}
-          moderationCooling={moderationCooling}
-          onModerationCoolingChange={setModerationCooling}
-          running={running}
-        />
-
         <SummarySettings
           useSummary={useSummary}
           onUseSummaryChange={setUseSummary}
@@ -715,11 +713,19 @@ function AppInner({ settings }) {
           summaryModelOverride={summaryModelOverride}
           onSummaryModelOverrideChange={setSummaryModelOverride}
           models={models}
-          modelSelectStyles={modelSelectStyles}
           running={running}
           defaultModel={defaultModel}
           summaryEndpointOverride={summaryEndpointOverride}
+          summaryEndpointState={endpointStatuses[SUMMARY_ENDPOINT_ID]?.state ?? ''}
           onConfigureEndpoint={handleConfigureSummaryEndpoint}
+        />
+
+        <AffinitySettings
+          dynamicAffinity={dynamicAffinity}
+          onDynamicAffinityChange={setDynamicAffinity}
+          moderationCooling={moderationCooling}
+          onModerationCoolingChange={setModerationCooling}
+          running={running}
         />
 
         {/* participant selection */}
@@ -730,7 +736,6 @@ function AppInner({ settings }) {
           userModel={Debate.USER_MODEL}
           characterTypes={CHARACTER_TYPES}
           responseLengths={RESPONSE_LENGTHS}
-          modelSelectStyles={modelSelectStyles}
           moodSelectStyles={moodSelectStyles}
           moodOptions={MOOD_OPTIONS}
           formatMoodOption={formatMoodOption}

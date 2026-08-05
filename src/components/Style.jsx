@@ -18,6 +18,17 @@ export const styles = {
 		overflowY: 'auto',
 		overflowX: 'hidden',
 	},
+	// Shared by the summary, attachments/context and affinity rows so they keep
+	// the same height even though their tallest control differs (a 28px model
+	// select on one, a 16px switch on the others). minHeight rather than height:
+	// these rows wrap on narrow windows and must be free to grow.
+	settingsRow: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 10,
+		minHeight: 32,
+		padding: '2px 0',
+	},
 	title: { fontSize: '15px', fontWeight: 700, color: '#e0e0e0' },
 	dot: (ok) => ({
 		width: 8, height: 8, borderRadius: '50%',
