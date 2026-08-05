@@ -69,16 +69,12 @@ export default function ChatTimeline({
   setConclusions,
   setPayloadModal,
   userModel,
-  moods,
-  moodIntensity,
-  defaultMoodIntensity,
   DotsComponent: Dots,
   onResume,
   isWideLayout,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.chat
-  const common = UI_STRINGS.common
   if (messages.length === 0 && !running) {
     return <div style={styles.empty}>{ui.empty}</div>
   }
@@ -150,7 +146,9 @@ export default function ChatTimeline({
         <div key={`user-${i}`} style={styles.msgWrap('user', null)}>
           <div style={styles.roleTag('user', null)}>{ui.user}</div>
           <div style={{ width: '82%', alignSelf: 'flex-end', ...(regularBalloonMaxWidth ? { maxWidth: regularBalloonMaxWidth } : {}) }}>
-            <div className="bubble" style={{ ...styles.bubble('user', null), width: '100%', boxSizing: 'border-box' }}
+            {/* Right-aligned like the balloon radius assumes, so the tail goes
+                on the square corner just like every other balloon. */}
+            <div className="bubble balloon-tail-right" style={{ ...styles.bubble('user', null), width: '100%', boxSizing: 'border-box' }}
               dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(msg.content || '')) }} />
           </div>
         </div>
@@ -305,6 +303,11 @@ export default function ChatTimeline({
     const contentAlignment = isModerationIntervention
       ? 'flex-start'
       : (actor ? (actor.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'flex-end')
+    // The tail hangs off the square corner the balloon radius leaves open,
+    // which is always the one facing away from the centre of the timeline.
+    // Moderation is a centred banner, not a spoken line, so it gets none.
+    const tailSide = actor.id % 2 === 0 ? 'balloon-tail-left' : 'balloon-tail-right'
+    const tailClass = isModerationIntervention ? '' : ` ${tailSide}`
     const moderatorBubbleStyle = isModerationIntervention
       ? {
           background: '#2a1010',
@@ -316,7 +319,7 @@ export default function ChatTimeline({
     elems.push(
       <div key={`msg-${i}`} style={{ ...styles.msgWrap(msg.role, actor), ...(isModerationIntervention ? { alignItems: 'center' } : {}) }}>
         {!isContinuation && <div style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', width: '92%', maxWidth: regularBalloonMaxWidth || 980, justifyContent: 'flex-start', color: '#ef4444' } : {}), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span>{actor.name || actor.tag} · {isLocalUser ? `👤 ${common.user}` : `${actor.model} · ${(() => { const m = moods.find(x => x.id === actor.mood); const intensity = moodIntensity[actor.moodIntensity ?? defaultMoodIntensity]; return m ? `${m.emoji} ${m.label} (${intensity.label})` : '' })()}`} <span style={{ fontWeight: 400, color: '#555' }}>({ui.round(msg.turn)})</span></span>
+          <span>{actor.name || actor.tag} <span style={{ fontWeight: 400, color: '#555' }}>({ui.round(msg.turn)})</span></span>
           {isStreamingMsg && (
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.75, animation: 'spin 1s linear infinite' }}>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
@@ -365,7 +368,7 @@ export default function ChatTimeline({
             )
           })}
           {primaryContent
-            ? <div className="bubble" style={{ ...styles.bubble(msg.role, actor), borderRadius: primaryIsLastBalloon ? actor.radiusOwn : 12, ...(moderatorBubbleStyle || {}) }}>
+            ? <div className={`bubble${primaryIsLastBalloon ? tailClass : ''}`} style={{ ...styles.bubble(msg.role, actor), borderRadius: primaryIsLastBalloon ? actor.radiusOwn : 12, ...(moderatorBubbleStyle || {}) }}>
                 {isModerationIntervention && (
                   <div style={{
                     display: 'inline-flex', alignItems: 'center',
@@ -430,8 +433,9 @@ export default function ChatTimeline({
             }
             // Already folded into the moderation balloon above.
             if (isModerationIntervention) return null
+            const isLastBalloon = !continuationItems.slice(continuationIndex + 1).some(candidate => candidate.role !== 'dice')
             return (
-              <div key={`continuation-message-${continuationIndex}`} className="bubble" style={{ ...styles.bubble(continuation.role, actor), borderRadius: continuationItems.slice(continuationIndex + 1).some(candidate => candidate.role !== 'dice') ? 12 : actor.radiusOwn }}>
+              <div key={`continuation-message-${continuationIndex}`} className={`bubble${isLastBalloon ? tailClass : ''}`} style={{ ...styles.bubble(continuation.role, actor), borderRadius: isLastBalloon ? actor.radiusOwn : 12 }}>
                 <div dangerouslySetInnerHTML={{ __html: marked.parse(normalizeMathShorthands(continuation.content || '')) }} />
               </div>
             )

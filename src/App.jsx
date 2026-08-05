@@ -822,9 +822,6 @@ function AppInner({ settings }) {
           setConclusions={setConclusions}
           setPayloadModal={setPayloadModal}
           userModel={Debate.USER_MODEL}
-          moods={MOODS}
-          moodIntensity={MOOD_INTENSITY}
-          defaultMoodIntensity={Debate.DEFAULT_MOOD_INTENSITY}
           DotsComponent={DotsView}
            onResume={() => handleResume()}
           isWideLayout={isWideLayout}

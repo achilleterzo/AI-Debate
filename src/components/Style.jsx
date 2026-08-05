@@ -139,13 +139,18 @@ export const styles = {
 		opacity: 0,
 		backdropFilter: 'blur(2px)',
 	}),
+	// The two custom properties feed the .balloon-tail pseudo-elements, so the
+	// tail always picks up the same colours as the balloon it hangs off.
 	bubble: (role, actor) => ({
-		background: role === 'user' ? '#2a1f1f' : (actor?.bg ?? '#1e1e1e'),
-		border: `1px solid ${role === 'user' ? '#f97316aa' : (actor?.border ?? '#333')}`,
+		'--balloon-bg': role === 'user' ? '#2a1f1f' : (actor?.bg ?? '#1e1e1e'),
+		'--balloon-border': role === 'user' ? '#f97316aa' : (actor?.border ?? '#333'),
+		background: 'var(--balloon-bg)',
+		border: '1px solid var(--balloon-border)',
 		borderRadius: role === 'user' ? '12px 12px 2px 12px' : (actor ? (actor.id % 2 === 0 ? actor.radiusOwn : actor.radiusOwn) : '8px'),
 		padding: '10px 14px', fontSize: 14, lineHeight: 1.65,
 		wordBreak: 'break-word', color: '#e0e0e0',
 		minWidth: 48, minHeight: 20, display: 'block', width: '100%', boxSizing: 'border-box',
+		position: 'relative',
 	}),
 	roleTag: (role, actor) => ({
 		fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
@@ -269,6 +274,41 @@ export function GlobalStyles() {
 			@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 			@keyframes reasoningGlow{0%,100%{text-shadow:0 0 2px #8b7cf655}50%{text-shadow:0 0 9px #c4b5fd}}
 			.balloon-group:hover .float-btn { opacity: 1 !important; }
+
+			/* Comic-style tail, on the one square corner the balloon radius
+			   leaves open. Two stacked triangles: the lower one is the balloon
+			   border colour, the upper one the fill, offset by a pixel so the
+			   outline continues around the tail. The fill also reaches one
+			   pixel into the balloon, covering the border segment that would
+			   otherwise cut across the joint. */
+			.balloon-tail-left::before,
+			.balloon-tail-left::after,
+			.balloon-tail-right::before,
+			.balloon-tail-right::after {
+				content: '';
+				position: absolute;
+				pointer-events: none;
+			}
+			.balloon-tail-left::before {
+				left: -10px; bottom: -1px; width: 11px; height: 12px;
+				background: var(--balloon-border);
+				clip-path: polygon(100% 0, 100% 100%, 0 100%);
+			}
+			.balloon-tail-left::after {
+				left: -9px; bottom: 0; width: 10px; height: 10px;
+				background: var(--balloon-bg);
+				clip-path: polygon(100% 0, 100% 100%, 0 100%);
+			}
+			.balloon-tail-right::before {
+				right: -10px; bottom: -1px; width: 11px; height: 12px;
+				background: var(--balloon-border);
+				clip-path: polygon(0 0, 100% 100%, 0 100%);
+			}
+			.balloon-tail-right::after {
+				right: -9px; bottom: 0; width: 10px; height: 10px;
+				background: var(--balloon-bg);
+				clip-path: polygon(0 0, 100% 100%, 0 100%);
+			}
 			input[type="number"] {
 				color-scheme: dark;
 				accent-color: #8b7cf6;
