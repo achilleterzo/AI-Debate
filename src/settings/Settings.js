@@ -27,6 +27,11 @@ export const DEBUG_MODE_STORAGE_KEY = 'debugMode'
 export const SPLASH_STORAGE_KEY = 'showSplashOnStartup'
 export const DEFAULT_SHOW_SPLASH = true
 
+// Injected by Vite from package.json (see vite.config.js). Lives here rather
+// than in the update hook so non-React code — the exporters — can read it
+// without pulling React in.
+export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0'
+
 export const UPDATE_REPO = 'achilleterzo/AI-Debate'
 export const UPDATE_RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`
 export const UPDATE_CHECK_TIMEOUT_MS = 10_000

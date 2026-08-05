@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { UPDATE_STATUS, buildDevUpdateOverride, checkForUpdates } from '../services/Updates'
+import { APP_VERSION } from '../settings/Settings'
 
-export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0'
+export { APP_VERSION }
 
 /**
  * Runs one update check when the app starts and exposes a manual re-check.

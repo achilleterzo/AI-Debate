@@ -1,4 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
+import { CHAT_CSS } from '../styles/ChatCss'
+
 export const styles = {
 	app: { display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' },
 
@@ -139,29 +141,20 @@ export const styles = {
 		opacity: 0,
 		backdropFilter: 'blur(2px)',
 	}),
-	// The two custom properties feed the .balloon-tail pseudo-elements, so the
-	// tail always picks up the same colours as the balloon it hangs off.
+	// Chrome, typography and tail all live in .balloon (styles/ChatCss.js); what
+	// stays here are the per-participant colours the stylesheet reads back out
+	// of these custom properties — the tail included, so it always matches the
+	// balloon it hangs off. Pair with className="bubble balloon".
 	bubble: (role, actor) => ({
 		'--balloon-bg': role === 'user' ? '#2a1f1f' : (actor?.bg ?? '#1e1e1e'),
 		'--balloon-border': role === 'user' ? '#f97316aa' : (actor?.border ?? '#333'),
-		background: 'var(--balloon-bg)',
-		border: '1px solid var(--balloon-border)',
-		borderRadius: role === 'user' ? '12px 12px 2px 12px' : (actor ? (actor.id % 2 === 0 ? actor.radiusOwn : actor.radiusOwn) : '8px'),
-		padding: '10px 14px', fontSize: 14, lineHeight: 1.65,
-		wordBreak: 'break-word', color: '#e0e0e0',
-		minWidth: 48, minHeight: 20, display: 'block', width: '100%', boxSizing: 'border-box',
-		position: 'relative',
+		'--balloon-radius': role === 'user' ? '12px 12px 2px 12px' : (actor?.radiusOwn ?? '8px'),
 	}),
+	// Pair with className="msg-label".
 	roleTag: (role, actor) => ({
-		fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-		color: role === 'user' ? '#f97316' : (actor?.label ?? '#888'),
-		marginBottom: 4, textTransform: 'uppercase',
+		'--label-color': role === 'user' ? '#f97316' : (actor?.label ?? '#888'),
 		alignSelf: actor ? (actor.id % 2 === 0 ? 'flex-start' : 'flex-end') : 'flex-end',
 	}),
-	turnBadge: {
-		fontSize: 11, color: '#555', textAlign: 'center',
-		margin: '2px 0', userSelect: 'none',
-	},
 
 	empty: {
 		flex: 1, display: 'flex', alignItems: 'center',
@@ -275,40 +268,7 @@ export function GlobalStyles() {
 			@keyframes reasoningGlow{0%,100%{text-shadow:0 0 2px #8b7cf655}50%{text-shadow:0 0 9px #c4b5fd}}
 			.balloon-group:hover .float-btn { opacity: 1 !important; }
 
-			/* Comic-style tail, on the one square corner the balloon radius
-			   leaves open. Two stacked triangles: the lower one is the balloon
-			   border colour, the upper one the fill, offset by a pixel so the
-			   outline continues around the tail. The fill also reaches one
-			   pixel into the balloon, covering the border segment that would
-			   otherwise cut across the joint. */
-			.balloon-tail-left::before,
-			.balloon-tail-left::after,
-			.balloon-tail-right::before,
-			.balloon-tail-right::after {
-				content: '';
-				position: absolute;
-				pointer-events: none;
-			}
-			.balloon-tail-left::before {
-				left: -10px; bottom: -1px; width: 11px; height: 12px;
-				background: var(--balloon-border);
-				clip-path: polygon(100% 0, 100% 100%, 0 100%);
-			}
-			.balloon-tail-left::after {
-				left: -9px; bottom: 0; width: 10px; height: 10px;
-				background: var(--balloon-bg);
-				clip-path: polygon(100% 0, 100% 100%, 0 100%);
-			}
-			.balloon-tail-right::before {
-				right: -10px; bottom: -1px; width: 11px; height: 12px;
-				background: var(--balloon-border);
-				clip-path: polygon(0 0, 100% 100%, 0 100%);
-			}
-			.balloon-tail-right::after {
-				right: -9px; bottom: 0; width: 10px; height: 10px;
-				background: var(--balloon-bg);
-				clip-path: polygon(0 0, 100% 100%, 0 100%);
-			}
+			${CHAT_CSS}
 			input[type="number"] {
 				color-scheme: dark;
 				accent-color: #8b7cf6;

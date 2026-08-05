@@ -1,7 +1,20 @@
-import { marked } from 'marked'
 import { topicToSlug } from '../utils/Slug'
 import { buildOrderedItems } from '../utils/Sorting'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
+import { APP_VERSION } from '../settings/Settings'
+// The export is meant to look like the chat, so it reuses the chat's own
+// stylesheet and the chat's own idea of how a turn is put together.
+import { CHAT_CSS } from '../styles/ChatCss'
+import { renderMessageMarkdown } from '../utils/MessageMarkdown'
+import {
+  alignmentFor,
+  buildMessageGroup,
+  describeToolInvocation,
+  isLastContinuationBalloon,
+  isRenderableParticipantMessage,
+  resolveDiceOwner,
+  tailClassFor,
+} from '../utils/ChatGrouping'
 
 function debateModeInfo(value) {
   const id = normalizeDebateMode(value ?? DEFAULT_DEBATE_MODE)
@@ -29,12 +42,12 @@ export class Data {
     return msg.participantSnapshot || participants.find(p => p.tag === msg.role) || null
   }
 
-  static exportHTML({
+  /** The export document, as a string — kept separate so it can be inspected. */
+  static buildHTML({
     messages,
     participants,
     baseUrl,
     conclusions = [],
-    topic = '',
     debateMode = DEFAULT_DEBATE_MODE,
     constants,
   }) {
@@ -50,16 +63,8 @@ export class Data {
     } = constants
 
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const md = s => marked.parse(s || '', { breaks: true })
+    const md = s => renderMessageMarkdown(s)
     const toolIcons = { web_search: '🔍', get_recent_messages: '🕘', request_moderator_intervention: '🙋', apply_moderation: '🛑', roll_dice: '🎲', memory: '🧠' }
-    const toolDescription = invocation => {
-      const args = invocation?.arguments || {}
-      if (invocation?.name === 'web_search') return args.query || ''
-      if (invocation?.name === 'get_recent_messages') return [args.searchTerm, Array.isArray(args.participantTags) && args.participantTags.length ? `@${args.participantTags.join(', @')}` : null].filter(Boolean).join(' · ')
-      if (invocation?.name === 'request_moderator_intervention') return args.reason || args.focus || ''
-      if (invocation?.name === 'roll_dice' && args.count && args.sides) return `${args.count}d${args.sides}`
-      return Object.values(args).filter(value => typeof value === 'string').join(' · ')
-    }
     const now = new Date().toLocaleString('it-IT')
     const mode = debateModeInfo(debateMode)
 
@@ -104,10 +109,27 @@ export class Data {
       if (!actorsSeen.has(participant.tag)) actorsSeen.set(participant.tag, participant)
     }
 
+    // ── the same building blocks the chat renders, as HTML strings ─────────
+    const toolPill = invocation => {
+      const details = describeToolInvocation(invocation)
+      return `<div class="tool-pill"><span class="tool-pill-icon">${toolIcons[invocation?.name] || '🛠️'}</span><span class="tool-pill-name">${esc(invocation?.name ?? '')}</span>${details ? `<span class="tool-pill-details"> · ${esc(details)}</span>` : ''}</div>`
+    }
+    const diceNote = (result, owner, fallbackActor) => {
+      const ownerName = owner?.name || owner?.tag || 'Shared dice result'
+      const border = owner?.border || fallbackActor?.border || '#514a78'
+      const vars = `--dice-bg:${owner?.bg || fallbackActor?.bg || '#17152a'};--dice-border:${border};--dice-glow:${border}44;--dice-label:${owner?.label || fallbackActor?.label || '#c9bfff'};`
+      return `<div class="dice-note" style="${vars}"><span class="dice-note-owner">🎲 ${esc(ownerName)}</span><span>${esc(result.content)}</span></div>`
+    }
+    const balloon = ({ content, actor, radius, tail, moderation }) => {
+      const vars = `--balloon-bg:${actor.bg};--balloon-border:${actor.border};--balloon-radius:${radius};`
+      const badge = moderation ? '<div class="moderation-badge">Moderation</div>' : ''
+      return `<div class="bubble balloon${moderation ? ' balloon-moderation' : ''}${tail ? ` ${tail}` : ''}" style="${vars}">${badge}${md(content)}</div>`
+    }
+
     let lastTurn = null
     let body = ''
 
-    for (const item of items) {
+    for (const [itemIndex, item] of items.entries()) {
       if (item.kind === 'conclusion') {
         const conclusion = item.c
         const color = CONCLUSION_COLORS[conclusion.type] || '#888'
@@ -124,7 +146,12 @@ export class Data {
       }
 
       if (msg.role === 'user') {
-        body += `<div class="msg msg-right"><div class="label" style="color:#f97316;text-align:right">User</div><div class="bubble" style="background:#2a1f1f;border:1px solid #f97316aa;border-radius:12px 12px 2px 12px;">${md(msg.content)}</div></div>`
+        body += `<div class="msg msg-right"><div class="msg-label" style="--label-color:#f97316">User</div>${balloon({
+          content: msg.content,
+          actor: { bg: '#2a1f1f', border: '#f97316aa' },
+          radius: '12px 12px 2px 12px',
+          tail: 'balloon-tail-right',
+        })}</div>`
         continue
       }
 
@@ -134,14 +161,14 @@ export class Data {
       }
 
       if (msg.role === 'dice') {
-        const diceOwner = participants.find(participant => (
-          (msg.diceOwner?.id != null && participant.id === msg.diceOwner.id)
-          || (msg.diceOwner?.tag && participant.tag === msg.diceOwner.tag)
-        )) || msg.participantSnapshot || msg.diceOwner || null
-        const diceOwnerName = diceOwner?.name || diceOwner?.tag || 'Shared dice result'
-        const diceBackground = diceOwner?.bg || '#17152a'
-        const diceBorder = diceOwner?.border || '#514a78'
-        body += `<div style="text-align:center;margin:4px 0 10px;"><div style="display:inline-block;background:${diceBackground};border:2px dashed ${diceBorder};border-radius:12px;padding:7px 14px;color:#e0e0e0;font-size:12px;box-shadow:inset 0 0 0 1px ${diceBorder}44;"><strong style="color:${diceOwner?.label || '#c9bfff'};">🎲 ${esc(diceOwnerName)}</strong> · ${esc(msg.content)}</div></div>`
+        // Rolls owned by the participant who just spoke are folded into that
+        // participant's group below, exactly as the chat does.
+        const previousMessage = items[itemIndex - 1]?.msg
+        const previousActor = isRenderableParticipantMessage(previousMessage) ? Data.resolveActor(previousMessage, participants) : null
+        const diceOwner = resolveDiceOwner(msg, participants)
+        if (previousActor && diceOwner && previousActor.id === diceOwner.id) continue
+        const align = diceOwner ? alignmentFor(diceOwner) : 'center'
+        body += `<div class="dice-row" style="justify-content:${align}">${diceNote(msg, diceOwner, null)}</div>`
         continue
       }
 
@@ -149,31 +176,68 @@ export class Data {
         const snap = msg.participantSnapshot
         const isLeft = msg.role === 'participant_left'
         const displayName = esc(snap?.name || snap?.tag || '?')
-        body += `<div style="text-align:center;margin:10px 0;"><div style="display:inline-flex;align-items:center;gap:8px;background:${isLeft ? '#1a1212' : '#121a12'};border:1px solid ${isLeft ? '#7a2a2a44' : '#2a7a2a44'};border-radius:20px;padding:5px 14px;font-size:11px;color:${isLeft ? '#aa5555' : '#55aa55'};letter-spacing:.3px;"><span style="opacity:.6">${isLeft ? '←' : '→'}</span><span style="font-weight:700;color:${snap?.label || '#888'}">${displayName}</span><span>${isLeft ? 'has left the conversation' : 'has joined the conversation'}</span></div></div>`
+        body += `<div class="presence-row"><div class="presence-chip ${isLeft ? 'presence-chip-left' : 'presence-chip-joined'}" style="--label-color:${snap?.label || '#888'}"><span class="presence-chip-arrow">${isLeft ? '←' : '→'}</span><span class="presence-chip-name">${displayName}</span><span>${isLeft ? 'has left the conversation' : 'has joined the conversation'}</span></div></div>`
         continue
       }
 
-      const actor = Data.resolveActor(msg, participants)
-      if (!actor) continue
+      // One group per turn, assembled by the same helper the chat uses, so the
+      // tools, dice and follow-up balloons keep the order seen on screen.
+      const group = buildMessageGroup({ items, itemIndex, participants })
+      if (!group) continue
+      const {
+        actor,
+        isModerationIntervention,
+        continuationItems,
+        primaryContent,
+        leadingToolEvents,
+        trailingToolEvents,
+        leadingDiceResults,
+        primaryIsLastBalloon,
+      } = group
 
       if (msg.turn !== lastTurn && msg.turn) {
         lastTurn = msg.turn
         body += `<div class="turn-badge">— round ${msg.turn} —</div>`
       }
 
-      const isLeft = actor.radiusOwn === '12px 12px 12px 2px'
-      const radius = actor.radiusOwn || '12px'
-      const name = esc(actor.name || actor.tag)
-      const isModerationIntervention = !!actor.isModerator && msg.messageType === 'moderation'
-      const alignClass = isModerationIntervention ? 'msg-center' : (isLeft ? 'msg-left' : 'msg-right')
-      const moderatorBadge = isModerationIntervention ? '<div class="moderation-badge">Moderazione</div>' : ''
-      const radiusFinal = isModerationIntervention ? '12px' : radius
+      const contentAlignment = isModerationIntervention ? 'flex-start' : alignmentFor(actor)
+      const alignClass = isModerationIntervention ? 'msg-center' : (contentAlignment === 'flex-start' ? 'msg-left' : 'msg-right')
+      const tailClass = isModerationIntervention ? '' : tailClassFor(actor)
+      const radiusOwn = actor.radiusOwn || '12px'
 
-      const toolActions = (msg.toolInvocations || []).map(invocation => {
-        const details = toolDescription(invocation)
-        return `<div class="tool-action"><span>${toolIcons[invocation.name] || '🛠️'}</span><span class="tool-name">${esc(invocation.name)}</span>${details ? `<span class="tool-details"> · ${esc(details)}</span>` : ''}</div>`
-      }).join('')
-      body += `<div class="msg ${alignClass}"><div class="label" style="color:${actor.label}">${name}</div><div class="bubble" style="background:${isModerationIntervention ? '#2a180f' : actor.bg};border:${isModerationIntervention ? '2px dashed #fb923ccc' : `1px solid ${actor.border}`};border-radius:${radiusFinal};">${moderatorBadge}${md(msg.content)}</div>${toolActions}</div>`
+      const parts = []
+      parts.push(...leadingToolEvents.map(event => toolPill(event.invocation)))
+      parts.push(...leadingDiceResults.map(result => diceNote(result, resolveDiceOwner(result, participants), actor)))
+      if (primaryContent) {
+        parts.push(balloon({
+          content: primaryContent,
+          actor,
+          radius: isModerationIntervention || !primaryIsLastBalloon ? '12px' : radiusOwn,
+          tail: primaryIsLastBalloon ? tailClass : '',
+          moderation: isModerationIntervention,
+        }))
+      }
+      parts.push(...trailingToolEvents.map(event => toolPill(event.invocation)))
+      continuationItems.forEach((continuation, continuationIndex) => {
+        if (continuation.role === 'dice') {
+          if (continuation.beforeContent) return
+          parts.push(diceNote(continuation, resolveDiceOwner(continuation, participants), actor))
+          return
+        }
+        // Already folded into the moderation balloon above.
+        if (isModerationIntervention) return
+        const isLastBalloon = isLastContinuationBalloon(continuationItems, continuationIndex)
+        parts.push(balloon({
+          content: continuation.content,
+          actor,
+          radius: isLastBalloon ? radiusOwn : '12px',
+          tail: isLastBalloon ? tailClass : '',
+        }))
+      })
+
+      const name = esc(actor.name || actor.tag)
+      const labelColor = isModerationIntervention ? '#ef4444' : actor.label
+      body += `<div class="msg ${alignClass}"><div class="msg-label" style="--label-color:${labelColor}">${name}${msg.turn ? ` <span class="msg-label-round">(round ${msg.turn})</span>` : ''}</div><div class="balloon-group" style="--group-align:${contentAlignment}">${parts.join('')}</div></div>`
     }
 
     const html = `<!DOCTYPE html>
@@ -183,8 +247,12 @@ export class Data {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AI Debate — Export ${now}</title>
   <style>
+    /* Balloons, markdown, tool pills and dice come from the app's own chat
+       stylesheet (src/styles/ChatCss.js), inlined here verbatim. Only the page
+       around them — header, topic, conclusions, layout — is defined below. */
+${CHAT_CSS}
     *{box-sizing:border-box;}
-    body{margin:0;padding:28px 32px;background:#141414;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;max-width:900px;margin-left:auto;margin-right:auto;}
+    body{margin:0 auto;padding:28px 32px;background:#0f0f0f;color:#e0e0e0;font-family:system-ui,'Segoe UI',Roboto,sans-serif;font-size:15px;max-width:900px;}
     h1{font-size:16px;font-weight:700;color:#a78bfa;margin:0 0 6px;}
     .meta{font-size:11px;color:#888;border-bottom:1px solid #2e2e2e;padding-bottom:10px;margin-bottom:20px;line-height:1.8;}
     .topic{margin:0 auto 20px;width:100%;}
@@ -197,45 +265,37 @@ export class Data {
     .summary-label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#4a9eff;margin-bottom:6px;}
     .conclusion{border:1px solid;border-radius:10px;padding:12px 16px;margin-bottom:14px;background:#161620;}
     .conc-label{font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
-    .turn-badge{text-align:center;font-size:11px;color:#444;margin:16px 0 10px;letter-spacing:.5px;}
-    .msg{margin-bottom:14px;display:flex;flex-direction:column;max-width:82%;}
+    .turn-badge{margin:16px 0 10px;}
+    .msg{display:flex;flex-direction:column;max-width:82%;}
     .msg-left{align-self:flex-start;align-items:flex-start;}
     .msg-right{align-self:flex-end;align-items:flex-end;margin-left:auto;}
     .msg-center{align-self:center;align-items:center;max-width:92%;}
-    .label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;}
-    .bubble{padding:10px 14px;font-size:13px;line-height:1.65;word-break:break-word;}
-    .tool-action{align-self:flex-start;max-width:100%;box-sizing:border-box;margin-top:4px;padding:4px 8px;border:1px solid #514a78;border-radius:8px;color:#aaa;font-size:10px;line-height:1.35;background:#171624;box-shadow:0 0 8px rgba(139,92,246,.22),inset 0 0 7px rgba(139,92,246,.08);}
-    .tool-name{color:#aaa;margin-left:5px;} .tool-details{color:#666;}
-    .moderation-badge{display:inline-block;background:#2a180f;border:1px solid #f9731655;border-radius:999px;padding:2px 8px;font-size:10px;color:#fb923c;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;}
+    .dice-row{display:flex;width:100%;margin:4px 0 10px;}
+    .dice-row .dice-note{max-width:92%;}
+    .presence-row{text-align:center;margin:10px 0;}
     .part-row{margin:2px 0;}
-    .bubble p{margin:0 0 8px;} .bubble p:last-child{margin:0;}
-    .bubble ul,.bubble ol{margin:6px 0 6px 20px;padding:0;} .bubble li{margin-bottom:3px;}
-    .bubble h1,.bubble h2,.bubble h3{margin:10px 0 4px;font-size:14px;color:#fff;}
-    .bubble code{background:#0f0f0f;border:1px solid #2e2e2e;border-radius:3px;padding:1px 5px;font-family:monospace;font-size:12px;}
-    .bubble pre{background:#0f0f0f;border:1px solid #2e2e2e;border-radius:6px;padding:10px;overflow-x:auto;margin:8px 0;}
-    .bubble pre code{background:none;border:none;padding:0;}
-    .bubble blockquote{border-left:3px solid #444;margin:6px 0;padding:4px 10px;color:#888;}
-    .bubble strong{color:#fff;} .bubble a{color:#a78bfa;text-decoration:underline;text-underline-offset:2px;}
     a{color:#a78bfa;} a:hover{color:#c4b5fd;}
-    .bubble table{border-collapse:collapse;width:100%;margin:10px 0;font-size:12px;}
-    .bubble th{background:#1e1e2e;color:#c4b5fd;font-weight:600;padding:6px 10px;border:1px solid #3a3a5a;text-align:left;}
-    .bubble td{padding:5px 10px;border:1px solid #2e2e2e;color:#ccc;vertical-align:top;}
-    .bubble tr:nth-child(even) td{background:#1a1a1a;}
+    .bubble a{text-decoration:underline;text-underline-offset:2px;}
     body > *{display:block;}
-    .msgs{display:flex;flex-direction:column;gap:0;}
+    .msgs{display:flex;flex-direction:column;gap:10px;}
   </style>
 </head>
 <body>
   <h1>AI Debate — Chat Export</h1>
   <div class="meta"><strong>Debate mode:</strong> ${esc(mode.labelEn)}</div>
-  <div class="meta">Endpoint: ${esc(baseUrl)} &nbsp;·&nbsp; ${esc(now)}<br>${partRows}</div>
+  <div class="meta">AI Debate v${esc(APP_VERSION)} &nbsp;·&nbsp; Endpoint: ${esc(baseUrl)} &nbsp;·&nbsp; ${esc(now)}<br>${partRows}</div>
   <div class="msgs">
   ${body}
   </div>
 </body>
 </html>`
 
-    const filename = `${Data.buildExportSlug(topic)}.html`
+    return html
+  }
+
+  static exportHTML(options) {
+    const html = Data.buildHTML(options)
+    const filename = `${Data.buildExportSlug(options.topic || '')}.html`
     Data.triggerDownload(html, filename, 'text/html;charset=utf-8')
   }
 
@@ -285,7 +345,7 @@ export class Data {
 
     let out = '# AI Debate — Export\n\n'
     out += `**Debate mode:** ${mode.labelEn}\n\n`
-    out += `**Data:** ${now}  \n**Endpoint:** ${baseUrl}\n\n`
+    out += `**Data:** ${now}  \n**Endpoint:** ${baseUrl}  \n**App version:** ${APP_VERSION}\n\n`
     out += `## Participants\n${partList}\n\n---\n\n`
 
     const items = buildOrderedItems(messages.filter(msg => msg.role !== 'error'), conclusions)
@@ -353,6 +413,7 @@ export class Data {
     const mode = debateModeInfo(debateMode)
     const data = {
       exported: new Date().toISOString(),
+      appVersion: APP_VERSION,
       debateMode: mode.id,
       debateModeLabel: mode.labelEn,
       baseUrl,

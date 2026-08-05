@@ -26,3 +26,5 @@ CHECKLIST.md
 /release
 /.vite
 /.claude
+public/__export-preview.html
+tests/__export_preview.test.js
