@@ -6,9 +6,9 @@ const speaker = { id: 1, tag: 'A', name: 'Alice', isModerator: false }
 const participants = [moderator, speaker]
 const historyWithContext = [{ role: 'A', content: 'An argument', turn: 1 }]
 
-function decide(mode, extra = {}) {
+function decide(mode, { actorOverrides = {}, ...extra } = {}) {
   return Debate.shouldModeratorIntervene({
-    actor: { ...moderator, moderatorMode: mode },
+    actor: { ...moderator, moderatorMode: mode, ...actorOverrides },
     history: historyWithContext,
     participants,
     ...extra,
@@ -42,21 +42,41 @@ describe('shouldModeratorIntervene by mode', () => {
     expect(decide('containment', { roundModerationSignal: { needed: true } }).shouldIntervene).toBe(true)
   })
 
-  it('facilitator intervenes on even rounds except the last one', () => {
+  it('facilitator defaults to a scheduled turn every round', () => {
+    for (const round of [0, 1, 2]) {
+      const result = decide('facilitator', { round, roundLimit: 6 })
+      expect(result.shouldIntervene, `round ${round}`).toBe(true)
+      expect(result.scheduledFacilitation, `round ${round}`).toBe(true)
+    }
+  })
+
+  it('facilitator follows the configured interval, skipping the last round', () => {
+    const every2 = { moderatorFacilitationInterval: 2 }
+
     // round is 0-indexed: round 1 → turn 2 (scheduled)
-    const scheduled = decide('facilitator', { round: 1, roundLimit: 6 })
+    const scheduled = decide('facilitator', { round: 1, roundLimit: 6, actorOverrides: every2 })
     expect(scheduled.shouldIntervene).toBe(true)
     expect(scheduled.scheduledFacilitation).toBe(true)
 
     // round 0 → turn 1 (odd, not scheduled)
-    expect(decide('facilitator', { round: 0, roundLimit: 6 }).shouldIntervene).toBe(false)
+    expect(decide('facilitator', { round: 0, roundLimit: 6, actorOverrides: every2 }).shouldIntervene).toBe(false)
 
     // round 3 → turn 4 with roundLimit 4: last round, not scheduled
-    const lastRound = decide('facilitator', { round: 3, roundLimit: 4 })
+    const lastRound = decide('facilitator', { round: 3, roundLimit: 4, actorOverrides: every2 })
     expect(lastRound.shouldIntervene).toBe(false)
 
+    // an interval of 3 fires on turns 3 and 6
+    const every3 = { moderatorFacilitationInterval: 3 }
+    expect(decide('facilitator', { round: 1, roundLimit: 8, actorOverrides: every3 }).scheduledFacilitation).toBe(false)
+    expect(decide('facilitator', { round: 2, roundLimit: 8, actorOverrides: every3 }).scheduledFacilitation).toBe(true)
+    expect(decide('facilitator', { round: 5, roundLimit: 8, actorOverrides: every3 }).scheduledFacilitation).toBe(true)
+
+    // out-of-range values fall back into the supported 1..6 window
+    expect(decide('facilitator', { round: 0, roundLimit: 6, actorOverrides: { moderatorFacilitationInterval: 99 } }).scheduledFacilitation).toBe(false)
+    expect(decide('facilitator', { round: 5, roundLimit: 8, actorOverrides: { moderatorFacilitationInterval: 99 } }).scheduledFacilitation).toBe(true)
+
     // containment triggers still apply on non-scheduled rounds
-    const triggered = decide('facilitator', { round: 0, roundLimit: 6, roundModerationSignal: { needed: true } })
+    const triggered = decide('facilitator', { round: 0, roundLimit: 6, actorOverrides: every2, roundModerationSignal: { needed: true } })
     expect(triggered.shouldIntervene).toBe(true)
     expect(triggered.scheduledFacilitation).toBe(false)
   })

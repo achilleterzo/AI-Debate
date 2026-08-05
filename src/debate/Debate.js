@@ -12,7 +12,7 @@ import { EDUCATION_LEVELS } from '../prompts/EducationLevels'
 import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
-import { DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorPermissiveness } from '../settings/Settings'
+import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorFacilitationInterval, normalizeModeratorPermissiveness } from '../settings/Settings'
 import { createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
@@ -139,6 +139,8 @@ export class Debate {
 
   static DEFAULT_MODERATOR_PERMISSIVENESS = DEFAULT_PERMISSIVENESS
 
+  static DEFAULT_MODERATOR_FACILITATION_INTERVAL = DEFAULT_FACILITATION_INTERVAL
+
   // Migrates the legacy moderatorAlwaysIntervene boolean into the mode select.
   static normalizeModeratorMode(participant) {
     const mode = participant?.moderatorMode
@@ -173,6 +175,7 @@ export class Debate {
       isModerator: false,
       moderatorMode: Debate.DEFAULT_MODERATOR_MODE,
       moderatorPermissiveness: Debate.DEFAULT_MODERATOR_PERMISSIVENESS,
+      moderatorFacilitationInterval: Debate.DEFAULT_MODERATOR_FACILITATION_INTERVAL,
       moderatorDynamicAffinity: false,
       moderatorFactCheck: false,
       moderatorEnforceTopic: false,
@@ -450,6 +453,7 @@ export class Debate {
       normalizeConstraints: Debate.normalizeParticipantConstraints,
       normalizeModeratorMode: Debate.normalizeModeratorMode,
       normalizeModeratorPermissiveness,
+      normalizeModeratorFacilitationInterval,
       normalizeThinkingLevel: Debate.normalizeThinkingLevel,
     }
   }
@@ -470,6 +474,7 @@ export class Debate {
       isModerator: !!participant.isModerator || participant.mood === 'moderator',
       moderatorMode: Debate.normalizeModeratorMode(participant),
       moderatorPermissiveness: normalizeModeratorPermissiveness(participant.moderatorPermissiveness),
+      moderatorFacilitationInterval: normalizeModeratorFacilitationInterval(participant.moderatorFacilitationInterval),
       moderatorDynamicAffinity: !!participant.moderatorDynamicAffinity,
       moderatorEnforceTopic: !!participant.moderatorEnforceTopic,
       moderatorFactCheck: !!participant.moderatorFactCheck,
@@ -871,8 +876,13 @@ export class Debate {
 
     if (mode === 'facilitator') {
       const turnLabel = round + 1
+      const interval = normalizeModeratorFacilitationInterval(actor.moderatorFacilitationInterval)
       const isLastRound = roundLimit > 0 && turnLabel >= roundLimit
-      if (turnLabel % 2 === 0 && !isLastRound) {
+      // A reactive moderation preempts the scheduled synthesis: the turn goes
+      // to containment, which is what the prompt and the rewrite guards
+      // already assume when both would apply. With an interval of 1 the two
+      // now collide every round, so the decision has to settle it here.
+      if (turnLabel % interval === 0 && !isLastRound && !moderationRequested) {
         result.shouldIntervene = true
         result.scheduledFacilitation = true
         return result

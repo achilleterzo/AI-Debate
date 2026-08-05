@@ -2,7 +2,7 @@ import { topicToSlug } from '../utils/Slug'
 import { DEFAULT_RESPONSE_LENGTH } from '../prompts/ResponseLengths'
 
 export class Session {
-  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeThinkingLevel }) {
+  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevel }) {
     return {
       id: p.id,
       model: p.model === '__user__' ? '' : p.model,
@@ -12,6 +12,7 @@ export class Session {
       isModerator: !!p.isModerator || p.mood === 'moderator',
       moderatorMode: normalizeModeratorMode(p),
       moderatorPermissiveness: normalizeModeratorPermissiveness(p.moderatorPermissiveness),
+      moderatorFacilitationInterval: normalizeModeratorFacilitationInterval(p.moderatorFacilitationInterval),
       moderatorDynamicAffinity: !!p.moderatorDynamicAffinity,
       moderatorFactCheck: !!p.moderatorFactCheck,
       moderatorEnforceTopic: !!p.moderatorEnforceTopic,
@@ -32,7 +33,7 @@ export class Session {
     }
   }
 
-  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeThinkingLevel }) {
+  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevel }) {
     return {
       ...mkParticipant(i, p.model === '__user__' ? '' : p.model),
       model: p.model === '__user__' ? '' : (p.model ?? ''),
@@ -42,6 +43,7 @@ export class Session {
       isModerator: !!p.isModerator || p.mood === 'moderator',
       moderatorMode: normalizeModeratorMode(p),
       moderatorPermissiveness: normalizeModeratorPermissiveness(p.moderatorPermissiveness),
+      moderatorFacilitationInterval: normalizeModeratorFacilitationInterval(p.moderatorFacilitationInterval),
       moderatorDynamicAffinity: !!p.moderatorDynamicAffinity,
       moderatorFactCheck: !!p.moderatorFactCheck,
       moderatorEnforceTopic: !!p.moderatorEnforceTopic,

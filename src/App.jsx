@@ -90,6 +90,7 @@ function AppInner({ settings }) {
     globalConstraints, setGlobalConstraints, generalPersonalityInstructions, setGeneralPersonalityInstructions, debateMode, setDebateMode,
     maxTurns, setMaxTurns, useSummary, setUseSummary,
     dynamicAffinity, setDynamicAffinity, moderationCooling, setModerationCooling,
+    summaryModelEnabled, setSummaryModelEnabled,
     summaryModelOverride, setSummaryModelOverride,
     summaryEndpointOverride, setSummaryEndpointOverride,
     summaryAccumulateThreshold, setSummaryAccumulateThreshold,
@@ -98,6 +99,10 @@ function AppInner({ settings }) {
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     enabledTools, setEnabledTools,
   } = settings
+  // The overrides stay stored while the switch is off, so turning it back on
+  // restores the previous choice; what the operations see is the gated value.
+  const effectiveSummaryModelOverride = summaryModelEnabled ? summaryModelOverride : ''
+  const effectiveSummaryEndpointOverride = summaryModelEnabled ? summaryEndpointOverride : ''
   const [messages, setMessages] = useState([])
   const [running, setRunning] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -153,8 +158,8 @@ function AppInner({ settings }) {
     useSummary,
     attachedDocs,
     summarizeAttachments,
-    summaryModelOverride,
-    summaryEndpointOverride,
+    summaryModelOverride: effectiveSummaryModelOverride,
+    summaryEndpointOverride: effectiveSummaryEndpointOverride,
     uiLang,
     debugMode,
     dynamicAffinity,
@@ -217,7 +222,7 @@ function AppInner({ settings }) {
     initialStandardPrompt: saved?.standardConclusionPrompt ?? '',
     models,
     participants,
-    summaryModelOverride,
+    summaryModelOverride: effectiveSummaryModelOverride,
     defaultModel,
     attachedDocs,
     messages,
@@ -235,7 +240,7 @@ function AppInner({ settings }) {
     baseUrl,
     defaultModel,
     participants,
-    summaryModelOverride,
+    summaryModelOverride: effectiveSummaryModelOverride,
     messages,
     topic,
     attachedDocs,
@@ -705,6 +710,8 @@ function AppInner({ settings }) {
           onSummarizeAttachmentsChange={setSummarizeAttachments}
           summaryAccumulateThreshold={summaryAccumulateThreshold}
           onSummaryAccumulateThresholdChange={setSummaryAccumulateThreshold}
+          summaryModelEnabled={summaryModelEnabled}
+          onSummaryModelEnabledChange={setSummaryModelEnabled}
           summaryModelOverride={summaryModelOverride}
           onSummaryModelOverrideChange={setSummaryModelOverride}
           models={models}

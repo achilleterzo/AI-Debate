@@ -4,6 +4,11 @@ import ReactSelect from 'react-select'
 import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { Debate } from '../debate/Debate'
+import {
+  MAX_MODERATOR_FACILITATION_INTERVAL,
+  MIN_MODERATOR_FACILITATION_INTERVAL,
+  normalizeModeratorFacilitationInterval,
+} from '../settings/Settings'
 import { participantMode } from '../services/Suggestions'
 import MagicWand from './MagicWand'
 
@@ -166,6 +171,8 @@ export default function ParticipantsPanel({
         const moodBadgeLabel = localUser ? moodLabel : `${moodLabel} (${moodDegreeLabel})`
         const ageLabel = ageGroups[p.ageGroup ?? defaultAgeGroup]?.label ?? '-'
         const permissiveness = Math.min(4, Math.max(0, Math.round(Number.isFinite(Number(p.moderatorPermissiveness)) ? Number(p.moderatorPermissiveness) : Debate.DEFAULT_MODERATOR_PERMISSIVENESS)))
+        const moderatorMode = Debate.normalizeModeratorMode(p)
+        const facilitationInterval = normalizeModeratorFacilitationInterval(p.moderatorFacilitationInterval)
         const eduLabel = educationLevels.find(e => e.value === (p.educationLevel ?? null))?.label ?? ui.modelDefault
         const nameLabel = p.name?.trim() || ui.unnamed
         const titleLabel = nameLabel
@@ -645,13 +652,31 @@ export default function ParticipantsPanel({
                     <ReactSelect
                       styles={moodSelectStyles}
                       options={moderatorModeOptions}
-                      value={moderatorModeOptions.find(o => o.value === Debate.normalizeModeratorMode(p)) ?? moderatorModeOptions[0]}
+                      value={moderatorModeOptions.find(o => o.value === moderatorMode) ?? moderatorModeOptions[0]}
                       onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorMode: opt.value } : x))}
                       isSearchable={false}
                       menuPlacement="auto"
                     />
                   </div>
                 </div>
+
+                {/* Only the facilitator style runs on a schedule, so the
+                    cadence is meaningless for the other two. */}
+                {moderatorMode === 'facilitator' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }} title={ui.moderatorFacilitationIntervalTitle}>
+                    <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorFacilitationInterval}</span>
+                    <input
+                      type="range"
+                      min={MIN_MODERATOR_FACILITATION_INTERVAL}
+                      max={MAX_MODERATOR_FACILITATION_INTERVAL}
+                      step={1}
+                      value={facilitationInterval}
+                      onChange={e => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorFacilitationInterval: Number(e.target.value) } : x))}
+                      style={{ width: 78, accentColor: '#fb923c', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorFacilitationIntervalValue(facilitationInterval)}</span>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexBasis: '100%', flexWrap: 'nowrap', overflowX: 'auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorDynamicAffinityTitle}>

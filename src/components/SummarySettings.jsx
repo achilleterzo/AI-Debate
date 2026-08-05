@@ -9,6 +9,8 @@ export default function SummarySettings({
   onSummarizeAttachmentsChange,
   summaryAccumulateThreshold,
   onSummaryAccumulateThresholdChange,
+  summaryModelEnabled,
+  onSummaryModelEnabledChange,
   summaryModelOverride,
   onSummaryModelOverrideChange,
   models,
@@ -45,27 +47,19 @@ export default function SummarySettings({
           </div>
           <span style={{ fontSize: 12, color: useSummary ? '#4a9eff' : '#666', whiteSpace: 'nowrap' }}>{ui.contextSummary}</span>
         </div>
-        <div style={{ flex: 1 }}>
-          <ReactSelect
-            styles={modelSelectStyles}
-            options={(() => {
-              const cloud = models.filter(m => m.endsWith('cloud')).sort()
-              const local = models.filter(m => !m.endsWith('cloud')).sort()
-              return [
-                defaultModelOption,
-                ...(cloud.length ? [{ label: common.cloud, options: cloud.map(m => ({ value: m, label: m })) }] : []),
-                ...(local.length ? [{ label: common.local, options: local.map(m => ({ value: m, label: m })) }] : []),
-              ]
-            })()}
-            value={summaryModelOverride ? { value: summaryModelOverride, label: summaryModelOverride } : defaultModelOption}
-            onChange={opt => onSummaryModelOverrideChange(opt?.value ?? '')}
-            placeholder={common.chooseModel}
-            isDisabled={running || !useSummary}
-            menuPlacement="auto"
-            noOptionsMessage={() => common.noModels}
-          />
+        <div
+          onClick={() => !running && onSummaryModelEnabledChange(!summaryModelEnabled)}
+          title={summaryModelEnabled ? ui.summaryModelTitleOn : ui.summaryModelTitleOff}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: running ? 'default' : 'pointer', userSelect: 'none', opacity: running ? 0.5 : 1 }}
+        >
+          <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: summaryModelEnabled ? '#a78bfa' : '#444', transition: 'background 0.2s', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', top: 2, left: summaryModelEnabled ? 18 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+          </div>
+          <span style={{ fontSize: 12, color: summaryModelEnabled ? '#a78bfa' : '#666', whiteSpace: 'nowrap' }}>{ui.summaryModel}</span>
         </div>
-        {(() => {
+        {/* Endpoint first, then the model it serves. Both are hidden while the
+            override is off: the summary then runs on the default model. */}
+        {summaryModelEnabled && (() => {
           const hasOverride = !!summaryEndpointOverride?.trim()
           return (
             <button
@@ -97,6 +91,28 @@ export default function SummarySettings({
             </button>
           )
         })()}
+        {summaryModelEnabled && (
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <ReactSelect
+              styles={modelSelectStyles}
+              options={(() => {
+                const cloud = models.filter(m => m.endsWith('cloud')).sort()
+                const local = models.filter(m => !m.endsWith('cloud')).sort()
+                return [
+                  defaultModelOption,
+                  ...(cloud.length ? [{ label: common.cloud, options: cloud.map(m => ({ value: m, label: m })) }] : []),
+                  ...(local.length ? [{ label: common.local, options: local.map(m => ({ value: m, label: m })) }] : []),
+                ]
+              })()}
+              value={summaryModelOverride ? { value: summaryModelOverride, label: summaryModelOverride } : defaultModelOption}
+              onChange={opt => onSummaryModelOverrideChange(opt?.value ?? '')}
+              placeholder={common.chooseModel}
+              isDisabled={running || !useSummary}
+              menuPlacement="auto"
+              noOptionsMessage={() => common.noModels}
+            />
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '2px 0 6px' }}>
         <div
