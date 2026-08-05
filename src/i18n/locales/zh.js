@@ -24,6 +24,7 @@ export default {
     exportHtml: '导出为 HTML',
     exportMarkdown: '导出为 Markdown',
     exportJson: '导出为 JSON',
+    welcomeScreen: '欢迎界面',
     updateBadge: '有可用更新',
   },
   userInput: { skip: '跳过', send: '发送', placeholder: '输入你的回复...（Ctrl+Enter 发送）' },
@@ -248,5 +249,19 @@ export default {
     lastPromptTitle: estimate =>
       `最后发送的请求：${estimate.totalChars} 字符（约 ${estimate.estimatedTokens} tokens），${estimate.messageCount} 条消息，模型 ${estimate.model}`,
     lastPromptLabel: estimate => `最近请求：约 ${estimate.estimatedTokens} tok · ${estimate.model}`,
+  },
+  splash: {
+    title: 'AI Debate',
+    version: value => `版本 ${value}`,
+    tagline: '让两个或更多模型同桌交锋：议题、角色以及何时介入，都由你决定。',
+    stepsTitle: '快速上手',
+    step1Title: '连接端点',
+    step1Text: '把应用指向你的 Ollama（或兼容）服务器，并加载模型列表。',
+    step2Title: '配置参与者',
+    step2Text: '为每位参与者选择模型、角色和情绪。两位即可开始。',
+    step3Title: '写下议题',
+    step3Text: '说明他们要讨论什么，选择回合数，然后按“开始”。',
+    showOnStartup: '启动时显示',
+    start: '开始',
   },
 }

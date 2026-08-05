@@ -1,3 +1,5 @@
+import { DEFAULT_SHOW_SPLASH, SPLASH_STORAGE_KEY } from '../settings/Settings'
+
 export class Storage {
   static LS_KEY = 'pap_settings'
 
@@ -94,5 +96,22 @@ export class Storage {
 
   static clearSettings() {
     localStorage.removeItem(Storage.LS_KEY)
+  }
+
+  static loadShowSplashOnStartup() {
+    try {
+      const raw = localStorage.getItem(SPLASH_STORAGE_KEY)
+      return raw === null ? DEFAULT_SHOW_SPLASH : raw === 'true'
+    } catch {
+      return DEFAULT_SHOW_SPLASH
+    }
+  }
+
+  static saveShowSplashOnStartup(value) {
+    try {
+      localStorage.setItem(SPLASH_STORAGE_KEY, String(!!value))
+    } catch {
+      return
+    }
   }
 }

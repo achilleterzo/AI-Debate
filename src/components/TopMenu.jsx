@@ -6,6 +6,7 @@ export default function TopMenu({
   onSaveSnapshot,
   onLoadSnapshot,
   onOpenPromptSettings,
+  onOpenSplash,
   exportItems,
   updateAvailable = false,
 }) {
@@ -87,6 +88,7 @@ export default function TopMenu({
           <MenuItemComponent onClick={withClose(onLoadSnapshot)}>{ui.loadSnapshot}</MenuItemComponent>
           <MenuItemComponent onClick={withClose(onSaveSnapshot)}>{ui.saveSnapshot}</MenuItemComponent>
           <MenuItemComponent onClick={withClose(onOpenPromptSettings)}>{ui.promptSettings}</MenuItemComponent>
+          <MenuItemComponent onClick={withClose(onOpenSplash)}>{ui.welcomeScreen}</MenuItemComponent>
         </div>
       )}
     </div>

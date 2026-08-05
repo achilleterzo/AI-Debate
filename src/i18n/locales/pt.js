@@ -24,6 +24,7 @@ export default {
     exportHtml: 'Exportar HTML',
     exportMarkdown: 'Exportar Markdown',
     exportJson: 'Exportar JSON',
+    welcomeScreen: 'Tela de boas-vindas',
     updateBadge: 'Atualização disponível',
   },
   userInput: {
@@ -257,5 +258,19 @@ export default {
       `Último prompt enviado: ${estimate.totalChars} caracteres (~${estimate.estimatedTokens} tokens), ${estimate.messageCount} mensagens, modelo ${estimate.model}`,
     lastPromptLabel: estimate =>
       `Última solicitação: ~${estimate.estimatedTokens} tok · ${estimate.model}`,
+  },
+  splash: {
+    title: 'AI Debate',
+    version: value => `Versão ${value}`,
+    tagline: 'Coloque dois ou mais modelos à mesma mesa: você escolhe o tema, os personagens e quando intervir.',
+    stepsTitle: 'Para começar',
+    step1Title: 'Conecte o endpoint',
+    step1Text: 'Aponte o app para o seu servidor Ollama (ou compatível) e carregue a lista de modelos.',
+    step2Title: 'Configure os participantes',
+    step2Text: 'Dê a cada um um modelo, um personagem e um humor. Dois já bastam para começar.',
+    step3Title: 'Escreva o tema',
+    step3Text: 'Diga sobre o que devem debater, escolha o número de rodadas e pressione Iniciar.',
+    showOnStartup: 'Mostrar ao iniciar',
+    start: 'Começar',
   },
 }

@@ -2,6 +2,17 @@ name: Build Desktop App
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type. "auto" never bumps major; choose major explicitly when you want it.'
+        type: choice
+        required: true
+        default: auto
+        options:
+          - auto
+          - patch
+          - minor
+          - major
   push:
     branches:
       - main
@@ -17,6 +28,10 @@ jobs:
   # - A push to main only releases if there is at least one `fix:`/`feat:`
   #   commit since the last tag; in that case it bumps package.json,
   #   commits it as `chore(release): vX.Y.Z`, and tags it.
+  # - Automatic bumps are capped at `minor`: a `!` / `BREAKING CHANGE:` commit
+  #   produces a minor release, never a major one. Major releases only happen
+  #   when you run the workflow manually with release_type=major (or push a
+  #   `vX.0.0` tag yourself).
   version:
     runs-on: ubuntu-latest
     outputs:
@@ -37,30 +52,44 @@ jobs:
             exit 0
           fi
 
-          if git log -1 --pretty=%s | grep -q '^chore(release):'; then
-            echo "HEAD is already a release commit, nothing to do."
-            echo "release_tag=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          requested="${{ inputs.release_type || 'auto' }}"
 
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          range="${last_tag:+refs/tags/$last_tag..}HEAD"
-          subjects=$(git log "$range" --format=%s)
-          bodies=$(git log "$range" --format=%B)
+          if [ "$requested" != "auto" ]; then
+            # Explicit manual release: honour exactly what was asked for.
+            bump="$requested"
+            echo "Manual release requested: $bump"
+          else
+            if git log -1 --pretty=%s | grep -q '^chore(release):'; then
+              echo "HEAD is already a release commit, nothing to do."
+              echo "release_tag=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
 
-          bump=""
-          if echo "$subjects" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:' || echo "$bodies" | grep -qE '^BREAKING[ -]CHANGE:'; then
-            bump="major"
-          elif echo "$subjects" | grep -qE '^feat(\([^)]*\))?:'; then
-            bump="minor"
-          elif echo "$subjects" | grep -qE '^fix(\([^)]*\))?:'; then
-            bump="patch"
-          fi
+            last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            range="${last_tag:+refs/tags/$last_tag..}HEAD"
+            subjects=$(git log "$range" --format=%s)
+            bodies=$(git log "$range" --format=%B)
 
-          if [ -z "$bump" ]; then
-            echo "No fix/feat commits since ${last_tag:-the beginning}, skipping release."
-            echo "release_tag=" >> "$GITHUB_OUTPUT"
-            exit 0
+            bump=""
+            if echo "$subjects" | grep -qE '^feat(\([^)]*\))?:'; then
+              bump="minor"
+            elif echo "$subjects" | grep -qE '^fix(\([^)]*\))?:'; then
+              bump="patch"
+            fi
+
+            # Breaking-change markers never trigger a major automatically: they
+            # are treated as at least a minor. Run the workflow manually with
+            # release_type=major when you decide it is time for the major bump.
+            if echo "$subjects" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:' || echo "$bodies" | grep -qE '^BREAKING[ -]CHANGE:'; then
+              bump="minor"
+              echo "::notice::Breaking-change commits found; automatic releases are capped at 'minor'. Re-run this workflow with release_type=major when you want the major bump."
+            fi
+
+            if [ -z "$bump" ]; then
+              echo "No fix/feat commits since ${last_tag:-the beginning}, skipping release."
+              echo "release_tag=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           fi
 
           npm version "$bump" --no-git-tag-version --no-commit-hooks >/dev/null

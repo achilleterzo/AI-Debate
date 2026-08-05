@@ -20,6 +20,7 @@ import HeaderTop from './components/HeaderTop'
 import InputActionButtons from './components/InputActionButtons'
 import RoundsInput from './components/RoundsInput'
 import AppModals from './components/AppModals'
+import SplashScreen from './components/SplashScreen'
 import ScrollToBottomButton from './components/ScrollToBottomButton'
 import SummaryProgressBadge from './components/SummaryProgressBadge'
 import { PALETTE } from './dataset/Palette'
@@ -42,6 +43,7 @@ import { useMagicWand } from './hooks/useMagicWand'
 import { useConclusions } from './hooks/useConclusions'
 import { useEndpointStatuses } from './hooks/useEndpointStatuses'
 import { useAppLayout } from './hooks/useAppLayout'
+import { useSplashScreen } from './hooks/useSplashScreen'
 import { useTopicComposer } from './hooks/useTopicComposer'
 import { useAppSettings, usePersistedAppSettings } from './hooks/useAppSettings'
 import { useAttachments } from './hooks/useAttachments'
@@ -262,6 +264,7 @@ function AppInner({ settings }) {
 
   usePersistedAppSettings({ settings, conclusions: conclusionsState })
 
+  const splash = useSplashScreen()
   const endpointStatuses = useEndpointStatuses(participants)
   const {
     bottomRef,
@@ -269,12 +272,12 @@ function AppInner({ settings }) {
     headerTopRef,
     summaryPanelRef,
     inputAreaRef,
-    headerBodyMaxHeight,
+    headerBodyHeight,
     showScrollBtn,
     isWideLayout,
     handleChatScroll,
     scrollToBottom,
-  } = useAppLayout({ messages, conclusions, streamingRole, headerOpen, summary, summaryVisible })
+  } = useAppLayout({ messages, conclusions, streamingRole, headerOpen })
 
   const { fetchModels } = useAIModels({
     defaultUrl: DEFAULT_URL,
@@ -622,6 +625,13 @@ function AppInner({ settings }) {
   return (
     <div className="h-screen w-full items-stretch 2xl:flex 2xl:flex-row" style={{ ...styles.app, flexDirection: isWideLayout ? 'row' : 'column', alignItems: 'stretch' }}>
       <GlobalStyles />
+      {splash.visible && (
+        <SplashScreen
+          showOnStartup={splash.showOnStartup}
+          onShowOnStartupChange={splash.setShowOnStartup}
+          onClose={splash.close}
+        />
+      )}
       {/* ── left column: menu + participants ── */}
       <div className="relative z-10 w-full shrink-0 2xl:w-[800px]" style={{ width: isWideLayout ? 800 : '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10 }}>
       <div style={{ ...styles.header, borderRight: isWideLayout ? '1px solid #2e2e2e' : 'none', height: isWideLayout ? '100vh' : 'auto' }}>
@@ -633,6 +643,7 @@ function AppInner({ settings }) {
           onSaveSnapshot={handleSaveSnapshot}
           onLoadSnapshot={handleLoadSnapshot}
           onOpenPromptSettings={handleOpenPromptSettings}
+          onOpenSplash={splash.open}
           exportItems={exportItems}
           updateAvailable={updateCheck.updateAvailable}
           ollamaOk={ollamaOk}
@@ -645,7 +656,9 @@ function AppInner({ settings }) {
         {/* accordion: endpoint + participants + rounds */}
         <div style={{
           ...styles.headerBody,
-          maxHeight: isWideLayout ? 'none' : `${headerBodyMaxHeight}px`,
+          // Single column: fixed band between the header bar and the prompt bar,
+          // so the panel always reaches the prompt bar and scrolls internally.
+          height: isWideLayout ? 'auto' : `${headerBodyHeight}px`,
           display: (isWideLayout || headerOpen) ? 'flex' : 'none',
           position: isWideLayout ? 'relative' : 'absolute',
           left: isWideLayout ? 'auto' : 0,

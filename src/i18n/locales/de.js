@@ -24,6 +24,7 @@ export default {
     exportHtml: 'Als HTML exportieren',
     exportMarkdown: 'Als Markdown exportieren',
     exportJson: 'Als JSON exportieren',
+    welcomeScreen: 'Willkommensbildschirm',
     updateBadge: 'Update verfügbar',
   },
   userInput: {
@@ -260,5 +261,19 @@ export default {
       `Letzter gesendeter Prompt: ${estimate.totalChars} Zeichen (~${estimate.estimatedTokens} Tokens), ${estimate.messageCount} Nachrichten, Modell ${estimate.model}`,
     lastPromptLabel: estimate =>
       `Letzte Anfrage: ~${estimate.estimatedTokens} Tok · ${estimate.model}`,
+  },
+  splash: {
+    title: 'AI Debate',
+    version: value => `Version ${value}`,
+    tagline: 'Setzen Sie zwei oder mehr Modelle an einen Tisch: Sie wählen das Thema, die Charaktere und den Moment zum Eingreifen.',
+    stepsTitle: 'Erste Schritte',
+    step1Title: 'Endpoint verbinden',
+    step1Text: 'Richten Sie die App auf Ihren Ollama-Server (oder einen kompatiblen) und laden Sie die Modellliste.',
+    step2Title: 'Teilnehmer einrichten',
+    step2Text: 'Geben Sie jedem ein Modell, einen Charakter und eine Stimmung. Zwei genügen für den Anfang.',
+    step3Title: 'Thema schreiben',
+    step3Text: 'Sagen Sie, worüber diskutiert werden soll, wählen Sie die Rundenzahl und drücken Sie Start.',
+    showOnStartup: 'Beim Start anzeigen',
+    start: 'Loslegen',
   },
 }

@@ -24,6 +24,7 @@ export default {
     exportHtml: 'HTMLでエクスポート',
     exportMarkdown: 'Markdownでエクスポート',
     exportJson: 'JSONでエクスポート',
+    welcomeScreen: 'ようこそ画面',
     updateBadge: '更新が利用可能',
   },
   userInput: { skip: 'スキップ', send: '送信', placeholder: '返信を入力...（Ctrl+Enterで送信）' },
@@ -251,5 +252,19 @@ export default {
       `最後に送信したプロンプト: ${estimate.totalChars} 文字（約${estimate.estimatedTokens} トークン）、${estimate.messageCount} 件のメッセージ、モデル ${estimate.model}`,
     lastPromptLabel: estimate =>
       `直近のリクエスト: 約${estimate.estimatedTokens} tok · ${estimate.model}`,
+  },
+  splash: {
+    title: 'AI Debate',
+    version: value => `バージョン ${value}`,
+    tagline: '2つ以上のモデルを同じ席に着かせましょう。テーマも、キャラクターも、介入するタイミングもあなたが決めます。',
+    stepsTitle: 'はじめかた',
+    step1Title: 'エンドポイントに接続',
+    step1Text: 'Ollama（または互換）サーバーを指定して、モデル一覧を読み込みます。',
+    step2Title: '参加者を設定',
+    step2Text: 'それぞれにモデル・キャラクター・気分を割り当てます。まずは2人で十分です。',
+    step3Title: 'テーマを入力',
+    step3Text: '議論する内容を書き、ラウンド数を選んで「開始」を押します。',
+    showOnStartup: '起動時に表示',
+    start: 'はじめる',
   },
 }

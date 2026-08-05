@@ -113,6 +113,7 @@ export const UI_STRINGS = {
     exportHtml: 'Export HTML',
     exportMarkdown: 'Export Markdown',
     exportJson: 'Export JSON',
+    welcomeScreen: 'Welcome screen',
     updateBadge: 'Update available',
   },
   userInput: {
@@ -375,5 +376,19 @@ export const UI_STRINGS = {
       `Last request: ~${estimate.estimatedTokens} tok · ${estimate.model}`,
     memoryTitle: (count, size) => `${count} memory annotations · ${size}`,
     memoryLabel: (count, size) => `Memory: ${count} · ${size}`,
+  },
+  splash: {
+    title: 'AI Debate',
+    version: value => `Version ${value}`,
+    tagline: 'Put two or more models around the same table: you choose the topic, the characters, and when to step in.',
+    stepsTitle: 'Getting started',
+    step1Title: 'Connect the endpoint',
+    step1Text: 'Point the app at your Ollama server (or a compatible one) and load the model list.',
+    step2Title: 'Set up the participants',
+    step2Text: 'Give each one a model, a character, and a mood. Two are enough to begin.',
+    step3Title: 'Write the topic',
+    step3Text: 'Say what they should discuss, pick the number of rounds, and press Start.',
+    showOnStartup: 'Show at startup',
+    start: 'Get started',
   },
 }

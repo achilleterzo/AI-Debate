@@ -24,6 +24,7 @@ export default {
     exportHtml: 'HTML로 내보내기',
     exportMarkdown: 'Markdown으로 내보내기',
     exportJson: 'JSON으로 내보내기',
+    welcomeScreen: '시작 화면',
     updateBadge: '업데이트 사용 가능',
   },
   userInput: {
@@ -255,5 +256,19 @@ export default {
       `마지막으로 전송된 프롬프트: ${estimate.totalChars}자 (약 ${estimate.estimatedTokens} 토큰), 메시지 ${estimate.messageCount}개, 모델 ${estimate.model}`,
     lastPromptLabel: estimate =>
       `최근 요청: 약 ${estimate.estimatedTokens} tok · ${estimate.model}`,
+  },
+  splash: {
+    title: 'AI Debate',
+    version: value => `버전 ${value}`,
+    tagline: '두 개 이상의 모델을 같은 자리에 앉혀 보세요. 주제도, 캐릭터도, 끼어들 순간도 당신이 정합니다.',
+    stepsTitle: '시작하기',
+    step1Title: '엔드포인트 연결',
+    step1Text: 'Ollama(또는 호환) 서버를 지정하고 모델 목록을 불러옵니다.',
+    step2Title: '참가자 설정',
+    step2Text: '각자에게 모델과 캐릭터, 기분을 지정하세요. 둘이면 시작하기에 충분합니다.',
+    step3Title: '주제 작성',
+    step3Text: '무엇을 토론할지 적고 라운드 수를 고른 뒤 시작을 누르세요.',
+    showOnStartup: '시작 시 표시',
+    start: '시작하기',
   },
 }

@@ -21,6 +21,11 @@ export const DEFAULT_TIMEOUT_SEC = 120
 export const DEFAULT_FALLBACK_MODEL = ''
 export const DEBUG_MODE_STORAGE_KEY = 'debugMode'
 
+// The splash lives outside the settings blob so that clearing the saved
+// settings does not silently bring the welcome screen back.
+export const SPLASH_STORAGE_KEY = 'showSplashOnStartup'
+export const DEFAULT_SHOW_SPLASH = true
+
 export const UPDATE_REPO = 'achilleterzo/AI-Debate'
 export const UPDATE_RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`
 export const UPDATE_CHECK_TIMEOUT_MS = 10_000

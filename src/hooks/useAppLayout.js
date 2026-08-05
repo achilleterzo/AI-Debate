@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TWO_COLUMN_MIN_WIDTH } from '../settings/Settings'
 
-export function useAppLayout({ messages, conclusions = [], streamingRole, headerOpen, summary, summaryVisible }) {
+export function useAppLayout({ messages, conclusions = [], streamingRole, headerOpen }) {
   const bottomRef = useRef(null)
   const chatRef = useRef(null)
   const headerTopRef = useRef(null)
@@ -10,7 +10,7 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
   const autoScrollRef = useRef(true)
   const scrollFrameRef = useRef(null)
   const showScrollBtnRef = useRef(false)
-  const [headerBodyMaxHeight, setHeaderBodyMaxHeight] = useState(360)
+  const [headerBodyHeight, setHeaderBodyHeight] = useState(360)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [isWideLayout, setIsWideLayout] = useState(() => typeof window !== 'undefined' && window.innerWidth >= TWO_COLUMN_MIN_WIDTH)
 
@@ -39,31 +39,33 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
     return () => mediaQuery.removeEventListener('change', apply)
   }, [])
 
-  const recomputeHeaderBodyMaxHeight = useCallback(() => {
+  // In single-column mode the accordion is an overlay anchored under the header
+  // bar, so it fills exactly the band between the header and the prompt bar.
+  // The summary panel is not subtracted on purpose: it sits underneath the
+  // overlay, and subtracting it left a gap above the prompt bar.
+  const recomputeHeaderBodyHeight = useCallback(() => {
     const viewportHeight = window.innerHeight || 0
     const headerTopHeight = headerTopRef.current?.offsetHeight ?? 0
     const inputHeight = inputAreaRef.current?.offsetHeight ?? 0
-    const summaryPanelHeight = summaryPanelRef.current?.offsetHeight ?? 0
-    const nextHeight = Math.max(200, Math.floor(viewportHeight - headerTopHeight - inputHeight - summaryPanelHeight - 20))
-    setHeaderBodyMaxHeight(previous => Math.abs(previous - nextHeight) < 2 ? previous : nextHeight)
+    const nextHeight = Math.max(200, Math.floor(viewportHeight - headerTopHeight - inputHeight))
+    setHeaderBodyHeight(previous => Math.abs(previous - nextHeight) < 2 ? previous : nextHeight)
   }, [])
 
   useEffect(() => {
     if (!headerOpen) return
-    const schedule = () => window.requestAnimationFrame(recomputeHeaderBodyMaxHeight)
+    const schedule = () => window.requestAnimationFrame(recomputeHeaderBodyHeight)
     schedule()
     window.addEventListener('resize', schedule)
 
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
     if (headerTopRef.current) observer?.observe(headerTopRef.current)
-    if (summaryPanelRef.current) observer?.observe(summaryPanelRef.current)
     if (inputAreaRef.current) observer?.observe(inputAreaRef.current)
 
     return () => {
       window.removeEventListener('resize', schedule)
       observer?.disconnect()
     }
-  }, [headerOpen, recomputeHeaderBodyMaxHeight, summary, summaryVisible])
+  }, [headerOpen, recomputeHeaderBodyHeight])
 
   useEffect(() => {
     const chat = chatRef.current
@@ -130,7 +132,7 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
     headerTopRef,
     summaryPanelRef,
     inputAreaRef,
-    headerBodyMaxHeight,
+    headerBodyHeight,
     showScrollBtn,
     isWideLayout,
     handleChatScroll,
