@@ -144,6 +144,7 @@ export const UI_STRINGS = {
   confirmModal: { defaultConfirm: 'Confirm' },
   endpointModal: {
     title: 'Endpoint override',
+    mainTitle: 'Connection',
     clearTitle: 'Remove custom endpoint',
     emptyHint: 'Leave empty to use the general endpoint.',
     history: 'Previously used',
@@ -289,7 +290,7 @@ export const UI_STRINGS = {
     connectionConnecting: 'Connecting',
     connectionConnected: count => `Connected (${count})`,
     connectionUnreachable: 'Unreachable',
-    modelsCount: count => `${count} models`,
+    connectionSettings: 'Connection settings',
     collapseSettings: 'Collapse settings',
     expandSettings: 'Expand settings',
     language: 'Output language',

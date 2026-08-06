@@ -22,6 +22,12 @@ export default function AppModals({
   onConfirmCustomLang,
   endpointHistory = [],
   onDeleteEndpointHistoryEntry,
+  models = [],
+  defaultModel,
+  onDefaultModelChange,
+  connecting,
+  connectError,
+  ollamaOk,
   promptSettingsModal,
   generalPersonalityInstructions,
   onClosePromptSettings,
@@ -70,6 +76,13 @@ export default function AppModals({
           onConfirm={onConfirmEndpoint}
           history={endpointHistory}
           onDeleteHistoryEntry={onDeleteEndpointHistoryEntry}
+          models={models}
+          defaultModel={defaultModel}
+          onDefaultModelChange={onDefaultModelChange}
+          connecting={connecting}
+          connectError={connectError}
+          ollamaOk={ollamaOk}
+          disabled={running}
         />
       )}
       {promptSettingsModal && (

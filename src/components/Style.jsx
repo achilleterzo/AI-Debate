@@ -65,7 +65,6 @@ export const styles = {
 		whiteSpace: 'nowrap',
 	}),
 	errText: { fontSize: 11, color: '#f87171' },
-	modelCount: { fontSize: 11, color: '#4ade80' },
 
 	modelRow: { display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' },
 	modelBox: (letter) => ({

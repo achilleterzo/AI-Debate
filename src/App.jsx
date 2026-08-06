@@ -272,6 +272,18 @@ function AppInner({ settings }) {
   usePersistedAppSettings({ settings, conclusions: conclusionsState })
 
   const splash = useSplashScreen()
+  // Nothing in the app works without a reachable endpoint, so an unreachable
+  // one puts the connection modal on screen by itself instead of leaving a red
+  // badge as the only clue. Derived rather than opened by an effect, and it
+  // stays away once dismissed and while the welcome screen is up.
+  const [connectionPromptDismissed, setConnectionPromptDismissed] = useState(false)
+  const needsConnectionPrompt = ollamaOk === false && !connecting && !splash.visible && !connectionPromptDismissed
+  const activeEndpointModal = endpointModal ?? (needsConnectionPrompt ? { target: 'main', initialValue: endpointInput ?? '' } : null)
+
+  const handleCloseEndpointModal = () => {
+    if (activeEndpointModal?.target === 'main') setConnectionPromptDismissed(true)
+    setEndpointModal(null)
+  }
   // The summary endpoint rides along with the participant ones so its button
   // gets the same reachability badge.
   const summaryEndpointTargets = useMemo(
@@ -361,6 +373,10 @@ function AppInner({ settings }) {
     setCustomLangModal(null)
   }
 
+  const handleConfigureMainEndpoint = () => {
+    setEndpointModal({ target: 'main', initialValue: endpointInput ?? '' })
+  }
+
   const handleConfigureSummaryEndpoint = () => {
     setEndpointModal({
       target: 'summary',
@@ -370,13 +386,24 @@ function AppInner({ settings }) {
   }
 
   const handleSaveEndpoint = (rawValue) => {
-    if (!endpointModal) return
+    if (!activeEndpointModal) return
     const normalized = (rawValue ?? '').trim().replace(/\/$/, '')
     if (normalized) setEndpointHistory(Storage.saveEndpointToHistory(normalized))
-    if (endpointModal.target === 'summary') {
+    if (activeEndpointModal.target === 'main') {
+      // Connecting is the save here: the modal stays open so the refreshed
+      // model list is what the default model gets picked from. Pinning it open
+      // matters most for the auto-opened one, which would otherwise vanish the
+      // moment the connection it exists to fix starts working.
+      if (!normalized) return
+      setEndpointInput(normalized)
+      setEndpointModal({ target: 'main', initialValue: normalized })
+      fetchModels(normalized)
+      return
+    }
+    if (activeEndpointModal.target === 'summary') {
       setSummaryEndpointOverride(normalized)
     } else {
-      setParticipants(prev => prev.map((p, i) => i === endpointModal.idx ? { ...p, endpointOverride: normalized } : p))
+      setParticipants(prev => prev.map((p, i) => i === activeEndpointModal.idx ? { ...p, endpointOverride: normalized } : p))
     }
     setEndpointModal(null)
   }
@@ -504,14 +531,6 @@ function AppInner({ settings }) {
       },
       () => resetChat(),
     )
-  }
-
-  const handleConnect = () => {
-    const url = endpointInput.trim().replace(/\/$/, '')
-    if (!url) return
-    // Remember it too, so the override picker offers the endpoints actually used.
-    setEndpointHistory(Storage.saveEndpointToHistory(url))
-    fetchModels(url)
   }
 
   const allModelsSet = participants.length >= 2 && participants.every(p => Debate.hasConfiguredModel(p, defaultModel))
@@ -661,6 +680,7 @@ function AppInner({ settings }) {
           updateAvailable={updateCheck.updateAvailable}
           ollamaOk={ollamaOk}
           modelsCount={models.length}
+          onOpenConnection={handleConfigureMainEndpoint}
           isWideLayout={isWideLayout}
           headerOpen={headerOpen}
           onToggleHeaderOpen={() => setHeaderOpen(v => !v)}
@@ -687,17 +707,8 @@ function AppInner({ settings }) {
         <ConnectionSettings
           uiLang={uiLang}
           onUiLangChange={setUiLang}
-          endpointInput={endpointInput}
-          onEndpointChange={setEndpointInput}
-          onConnect={handleConnect}
-          connecting={connecting}
-          connectError={connectError}
           disabled={running}
-          models={models}
-          modelSelectStyles={modelSelectStyles}
           moodSelectStyles={moodSelectStyles}
-          defaultModel={defaultModel}
-          onDefaultModelChange={setDefaultModel}
           debateMode={debateMode}
           onDebateModeChange={setDebateMode}
           debateModeOptions={DEBATE_MODE_OPTIONS}
@@ -938,14 +949,20 @@ function AppInner({ settings }) {
         onConfirmConstraint={handleConstraintConfirm}
         globalConstraintHistory={globalConstraintHistory}
         onDeleteGlobalSuggestion={handleDeleteGlobalSuggestion}
-        endpointModal={endpointModal}
-        onCloseEndpointModal={() => setEndpointModal(null)}
+        endpointModal={activeEndpointModal}
+        onCloseEndpointModal={handleCloseEndpointModal}
         onConfirmEndpoint={handleSaveEndpoint}
         customLangModal={customLangModal}
         onCloseCustomLangModal={() => setCustomLangModal(null)}
         onConfirmCustomLang={handleSaveCustomLang}
         endpointHistory={endpointHistory}
         onDeleteEndpointHistoryEntry={entry => setEndpointHistory(Storage.deleteEndpointFromHistory(entry))}
+        models={models}
+        defaultModel={defaultModel}
+        onDefaultModelChange={setDefaultModel}
+        connecting={connecting}
+        connectError={connectError}
+        ollamaOk={ollamaOk}
         promptSettingsModal={promptSettingsModal}
         generalPersonalityInstructions={generalPersonalityInstructions}
         onClosePromptSettings={() => setPromptSettingsModal(false)}

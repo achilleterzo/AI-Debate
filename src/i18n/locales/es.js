@@ -51,6 +51,7 @@ export default {
   confirmModal: { defaultConfirm: 'Confirmar' },
   endpointModal: {
     title: 'Endpoint override',
+    mainTitle: 'Conexión',
     clearTitle: 'Quitar endpoint personalizado',
     emptyHint: 'Deja vacío para usar el endpoint general.',
     history: 'Usados anteriormente',
@@ -176,7 +177,7 @@ export default {
     connectionConnecting: 'Conectando',
     connectionConnected: count => `Conectado (${count})`,
     connectionUnreachable: 'Inaccesible',
-    modelsCount: count => `${count} modelos`,
+    connectionSettings: 'Ajustes de conexión',
     collapseSettings: 'Contraer ajustes',
     expandSettings: 'Expandir ajustes',
     language: 'Idioma de salida',

@@ -14,12 +14,26 @@ export default function HeaderTop({
   updateAvailable,
   ollamaOk,
   modelsCount,
+  onOpenConnection,
   isWideLayout,
   headerOpen,
   onToggleHeaderOpen,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
+
+  // Unreachable is the state that needs to shout: it is the one the user has to
+  // act on, and the action is one click away on this very button.
+  const status = ollamaOk === null
+    ? { color: '#999', background: '#151515', border: '#303030' }
+    : ollamaOk
+      ? { color: '#4ade80', background: '#151515', border: '#303030' }
+      : { color: '#f87171', background: '#2a1616', border: '#6b2b2b' }
+  const statusLabel = ollamaOk === null
+    ? ui.connectionConnecting
+    : ollamaOk
+      ? ui.connectionConnected(modelsCount)
+      : ui.connectionUnreachable
 
   return (
     <div ref={headerTopRef} style={styles.headerTop}>
@@ -37,11 +51,22 @@ export default function HeaderTop({
       <span style={{ ...styles.title, textAlign: 'center' }}>{ui.debateTitle}</span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-        <div
-          style={styles.dot(ollamaOk)}
-          title={ollamaOk === null ? ui.connectionConnecting : ollamaOk ? ui.connectionConnected(modelsCount) : ui.connectionUnreachable}
-        />
-        {ollamaOk && <span style={styles.modelCount}>{ui.modelsCount(modelsCount)}</span>}
+        {/* The status light doubles as the way into the endpoint settings: it is
+            the thing you look at when the connection misbehaves. Every state
+            carries its own words — a bare red dot says something is wrong
+            without saying what, and without saying it is fixable here. */}
+        <button
+          onClick={onOpenConnection}
+          title={`${statusLabel} — ${ui.connectionSettings}`}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: status.background, border: `1px solid ${status.border}`, borderRadius: 999,
+            padding: '3px 9px', cursor: 'pointer', lineHeight: 1,
+          }}
+        >
+          <span style={styles.dot(ollamaOk)} />
+          <span style={{ fontSize: 11, color: status.color, whiteSpace: 'nowrap' }}>{statusLabel}</span>
+        </button>
         {!isWideLayout && (
           <button
             onClick={onToggleHeaderOpen}

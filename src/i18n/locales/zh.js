@@ -47,6 +47,7 @@ export default {
   confirmModal: { defaultConfirm: '确认' },
   endpointModal: {
     title: 'Endpoint override',
+    mainTitle: '连接',
     clearTitle: '移除自定义端点',
     emptyHint: '留空以使用通用端点。',
     history: '最近使用',
@@ -168,7 +169,7 @@ export default {
     connectionConnecting: '连接中',
     connectionConnected: count => `已连接（${count}）`,
     connectionUnreachable: '无法访问',
-    modelsCount: count => `${count} 个模型`,
+    connectionSettings: '连接设置',
     collapseSettings: '折叠设置',
     expandSettings: '展开设置',
     language: '输出语言',

@@ -47,6 +47,7 @@ export default {
   confirmModal: { defaultConfirm: '確認' },
   endpointModal: {
     title: 'Endpoint override',
+    mainTitle: '接続',
     clearTitle: 'カスタムエンドポイントを削除',
     emptyHint: '一般のエンドポイントを使用する場合は空欄のままにしてください。',
     history: '以前に使用',
@@ -169,7 +170,7 @@ export default {
     connectionConnecting: '接続中',
     connectionConnected: count => `接続済み (${count})`,
     connectionUnreachable: '接続できません',
-    modelsCount: count => `${count} 件のモデル`,
+    connectionSettings: '接続設定',
     collapseSettings: '設定を折りたたむ',
     expandSettings: '設定を展開',
     language: '出力言語',
