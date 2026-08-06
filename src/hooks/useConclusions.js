@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { Debate } from '../debate/Debate'
 import { streamChat } from '../debate/Stream'
 import { CONCLUSION_TYPES } from '../prompts/ConclusionTypes'
-import { UI_LANGUAGE_OPTIONS } from '../i18n/UiStrings'
+import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePrompt'
 
 export function useConclusions({
   initialModel,
@@ -67,7 +67,8 @@ export function useConclusions({
       customPrompt,
       standardPrompt,
     })
-    const language = UI_LANGUAGE_OPTIONS.find(entry => entry.code === uiLang)?.label ?? uiLang
+    const language = outputLanguageLabel(uiLang)
+    const languageNamed = outputLanguagePhrase(uiLang)
     let result = ''
 
     try {
@@ -75,7 +76,7 @@ export function useConclusions({
         baseUrl,
         model,
         messages: [{ role: 'user', content: prompt }],
-        systemPrompt: `You are an expert analyst. Respond only with the requested ${conclusionTypeDefinition.labelEn.toLowerCase()}, no preamble. Respect the shared debate mode and its mode-specific conclusion guidance in the user prompt. Write in ${language} (language code: ${uiLang}). Never reveal chain-of-thought, planning notes, or meta-commentary (e.g., "the user is asking", "let me analyze"). Output final answer only.`,
+        systemPrompt: `You are an expert analyst. Respond only with the requested ${conclusionTypeDefinition.labelEn.toLowerCase()}, no preamble. Respect the shared debate mode and its mode-specific conclusion guidance in the user prompt. Write in ${languageNamed}. Never reveal chain-of-thought, planning notes, or meta-commentary (e.g., "the user is asking", "let me analyze"). Output final answer only.`,
         useTools: false,
         onEstimate: setLastPromptEstimate,
         onPayload: request => setLastRequest?.({ request }),
@@ -91,7 +92,7 @@ export function useConclusions({
           model,
           messages: [{
             role: 'user',
-            content: `Rewrite the following text into a clean final answer for "${conclusionTypeDefinition.label}" in ${language} (language code: ${uiLang}).\n\nRules:\n- Remove all meta-reasoning, planning, and self-referential commentary.\n- Keep only the final content requested by the conclusion type.\n- No preamble.\n\nText to rewrite:\n${result}`,
+            content: `Rewrite the following text into a clean final answer for "${conclusionTypeDefinition.label}" in ${languageNamed}.\n\nRules:\n- Remove all meta-reasoning, planning, and self-referential commentary.\n- Keep only the final content requested by the conclusion type.\n- No preamble.\n\nText to rewrite:\n${result}`,
           }],
           systemPrompt: `Return only the cleaned final answer in ${language}.`,
           useTools: false,

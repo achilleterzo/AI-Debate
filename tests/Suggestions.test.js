@@ -13,7 +13,7 @@ import {
 
 describe('buildSuggestionSystemPrompt', () => {
   it('pins the output language and the JSON-only contract', () => {
-    const prompt = buildSuggestionSystemPrompt({ language: 'Italiano', uiLang: 'it' })
+    const prompt = buildSuggestionSystemPrompt({ languageNamed: 'Italiano (language code: it)' })
     expect(prompt).toContain('Italiano')
     expect(prompt).toContain('language code: it')
     expect(prompt).toContain('JSON array of strings')

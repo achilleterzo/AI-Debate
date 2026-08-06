@@ -12,7 +12,7 @@ import ConclusionsPanel from './components/ConclusionsPanel'
 import AttachmentsChips from './components/AttachmentsChips'
 import TopicComposer from './components/TopicComposer'
 import GlobalConstraintsChips from './components/GlobalConstraintsChips'
-import ConnectionSettings from './components/ConnectionSettings'
+import DebateModeSettings from './components/DebateModeSettings'
 import AffinitySettings from './components/AffinitySettings'
 import SummarySettings from './components/SummarySettings'
 import SummaryPanel from './components/SummaryPanel'
@@ -33,6 +33,7 @@ import { MOOD_INTENSITY } from './prompts/MoodIntensity'
 import { AGE_GROUPS } from './prompts/AgeGroups'
 import { UiStringsProvider, useUiStrings } from './i18n/UiStringsContext'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from './prompts/DefaultGeneralPersonalityInstructions'
+import { isCustomOutputLanguage } from './prompts/LanguagePrompt'
 import { DEFAULT_URL } from './settings/Settings'
 import { formatMoodOption, GlobalStyles, modelSelectStyles, moodSelectStyles, styles } from './components/Style'
 import { Debate } from './debate/Debate'
@@ -362,9 +363,24 @@ function AppInner({ settings }) {
     setCustomLangModal({ idx, initialValue: participant.reasoningLangCustom ?? '' })
   }
 
+  const handleConfigureOutputLang = () => {
+    setCustomLangModal({
+      target: 'output',
+      initialValue: isCustomOutputLanguage(uiLang) ? uiLang : '',
+      title: ui.outputLangCustomTitle,
+    })
+  }
+
   const handleSaveCustomLang = rawValue => {
     if (!customLangModal) return
     const value = (rawValue ?? '').trim()
+    if (customLangModal.target === 'output') {
+      // An empty entry would leave the debate with a language named "": the
+      // language already selected stays instead.
+      if (value) setUiLang(value)
+      setCustomLangModal(null)
+      return
+    }
     setParticipants(prev => prev.map((p, i) => i === customLangModal.idx
       // An empty custom language would leave the selector claiming a language
       // that is not there, so it falls back to following the output language.
@@ -704,17 +720,18 @@ function AppInner({ settings }) {
           flex: isWideLayout ? 1 : 'none',
         }}>
 
-        <ConnectionSettings
-          uiLang={uiLang}
-          onUiLangChange={setUiLang}
+        <DebateModeSettings
           disabled={running}
-          moodSelectStyles={moodSelectStyles}
           debateMode={debateMode}
           onDebateModeChange={setDebateMode}
           debateModeOptions={DEBATE_MODE_OPTIONS}
         />
 
         <SummarySettings
+          uiLang={uiLang}
+          onUiLangChange={setUiLang}
+          onConfigureCustomLang={handleConfigureOutputLang}
+          moodSelectStyles={moodSelectStyles}
           useSummary={useSummary}
           onUseSummaryChange={setUseSummary}
           summarizeAttachments={summarizeAttachments}

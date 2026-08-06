@@ -18,7 +18,7 @@ export default function CustomLanguageModal({ state, onClose, onConfirm }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: '#000000bb', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
       <div onClick={event => event.stopPropagation()} style={{ background: '#141414', border: '1px solid #2e2e2e', borderRadius: 10, width: 'min(92vw, 460px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #2e2e2e' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#ddd' }}>{ui.reasoningLangCustomTitle}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#ddd' }}>{state?.title ?? ui.reasoningLangCustomTitle}</span>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
         <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>

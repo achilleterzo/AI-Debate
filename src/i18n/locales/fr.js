@@ -52,6 +52,7 @@ export default {
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: 'Connexion',
+    unreachableHint: "Endpoint injoignable. Ollama est-il en cours d'exécution ?",
     clearTitle: "Supprimer l'endpoint personnalisé",
     emptyHint: "Laisser vide pour utiliser l'endpoint général.",
     history: 'Utilisés précédemment',
@@ -180,7 +181,8 @@ export default {
     connectionSettings: 'Paramètres de connexion',
     collapseSettings: 'Replier les paramètres',
     expandSettings: 'Déplier les paramètres',
-    language: 'Langue de sortie',
+    language: 'Langue',
+    outputLangCustomTitle: 'Langue du débat personnalisée',
     endpoint: 'Endpoint',
     connecting: 'Connexion...',
     connect: 'Connecter',

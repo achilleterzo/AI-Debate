@@ -114,6 +114,18 @@ describe('buildSystemPrompt priorities', () => {
     const prompt = build({ reasoningLang: 'it' })
     expect(prompt).toContain('Do all internal reasoning and deliberation in Italiano (language code: it)')
   })
+
+  it('names a custom output language as typed, without inventing a code for it', () => {
+    const prompt = build({}, { uiLang: 'Napoletano' })
+    expect(prompt).toContain('Respond in Napoletano.')
+    expect(prompt).not.toContain('language code: Napoletano')
+  })
+
+  it('keeps translating into a custom output language when the thinking language differs', () => {
+    const prompt = build({ reasoningLang: 'it' }, { uiLang: 'Napoletano' })
+    expect(prompt).toContain('written only in Napoletano')
+    expect(prompt).not.toContain('language code: Napoletano')
+  })
 })
 
 describe('buildSystemPrompt moderator modes and hierarchy', () => {

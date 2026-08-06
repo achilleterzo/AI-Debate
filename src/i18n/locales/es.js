@@ -52,6 +52,7 @@ export default {
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: 'Conexión',
+    unreachableHint: 'No se puede acceder al endpoint. ¿Ollama está en ejecución?',
     clearTitle: 'Quitar endpoint personalizado',
     emptyHint: 'Deja vacío para usar el endpoint general.',
     history: 'Usados anteriormente',
@@ -180,7 +181,8 @@ export default {
     connectionSettings: 'Ajustes de conexión',
     collapseSettings: 'Contraer ajustes',
     expandSettings: 'Expandir ajustes',
-    language: 'Idioma de salida',
+    language: 'Idioma',
+    outputLangCustomTitle: 'Idioma del debate personalizado',
     endpoint: 'Endpoint',
     connecting: 'Conectando...',
     connect: 'Conectar',

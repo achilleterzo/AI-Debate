@@ -48,6 +48,7 @@ export default {
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: '接続',
+    unreachableHint: 'エンドポイントに接続できません。Ollama は起動していますか？',
     clearTitle: 'カスタムエンドポイントを削除',
     emptyHint: '一般のエンドポイントを使用する場合は空欄のままにしてください。',
     history: '以前に使用',
@@ -173,7 +174,8 @@ export default {
     connectionSettings: '接続設定',
     collapseSettings: '設定を折りたたむ',
     expandSettings: '設定を展開',
-    language: '出力言語',
+    language: '言語',
+    outputLangCustomTitle: 'カスタム討論言語',
     endpoint: 'エンドポイント',
     connecting: '接続中...',
     connect: '接続',

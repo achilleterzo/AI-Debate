@@ -52,6 +52,7 @@ export default {
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: '연결',
+    unreachableHint: '엔드포인트에 연결할 수 없습니다. Ollama가 실행 중인가요?',
     clearTitle: '사용자 지정 엔드포인트 제거',
     emptyHint: '일반 엔드포인트를 사용하려면 비워 두세요.',
     history: '이전에 사용함',
@@ -177,7 +178,8 @@ export default {
     connectionSettings: '연결 설정',
     collapseSettings: '설정 접기',
     expandSettings: '설정 펼치기',
-    language: '출력 언어',
+    language: '언어',
+    outputLangCustomTitle: '사용자 지정 토론 언어',
     endpoint: '엔드포인트',
     connecting: '연결 중...',
     connect: '연결',

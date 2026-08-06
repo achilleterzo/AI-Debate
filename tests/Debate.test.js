@@ -259,3 +259,18 @@ describe('Debate context windows', () => {
     expect(Debate.getRecentContext([], 4)).toEqual([])
   })
 })
+
+describe('summary system prompts and the output language', () => {
+  const languages = [{ code: 'it', label: 'Italiano' }]
+
+  it('quotes the ISO code of a language taken from the list', () => {
+    expect(Debate.buildRoundSummarySystemPrompt('it', languages)).toContain('Write in Italiano (language code: it).')
+    expect(Debate.buildDocumentSummarySystemPrompt('it', languages)).toContain('Write in Italiano (language code: it).')
+  })
+
+  it('names a custom language on its own, with no code to quote', () => {
+    const prompt = Debate.buildRoundSummarySystemPrompt('Napoletano', languages)
+    expect(prompt).toContain('Write in Napoletano.')
+    expect(prompt).not.toContain('language code')
+  })
+})

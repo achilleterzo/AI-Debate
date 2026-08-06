@@ -48,6 +48,7 @@ export default {
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: '连接',
+    unreachableHint: '无法访问该端点。Ollama 正在运行吗？',
     clearTitle: '移除自定义端点',
     emptyHint: '留空以使用通用端点。',
     history: '最近使用',
@@ -172,7 +173,8 @@ export default {
     connectionSettings: '连接设置',
     collapseSettings: '折叠设置',
     expandSettings: '展开设置',
-    language: '输出语言',
+    language: '语言',
+    outputLangCustomTitle: '自定义辩论语言',
     endpoint: '端点',
     connecting: '连接中...',
     connect: '连接',

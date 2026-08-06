@@ -39,6 +39,7 @@ export default function EndpointModal({
   const [value, setValue] = useState(state?.initialValue ?? '')
 
   const isMain = state?.target === 'main'
+  const unreachable = ollamaOk === false
   const suggestions = history.filter(entry => entry !== value.trim())
 
   const cloud = models.filter(entry => entry.endsWith('cloud')).sort()
@@ -118,17 +119,25 @@ export default function EndpointModal({
           )}
           {isMain ? (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 16 }}>
-                <span style={styles.dot(connecting ? null : ollamaOk)} />
-                <span style={{ fontSize: 11, color: connectError ? '#f87171' : '#888' }}>
-                  {connecting
-                    ? appUi.connectionConnecting
-                    : connectError
-                      ? connectError
-                      : ollamaOk
-                        ? appUi.connectionConnected(models.length)
-                        : appUi.connectionUnreachable}
-                </span>
+              {/* "Failed to fetch" is what the browser says and it explains
+                  nothing, so unreachable gets its own translated line and the
+                  raw error is demoted to the detail underneath it. */}
+              <div style={{ display: 'flex', gap: 6, minHeight: 16 }}>
+                <span style={{ ...styles.dot(connecting ? null : ollamaOk), marginTop: 3 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 11, color: unreachable || connectError ? '#f87171' : '#888' }}>
+                    {connecting
+                      ? appUi.connectionConnecting
+                      : unreachable
+                        ? ui.unreachableHint
+                        : connectError
+                          ? connectError
+                          : appUi.connectionConnected(models.length)}
+                  </span>
+                  {!connecting && unreachable && !!connectError && (
+                    <span style={{ fontSize: 10, color: '#777' }}>{connectError}</span>
+                  )}
+                </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <span style={{ fontSize: 11, color: '#777' }} title={appUi.defaultModelTitle}>{appUi.defaultModel}</span>

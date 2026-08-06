@@ -11,6 +11,7 @@ import { DEFAULT_RESPONSE_LENGTH, RESPONSE_LENGTHS } from '../prompts/ResponseLe
 import { EDUCATION_LEVELS } from '../prompts/EducationLevels'
 import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
+import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePrompt'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorFacilitationInterval, normalizeModeratorPermissiveness } from '../settings/Settings'
 import { createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
@@ -656,11 +657,11 @@ export class Debate {
   }
 
   static buildLanguageLabel(uiLang, languages = []) {
-    return languages.find(language => language.code === uiLang)?.label ?? uiLang
+    return outputLanguageLabel(uiLang, languages)
   }
 
   static buildDocumentSummarySystemPrompt(uiLang, languages = []) {
-    return `You are a precise analytical summarizer. Output only the requested summary, no preamble. Write in ${Debate.buildLanguageLabel(uiLang, languages)} (language code: ${uiLang}).`
+    return `You are a precise analytical summarizer. Output only the requested summary, no preamble. Write in ${outputLanguagePhrase(uiLang, languages)}.`
   }
 
   static buildDocumentSummaryPrompt(document) {
@@ -693,7 +694,7 @@ export class Debate {
   }
 
   static buildRoundSummarySystemPrompt(uiLang, languages = []) {
-    return `You are a concise summarizer. Output only the requested summary text, no preamble, no commentary, no tool calls, no markdown headings. Write in ${Debate.buildLanguageLabel(uiLang, languages)} (language code: ${uiLang}).`
+    return `You are a concise summarizer. Output only the requested summary text, no preamble, no commentary, no tool calls, no markdown headings. Write in ${outputLanguagePhrase(uiLang, languages)}.`
   }
 
   static buildRoundSummaryPrompt({
@@ -1868,7 +1869,7 @@ export class Debate {
                 timeoutMs,
                 onEstimate: handlePromptEstimate,
                 ...transportCallbacks(),
-                systemPrompt: `You are a strict process moderator. Do not summarize positions. Output only operational moderation in ${Debate.buildLanguageLabel(uiLang, LANGUAGES)} (language code: ${uiLang}).`,
+                systemPrompt: `You are a strict process moderator. Do not summarize positions. Output only operational moderation in ${outputLanguagePhrase(uiLang, LANGUAGES)}.`,
                 messages: [{
                   role: 'user',
                   content: `Rewrite this moderator draft as a REAL moderation intervention (not a recap, not a synthesis).\n\nDraft:\n${resolvedContent}\n\nOutput format (mandatory, 3 short lines, in the user's language):\n1) <brief reason for intervention now>\n2) <directive: what must change immediately>\n3) <next turn: who should answer and with what focus>\n\nUse labels naturally in that language. Avoid the word "trigger".\nMax 5 total sentences. No preamble.`,

@@ -30,10 +30,10 @@ export const MAX_CONSTRAINT_CHARS = 1000
 const MAX_SUGGESTION_CHARS = 220
 const MAX_ATTACHMENT_CONTEXT_CHARS = 8000
 
-export function buildSuggestionSystemPrompt({ language, uiLang }) {
+export function buildSuggestionSystemPrompt({ languageNamed }) {
   return [
     'You produce short, ready-to-use text for a debate application.',
-    `Write every suggestion in ${language} (language code: ${uiLang}).`,
+    `Write every suggestion in ${languageNamed}.`,
     'Answer with a JSON array of strings and nothing else: no prose, no markdown fences, no numbering, no keys.',
     'Never reveal reasoning or meta-commentary.',
   ].join(' ')
@@ -99,10 +99,10 @@ export function buildSuggestionPrompt({
   ].join('\n\n')
 }
 
-export function buildParticipantSystemPrompt({ language, uiLang }) {
+export function buildParticipantSystemPrompt({ languageNamed }) {
   return [
     'You design debate participants for a debate application.',
-    `Write every human-readable value in ${language} (language code: ${uiLang}), except language codes.`,
+    `Write every human-readable value in ${languageNamed}, except language codes.`,
     'Answer with a JSON array of objects and nothing else: no prose, no markdown fences, no commentary.',
     'Never reveal reasoning or meta-commentary.',
   ].join(' ')

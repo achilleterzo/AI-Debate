@@ -145,6 +145,7 @@ export const UI_STRINGS = {
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: 'Connection',
+    unreachableHint: 'Cannot reach the endpoint. Is Ollama running?',
     clearTitle: 'Remove custom endpoint',
     emptyHint: 'Leave empty to use the general endpoint.',
     history: 'Previously used',
@@ -293,7 +294,8 @@ export const UI_STRINGS = {
     connectionSettings: 'Connection settings',
     collapseSettings: 'Collapse settings',
     expandSettings: 'Expand settings',
-    language: 'Output language',
+    language: 'Language',
+    outputLangCustomTitle: 'Custom debate language',
     endpoint: 'Endpoint',
     connecting: 'Connecting...',
     connect: 'Connect',

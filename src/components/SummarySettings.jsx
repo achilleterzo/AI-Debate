@@ -1,9 +1,18 @@
+import ReactSelect from 'react-select'
 import { SUMMARY_ACCUMULATE_STEPS } from '../settings/Settings'
+import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { useUiStrings } from '../i18n/UiStringsContext'
+import { OUTPUT_LANG_CUSTOM, isCustomOutputLanguage } from '../prompts/LanguagePrompt'
 import EndpointModelGroup from './EndpointModelGroup'
 import { styles } from './Style'
 
+const languageOptions = UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code }))
+
 export default function SummarySettings({
+  uiLang,
+  onUiLangChange,
+  onConfigureCustomLang,
+  moodSelectStyles,
   useSummary,
   onUseSummaryChange,
   summarizeAttachments,
@@ -23,10 +32,52 @@ export default function SummarySettings({
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
+  const participantsUi = UI_STRINGS.participants
+  // A custom language is stored as the text itself, so "is it custom?" is just
+  // "is it absent from the list?" — and the picker shows what was typed.
+  const customLang = isCustomOutputLanguage(uiLang)
+  const customOption = { value: OUTPUT_LANG_CUSTOM, label: customLang ? uiLang : participantsUi.reasoningLangCustom }
+  const outputLangOptions = [customOption, ...languageOptions]
 
   return (
     <>
       <div style={styles.settingsRow}>
+        {/* Session language leads this row: it is the other setting that
+            applies to the whole conversation rather than to a participant. */}
+        <span style={styles.endpointLabel}>{ui.language}</span>
+        <div style={{ minWidth: 150 }}>
+          <ReactSelect
+            styles={moodSelectStyles}
+            options={outputLangOptions}
+            value={customLang ? customOption : (languageOptions.find(option => option.value === uiLang) ?? null)}
+            // Picking "Other" only opens the editor: what is stored is the text
+            // typed there, so the sentinel never becomes the debate language.
+            onChange={option => option.value === OUTPUT_LANG_CUSTOM ? onConfigureCustomLang?.() : onUiLangChange(option.value)}
+            formatOptionLabel={option => option.code ? formatLanguageLabel(option) : option.label}
+            isDisabled={running}
+            menuPlacement="auto"
+          />
+        </div>
+        {customLang && (
+          <button
+            onClick={() => onConfigureCustomLang?.()}
+            disabled={running}
+            title={participantsUi.reasoningLangCustomEdit}
+            aria-label={participantsUi.reasoningLangCustomEdit}
+            style={{
+              width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+              border: '1px solid #4a2f63', background: '#1f1726', color: '#caa9ee',
+              cursor: running ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: running ? 0.5 : 1,
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </button>
+        )}
+        <div style={{ width: 1, height: 18, background: '#2e2e2e', flexShrink: 0 }} />
         <div
           onClick={() => !running && onUseSummaryChange(!useSummary)}
           title={useSummary ? ui.perRoundSummaryOn : ui.perRoundSummaryOff}

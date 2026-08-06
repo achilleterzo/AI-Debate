@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Debate } from '../debate/Debate'
 import { streamChat } from '../debate/Stream'
 import { UI_LANGUAGE_OPTIONS } from '../i18n/UiStrings'
+import { outputLanguagePhrase } from '../prompts/LanguagePrompt'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { MOODS } from '../prompts/Moods'
 import { DEBATE_MODES } from '../prompts/Modes'
@@ -75,7 +76,7 @@ export function useMagicWand({
 
     setState({ mode, status: WAND_STATUS.LOADING, suggestions: [], error: null })
 
-    const language = UI_LANGUAGE_OPTIONS.find(entry => entry.code === uiLang)?.label ?? uiLang
+    const languageNamed = outputLanguagePhrase(uiLang)
     // The text currently being drafted is the user's active instruction. On
     // resume, prefer it over the original topic stored in the conversation.
     const topicText = topic.trim() || messages.find(message => message.role === 'topic')?.content || ''
@@ -97,7 +98,7 @@ export function useMagicWand({
       const characterType = target?.characterType ?? null
       const characterTypeLabel = CHARACTER_TYPES.find(entry => entry.value === characterType)?.labelEn ?? 'person'
       const isModerator = !!target?.isModerator || target?.mood === 'moderator'
-      systemPrompt = buildParticipantSystemPrompt({ language, uiLang })
+      systemPrompt = buildParticipantSystemPrompt({ languageNamed })
       userPrompt = buildParticipantPrompt({
         characterType,
         characterTypeLabel,
@@ -117,7 +118,7 @@ export function useMagicWand({
         moodOptions: moodIds,
       })
     } else {
-      systemPrompt = buildSuggestionSystemPrompt({ language, uiLang })
+      systemPrompt = buildSuggestionSystemPrompt({ languageNamed })
       userPrompt = buildSuggestionPrompt({
         mode,
         ...debateModeContext,
