@@ -7,7 +7,7 @@ import { DEFAULT_DELIVERY_STYLE } from '../prompts/DeliveryStyle'
 import { buildModeratorPromptBlocks } from '../prompts/ModeratorPrompt'
 import { STRUCTURED_TOOL_CALL_PROTOCOL } from '../prompts/ToolProtocol'
 import { buildTopicPromptBlocks } from '../prompts/TopicPrompt'
-import { REASONING_CONTEXT_BLOCK } from '../prompts/ReasoningContext'
+import { CONTEXT_DISCIPLINE_BLOCK, REASONING_FOCUS_BLOCK, hasNativeReasoning } from '../prompts/ReasoningContext'
 
 function taggedSection(tag, content) {
   const normalized = String(content || '').trim()
@@ -68,7 +68,10 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
   const constraintsBlock = buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions })
 
   return [
-    taggedSection('reasoning_focus', REASONING_CONTEXT_BLOCK),
+    taggedSection('context_discipline', CONTEXT_DISCIPLINE_BLOCK),
+    // Instructions for a deliberation step this participant will not take are
+    // dead weight in every turn, so they follow the thinking level.
+    taggedSection('reasoning_focus', hasNativeReasoning(actor) ? REASONING_FOCUS_BLOCK : ''),
     taggedSection('identity', identityBlock),
     taggedSection('character_profile', characterType ? `Character type: ${characterType.label}.` : ''),
     taggedSection('response_style', [

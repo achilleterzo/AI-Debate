@@ -235,3 +235,34 @@ describe('buildSystemPrompt moderator modes and hierarchy', () => {
     expect(prompt).toContain('do not treat it as a debatable participant position')
   })
 })
+
+describe('reasoning instructions follow the thinking level', () => {
+  it('omits the reasoning focus when the participant thinks instantly', () => {
+    const prompt = build({ thinkingLevel: 'none' })
+    expect(prompt).not.toContain('<reasoning_focus>')
+    expect(prompt).not.toContain('NON-NEGOTIABLE REASONING FOCUS')
+    expect(prompt).not.toContain('Before producing the answer, deliberate')
+  })
+
+  it('omits it just the same when no level is set at all', () => {
+    expect(build()).not.toContain('<reasoning_focus>')
+    expect(build({ thinkingLevel: 'whatever' })).not.toContain('<reasoning_focus>')
+  })
+
+  it('sends it to a participant whose native reasoning is on', () => {
+    for (const level of ['low', 'medium', 'high', 'max']) {
+      const prompt = build({ thinkingLevel: level })
+      expect(prompt, level).toContain('<reasoning_focus>')
+      expect(prompt, level).toContain('Do not spend reasoning time listing')
+    }
+  })
+
+  it('keeps the context rules in both cases: they do not depend on thinking', () => {
+    for (const level of ['none', 'high']) {
+      const prompt = build({ thinkingLevel: level })
+      expect(prompt, level).toContain('<context_discipline>')
+      expect(prompt, level).toContain('Do not merge reference material into the rules')
+      expect(prompt, level).toContain('Do not invent omitted history')
+    }
+  })
+})

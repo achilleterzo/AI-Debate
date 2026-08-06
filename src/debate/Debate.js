@@ -1464,22 +1464,28 @@ export class Debate {
             injectedUrls.add(url)
             if (actorFetchedUrls.has(url)) continue
             actorFetchedUrls.add(url)
-            const summary = await Web.fetchAndSummarizePage(url, {
+            const page = await Web.fetchAndSummarizePage(url, {
               summarizePage: async raw => {
                 let summary = ''
                 await streamChat({
                   baseUrl: actorBaseUrl,
                   model: actor.model,
-                  messages: [{ role: 'user', content: `Summarize the following article in a concise, neutral and informative way (150-250 words). Focus on key facts, claims, and context. Do not editorialize.\n\nArticle content:\n${raw}` }],
+                  // Sections and named links are what someone judging a site
+                  // looks for, and a summary that drops them reads as if they
+                  // were not there.
+                  messages: [{ role: 'user', content: `Summarize the following page in a concise, neutral and informative way (150-250 words). Focus on key facts, claims, and context. Also list the sections, named links and legal or institutional pages that appear in it (about, contacts, privacy, cookies, terms, ethics, accessibility) and any rating or score shown. Do not editorialize, and do not report anything as missing.\n\nPage content:\n${raw}` }],
                   systemPrompt: 'You are a precise summarization assistant. Output only the summary, no preamble.',
                   useTools: false,
+                  think: false,
                   onToken: token => { summary = token },
                   timeoutMs,
                 })
                 return summary
               },
             })
-            if (summary) urlContextBlocks.push(`### ${url}\n${summary}`)
+            // Failures are pushed too: silence about a page the participant was
+            // asked to judge is what invites it to invent one.
+            if (page?.text) urlContextBlocks.push(`### ${url}\n${page.text}`)
           }
         }
 
@@ -1502,9 +1508,14 @@ export class Debate {
             await pushMsg('user', `[DICE RESULT — NUMBERS SHARED WITH ALL PARTICIPANTS]\nThe individual tool call was made by ${ownerName}. Preserve that ownership: use the result as established, do not claim the group rolled it, do not retract it, and do not roll it again.\n${message.content}`)
           } else if (message.role === actor.tag) {
             if (message.content && message.content.trim().startsWith('<function_calls>')) return
+            if (!String(message.content ?? '').trim()) return
               contextMessages.push({ role: 'assistant', content: message.content })
            } else {
              if (message.content && message.content.trim().startsWith('<function_calls>')) return
+             // A turn that produced nothing is not a contribution. Passing it on
+             // as `Name said:` with no words makes the others read the table as
+             // silent and spend their own turns asking who has not spoken yet.
+             if (!String(message.content ?? '').trim()) return
              const other = parts.find(participant => participant.tag === message.role)
              const otherName = other?.name || other?.tag || message.role
              const content = other?.isModerator
@@ -1590,7 +1601,7 @@ export class Debate {
           constants: Debate.buildPromptConstants(),
         })
         if (urlContextBlocks.length > 0) {
-          systemPrompt += `\n\n<fetched_sources>\nThe following articles have already been fetched for you. Do not search for them again.\n\n${urlContextBlocks.join('\n\n')}\n</fetched_sources>`
+          systemPrompt += `\n\n<fetched_sources>\nThe following pages have already been fetched for you. Do not search for them again.\n\nThis is everything you have observed about them. Treat it as a partial view: state what it shows, and never claim that a page or a site lacks something merely because it does not appear here — an absence you have not verified is a guess, not a finding.\n\n${urlContextBlocks.join('\n\n')}\n</fetched_sources>`
         }
 
         if (actor.localUser || actor.model === Debate.USER_MODEL) {

@@ -1,6 +1,7 @@
 import { topicToSlug } from '../utils/Slug'
 import { buildOrderedItems } from '../utils/Sorting'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
+import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { APP_VERSION } from '../settings/Settings'
 // The export is meant to look like the chat, so it reuses the chat's own
 // stylesheet and the chat's own idea of how a turn is put together.
@@ -19,6 +20,17 @@ import {
 function debateModeInfo(value) {
   const id = normalizeDebateMode(value ?? DEFAULT_DEBATE_MODE)
   return DEBATE_MODES.find(mode => mode.id === id) ?? DEBATE_MODES[0]
+}
+
+/**
+ * The debate output language, for the export header.
+ *
+ * A language from the list carries its ISO code; a custom one is free text
+ * stored as-is and has no code to show.
+ */
+function debateLanguageLabel(uiLang) {
+  const entry = UI_LANGUAGE_OPTIONS.find(language => language.code === uiLang)
+  return entry ? formatLanguageLabel(entry) : String(uiLang ?? '').trim()
 }
 
 export class Data {
@@ -49,6 +61,7 @@ export class Data {
     baseUrl,
     conclusions = [],
     debateMode = DEFAULT_DEBATE_MODE,
+    uiLang = '',
     constants,
   }) {
     const {
@@ -67,6 +80,7 @@ export class Data {
     const toolIcons = { web_search: '🔍', get_recent_messages: '🕘', request_moderator_intervention: '🙋', apply_moderation: '🛑', roll_dice: '🎲', memory: '🧠' }
     const now = new Date().toLocaleString('it-IT')
     const mode = debateModeInfo(debateMode)
+    const language = debateLanguageLabel(uiLang)
 
     const CONCLUSION_COLORS = {
       summary: '#4a9eff',
@@ -282,7 +296,7 @@ ${CHAT_CSS}
 </head>
 <body>
   <h1>AI Debate — Chat Export</h1>
-  <div class="meta"><strong>Debate mode:</strong> ${esc(mode.labelEn)}</div>
+  <div class="meta"><strong>Debate mode:</strong> ${esc(mode.labelEn)}${language ? ` &nbsp;·&nbsp; <strong>Language:</strong> ${esc(language)}` : ''}</div>
   <div class="meta">AI Debate v${esc(APP_VERSION)} &nbsp;·&nbsp; Endpoint: ${esc(baseUrl)} &nbsp;·&nbsp; ${esc(now)}<br>${partRows}</div>
   <div class="msgs">
   ${body}
@@ -299,7 +313,7 @@ ${CHAT_CSS}
     Data.triggerDownload(html, filename, 'text/html;charset=utf-8')
   }
 
-  static exportMD({ messages, participants, baseUrl, conclusions = [], topic = '', debateMode = DEFAULT_DEBATE_MODE, constants }) {
+  static exportMD({ messages, participants, baseUrl, conclusions = [], topic = '', debateMode = DEFAULT_DEBATE_MODE, uiLang = '', constants }) {
     const {
       MOODS,
       MOOD_INTENSITY,
@@ -313,6 +327,7 @@ ${CHAT_CSS}
 
     const now = new Date().toLocaleString('it-IT')
     const mode = debateModeInfo(debateMode)
+    const language = debateLanguageLabel(uiLang)
     const slug = Data.buildExportSlug(topic)
     const CONCLUSION_TYPE_LABEL = {
       summary: 'Summary',
@@ -344,7 +359,7 @@ ${CHAT_CSS}
     }).join('\n')
 
     let out = '# AI Debate — Export\n\n'
-    out += `**Debate mode:** ${mode.labelEn}\n\n`
+    out += `**Debate mode:** ${mode.labelEn}${language ? ` · **Language:** ${language}` : ''}\n\n`
     out += `**Data:** ${now}  \n**Endpoint:** ${baseUrl}  \n**App version:** ${APP_VERSION}\n\n`
     out += `## Participants\n${partList}\n\n---\n\n`
 
@@ -397,7 +412,7 @@ ${CHAT_CSS}
     Data.triggerDownload(out, `${slug}.md`, 'text/markdown;charset=utf-8')
   }
 
-  static exportJSON({ messages, participants, baseUrl, conclusions = [], summary = '', topic = '', debateMode = DEFAULT_DEBATE_MODE, constants }) {
+  static exportJSON({ messages, participants, baseUrl, conclusions = [], summary = '', topic = '', debateMode = DEFAULT_DEBATE_MODE, uiLang = '', constants }) {
     const {
       MOODS,
       MOOD_INTENSITY,
@@ -416,6 +431,8 @@ ${CHAT_CSS}
       appVersion: APP_VERSION,
       debateMode: mode.id,
       debateModeLabel: mode.labelEn,
+      language: uiLang || null,
+      languageLabel: debateLanguageLabel(uiLang) || null,
       baseUrl,
       summary: summary || null,
       participants: participants.map(p => {

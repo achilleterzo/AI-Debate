@@ -668,6 +668,7 @@ function AppInner({ settings }) {
       participants,
        baseUrl,
        debateMode,
+       uiLang,
        conclusions,
        summary,
        topic: (messages.find(m => m.role === 'topic')?.content || '').trim(),
@@ -683,7 +684,7 @@ function AppInner({ settings }) {
       },
     }),
     onAfterExport: null,
-  }), [messages, participants, baseUrl, debateMode, conclusions, summary, topMenuUi.exportHtml, topMenuUi.exportMarkdown, topMenuUi.exportJson])
+  }), [messages, participants, baseUrl, debateMode, uiLang, conclusions, summary, topMenuUi.exportHtml, topMenuUi.exportMarkdown, topMenuUi.exportJson])
 
   const handleClearSettings = useCallback(() => {
     Session.requestClearSettings({

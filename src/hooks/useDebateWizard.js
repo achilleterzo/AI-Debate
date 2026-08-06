@@ -23,6 +23,17 @@ const GLOBAL_RULES_COUNT = 3
 export const WIZARD_MIN_PARTICIPANTS = 2
 export const WIZARD_MAX_PARTICIPANTS = 6
 
+/** Keeps the first persona holding a name, case- and spacing-insensitively. */
+export function dropDuplicateNames(drafts = []) {
+  const seen = new Set()
+  return drafts.filter(draft => {
+    const key = String(draft?.name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 /**
  * Runs the setup wizard's generation.
  *
@@ -105,7 +116,7 @@ export function useDebateWizard({
       return raw
     }
 
-    const askForPersonas = async ({ isModerator, howMany }) => {
+    const askForPersonas = async ({ isModerator, howMany, others = [] }) => {
       const raw = await ask(
         buildParticipantSystemPrompt({ languageNamed }),
         buildParticipantPrompt({
@@ -115,7 +126,10 @@ export function useDebateWizard({
           moderatorMode: Debate.DEFAULT_MODERATOR_MODE,
           ...modeContext,
           topic: purpose,
-          others: [],
+          // The moderator is a second request, so it has to be told who is
+          // already seated — otherwise it invents a persona the table already
+          // has, and two rows end up sharing one name.
+          others: others.map(draft => ({ name: draft.name, traits: draft.traits })),
           count: howMany,
           languageOptions: languageCodes,
           moodOptions: moodIds,
@@ -138,7 +152,7 @@ export function useDebateWizard({
       let moderatorDraft = null
       if (withModerator) {
         setStep('moderator')
-        const [draft] = await askForPersonas({ isModerator: true, howMany: 1 })
+        const [draft] = await askForPersonas({ isModerator: true, howMany: 1, others: drafts })
         if (controller.signal.aborted) return null
         if (!draft) throw new Error('empty')
         moderatorDraft = draft
@@ -152,8 +166,11 @@ export function useDebateWizard({
       if (controller.signal.aborted) return null
       const globalConstraints = parseSuggestions(rulesRaw, { max: GLOBAL_RULES_COUNT })
 
-      // The moderator opens the table, so it takes the first slot.
-      const ordered = moderatorDraft ? [moderatorDraft, ...drafts] : drafts
+      // The moderator opens the table, so it takes the first slot. A name that
+      // survives both requests twice is dropped rather than seated twice:
+      // participants address each other by name, and a duplicate makes the
+      // whole transcript ambiguous.
+      const ordered = dropDuplicateNames(moderatorDraft ? [moderatorDraft, ...drafts] : drafts)
       const nextParticipants = ordered.map((draft, index) => Debate.participantFromDraft(index, draft, {
         characterType,
         isModerator: !!moderatorDraft && index === 0,

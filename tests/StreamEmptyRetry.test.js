@@ -552,3 +552,129 @@ describe('streamChat empty response handling', () => {
     expect(result).toBe('')
   })
 })
+
+describe('prompt scaffolding in the visible answer', () => {
+  it('strips the delimiters the model echoes back', async () => {
+    const leaked = 'Ecco la mia posizione.\n</conversation_context>\n<fetched_sources>Fine.'
+    vi.stubGlobal('fetch', mockStreamedFetch([
+      JSON.stringify({ message: { content: leaked } }) + '\n',
+      JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+    ]))
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      systemPrompt: 'sys',
+      useTools: false,
+      onToken: () => {},
+    })
+
+    expect(result).not.toContain('conversation_context')
+    expect(result).not.toContain('fetched_sources')
+    expect(result).toContain('Ecco la mia posizione.')
+    expect(result).toContain('Fine.')
+  })
+})
+
+describe('a turn that spends itself on tools', () => {
+  function toolCall(name) {
+    return JSON.stringify({ message: { tool_calls: [{ function: { name, arguments: {} } }] } }) + '\n'
+  }
+  const doneEmpty = JSON.stringify({ done: true, message: { content: '' } }) + '\n'
+
+  function bodyOf(lines) {
+    return {
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+          controller.close()
+        },
+      }),
+    }
+  }
+
+  const NUDGE = /Tool use for this turn is over/
+
+  // web_search runs its own fetch inside the tool loop, so the model calls are
+  // only the ones carrying a chat payload.
+  function modelRequests(fetchMock) {
+    return fetchMock.mock.calls
+      .filter(call => call[1]?.body)
+      .map(call => JSON.parse(call[1].body).messages)
+  }
+
+  it('tells the model to answer once the tool rounds are spent', async () => {
+    let call = 0
+    const fetchMock = vi.fn(async () => {
+      call += 1
+      // Two rounds of tool calls, then the model is out of rounds.
+      if (call <= 2) return bodyOf([toolCall('roll_dice'), doneEmpty])
+      return bodyOf([JSON.stringify({ message: { content: 'Ecco la mia analisi.' } }) + '\n', doneEmpty])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'valuta' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'roll_dice' } }],
+      executeTool: async () => 'rolled: 4',
+      onToken: () => {},
+    })
+
+    expect(result).toBe('Ecco la mia analisi.')
+    const requests = modelRequests(fetchMock)
+    expect(requests).toHaveLength(3)
+    expect(requests[2].at(-1).content).toMatch(NUDGE)
+    // Not before it is due: after the first tool round a round was still left.
+    expect(requests[1].some(message => NUDGE.test(message.content))).toBe(false)
+  })
+
+  it('asks for the answer when the model replies with silence', async () => {
+    let call = 0
+    const fetchMock = vi.fn(async () => {
+      call += 1
+      if (call === 1) return bodyOf([doneEmpty])
+      return bodyOf([JSON.stringify({ message: { content: 'Eccomi.' } }) + '\n', doneEmpty])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'parla' }],
+      useTools: false,
+      onToken: () => {},
+    })
+
+    expect(result).toBe('Eccomi.')
+    expect(modelRequests(fetchMock)[1].at(-1).content).toMatch(NUDGE)
+  })
+
+  it('treats an answer made only of scaffolding as no answer at all', async () => {
+    let call = 0
+    const fetchMock = vi.fn(async () => {
+      call += 1
+      if (call === 1) return bodyOf([
+        JSON.stringify({ message: { content: '<conversation_context>\nMarco said: ...\n</conversation_context>' } }) + '\n',
+        doneEmpty,
+      ])
+      return bodyOf([JSON.stringify({ message: { content: 'La mia posizione è questa.' } }) + '\n', doneEmpty])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'parla' }],
+      useTools: false,
+      onToken: () => {},
+    })
+
+    expect(result).toBe('La mia posizione è questa.')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+})

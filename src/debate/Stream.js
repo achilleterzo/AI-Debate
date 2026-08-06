@@ -1,6 +1,14 @@
 import { Web } from '../services/Web'
 import { getProvider } from '../providers/index.js'
+import { stripPromptScaffolding } from '../prompts/PromptTags'
 import { LLM_TOOLS } from '../tools'
+
+/**
+ * Sent when the turn has no tool rounds left, or when the model answered with
+ * silence. Withdrawing the tools from the request is not a message the model
+ * can read: this is.
+ */
+const FINAL_ANSWER_NUDGE = 'Tool use for this turn is over — no further tool call will be executed, and asking for one will produce nothing. Using the tool results already in this conversation, write your full contribution now, following your system instructions. If a tool returned nothing useful, say what you could not verify instead of assuming it is absent. Do not announce further searches, and do not reply with an empty message.'
 
 function trimText(txt, maxChars) {
   const s = String(txt || '')
@@ -29,6 +37,12 @@ function cleanVisibleText(text) {
     .replace(/<\|?(?:analysis|final|message)\|?>/gi, '')
     .replace(/<\|?(?:tool_call|tool_calls)\|?>/gi, '')
     .replace(/<\|?(?:turn|turns)\|?>/gi, '')
+  // Models sometimes echo back the delimiters that wrap what they were given,
+  // and sometimes narrate inside them. Both are ours, not prose: left in, they
+  // leak the prompt scaffolding into the chat and into every export made from
+  // it. Removing the block can empty the message, which the empty-answer retry
+  // below then treats as the non-answer it is.
+  visible = stripPromptScaffolding(visible)
   visible = visible.replace(/```(?:json)?\s*([\s\S]*?)```/gi, (block, jsonText) => {
     try {
       const parsed = JSON.parse(jsonText.trim())
@@ -162,6 +176,7 @@ export async function streamChat({
 
   const MAX_TOOL_ROUNDS = 2
   let toolRound = 0
+  let nudgedForAnswer = false
   let retried = false
   let retriedTooLong = false
   let retriedServerError = false
@@ -387,6 +402,15 @@ export async function streamChat({
           }
         }
       }
+      // Out of tool rounds, so the next reply is the answer. Saying so is what
+      // stops a turn from ending as a row of tool pills and nothing else: with
+      // the tools merely withdrawn from the request, a model that was still
+      // working the problem just returns an empty message and burns its turn.
+      if (toolRound >= MAX_TOOL_ROUNDS && !nudgedForAnswer) {
+        nudgedForAnswer = true
+        apiMessages = [...apiMessages, { role: 'user', content: FINAL_ANSWER_NUDGE }]
+      }
+
       previousToolSegment = full
       onToolRound?.({ content: full, toolCalls, round: toolRound })
       full = ''
@@ -400,6 +424,13 @@ export async function streamChat({
     if (!full.trim() && !retried && (!previousToolSegment || toolRound > 0)) {
       retried = true
       console.warn(`${label} risposta vuota — retry${toolRound > 0 ? ' senza tools' : ''}`)
+      // The plain retry repeats the same request, so a model that answered with
+      // silence once tends to do it again. Asking for the answer explicitly is
+      // the only thing that changed between the two attempts.
+      if (!nudgedForAnswer) {
+        nudgedForAnswer = true
+        apiMessages = [...apiMessages, { role: 'user', content: FINAL_ANSWER_NUDGE }]
+      }
       full = ''
       onToken(visiblePrefix)
       continue
