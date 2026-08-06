@@ -3,10 +3,12 @@ import { useUiStrings } from '../i18n/UiStringsContext'
 
 export default function TopMenu({
   DropdownItem,
+  running = false,
   onSaveSnapshot,
   onLoadSnapshot,
   onOpenPromptSettings,
   onOpenSplash,
+  onOpenWizard,
   exportItems,
   updateAvailable = false,
 }) {
@@ -84,6 +86,9 @@ export default function TopMenu({
               </div>
             )}
           </div>
+          <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
+          {/* Off-limits mid-debate: it rebuilds the table from scratch. */}
+          <MenuItemComponent disabled={running} onClick={withClose(onOpenWizard)}>{ui.setupWizard}</MenuItemComponent>
           <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
           <MenuItemComponent onClick={withClose(onLoadSnapshot)}>{ui.loadSnapshot}</MenuItemComponent>
           <MenuItemComponent onClick={withClose(onSaveSnapshot)}>{ui.saveSnapshot}</MenuItemComponent>

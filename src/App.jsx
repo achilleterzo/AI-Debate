@@ -21,6 +21,7 @@ import InputActionButtons from './components/InputActionButtons'
 import RoundsInput from './components/RoundsInput'
 import AppModals from './components/AppModals'
 import SplashScreen from './components/SplashScreen'
+import DebateWizard from './components/DebateWizard'
 import ScrollToBottomButton from './components/ScrollToBottomButton'
 import SummaryProgressBadge from './components/SummaryProgressBadge'
 import { PALETTE } from './dataset/Palette'
@@ -41,6 +42,7 @@ import { useDebateController } from './debate/DebateController'
 import { useSnapshots } from './hooks/useSnapshots'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
 import { useMagicWand } from './hooks/useMagicWand'
+import { useDebateWizard } from './hooks/useDebateWizard'
 import { useConclusions } from './hooks/useConclusions'
 import { SUMMARY_ENDPOINT_ID, useEndpointStatuses } from './hooks/useEndpointStatuses'
 import { useAppLayout } from './hooks/useAppLayout'
@@ -116,6 +118,7 @@ function AppInner({ settings }) {
   const [endpointModal, setEndpointModal] = useState(null)
   const [customLangModal, setCustomLangModal] = useState(null)
   const [promptSettingsModal, setPromptSettingsModal] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
   const [confirmModal, setConfirmModal] = useState(null)
   const confirmActionRef = useRef(null)
   const [summary, setSummary] = useState('')
@@ -255,6 +258,16 @@ function AppInner({ settings }) {
     setLastRequest,
     ollamaOk,
   })
+  const wizard = useDebateWizard({
+    baseUrl,
+    defaultModel,
+    participants,
+    summaryModelOverride: effectiveSummaryModelOverride,
+    timeoutSec,
+    ollamaOk,
+    setLastPromptEstimate,
+    setLastRequest,
+  })
   const {
     conclusions,
     setConclusions,
@@ -361,6 +374,20 @@ function AppInner({ settings }) {
     const participant = participants[idx]
     if (!participant) return
     setCustomLangModal({ idx, initialValue: participant.reasoningLangCustom ?? '' })
+  }
+
+  /**
+   * The wizard designs a whole table, so applying it swaps the roster and the
+   * shared rules wholesale — a half-applied setup would mix two debates.
+   */
+  const handleWizardGenerate = async (config) => {
+    const result = await wizard.generate(config)
+    if (!result) return
+    setDebateMode(config.debateMode)
+    setUiLang(config.uiLang)
+    setParticipants(Debate.reindexParticipants(result.participants))
+    setGlobalConstraints(result.globalConstraints)
+    setWizardOpen(false)
   }
 
   const handleConfigureOutputLang = () => {
@@ -680,6 +707,18 @@ function AppInner({ settings }) {
           onClose={splash.close}
         />
       )}
+      {wizardOpen && (
+        <DebateWizard
+          wizard={wizard}
+          onClose={() => { wizard.cancel(); setWizardOpen(false) }}
+          onGenerate={handleWizardGenerate}
+          debateMode={debateMode}
+          debateModeOptions={DEBATE_MODE_OPTIONS}
+          uiLang={uiLang}
+          characterTypes={CHARACTER_TYPES}
+          moodSelectStyles={moodSelectStyles}
+        />
+      )}
       {/* ── left column: menu + participants ── */}
       <div className="relative z-10 w-full shrink-0 2xl:w-[800px]" style={{ width: isWideLayout ? 800 : '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10 }}>
       <div style={{ ...styles.header, borderRight: isWideLayout ? '1px solid #2e2e2e' : 'none', height: isWideLayout ? '100vh' : 'auto' }}>
@@ -692,6 +731,7 @@ function AppInner({ settings }) {
           onLoadSnapshot={handleLoadSnapshot}
           onOpenPromptSettings={handleOpenPromptSettings}
           onOpenSplash={splash.open}
+          onOpenWizard={() => setWizardOpen(true)}
           exportItems={exportItems}
           updateAvailable={updateCheck.updateAvailable}
           ollamaOk={ollamaOk}

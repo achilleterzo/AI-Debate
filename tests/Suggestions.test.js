@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   SUGGESTION_MODE,
   MAX_CONSTRAINT_CHARS,
+  buildGlobalRulesPrompt,
   buildParticipantPrompt,
   buildSuggestionPrompt,
   buildSuggestionSystemPrompt,
@@ -343,5 +344,32 @@ describe('parseParticipantDrafts', () => {
   it('reads a fenced array wrapped in prose', () => {
     const raw = 'Here you go:\n```json\n[{"name":"Eve","traits":["You focus on ethics."]}]\n```'
     expect(parseParticipantDrafts(raw)[0].name).toBe('Eve')
+  })
+})
+
+describe('buildGlobalRulesPrompt', () => {
+  it('grounds the rules in the mode and in the stated purpose', () => {
+    const prompt = buildGlobalRulesPrompt({
+      debateMode: 'decision',
+      debateModeLabel: 'Decision',
+      debateModeInstruction: 'Reach a decision.',
+      purpose: 'Pick a payment provider',
+      count: 3,
+    })
+    expect(prompt).toContain('Shared debate mode: Decision (decision). Reach a decision.')
+    expect(prompt).toContain('What this debate is for:\nPick a payment provider')
+    expect(prompt).toContain('Return exactly 3 strings in a JSON array.')
+  })
+
+  it('falls back to the mode alone when no purpose was given', () => {
+    const prompt = buildGlobalRulesPrompt({ debateMode: 'free', purpose: '   ' })
+    expect(prompt).toContain('derive the rules from the debate mode alone')
+    expect(prompt).not.toContain('What this debate is for')
+  })
+
+  it('keeps the rules collective, never aimed at one participant', () => {
+    const prompt = buildGlobalRulesPrompt({ purpose: 'anything' })
+    expect(prompt).toContain('Never name a participant')
+    expect(prompt).toContain('never assign anyone a position')
   })
 })

@@ -10,6 +10,7 @@ export default function HeaderTop({
   onLoadSnapshot,
   onOpenPromptSettings,
   onOpenSplash,
+  onOpenWizard,
   exportItems,
   updateAvailable,
   ollamaOk,
@@ -44,6 +45,7 @@ export default function HeaderTop({
         onLoadSnapshot={onLoadSnapshot}
         onOpenPromptSettings={onOpenPromptSettings}
         onOpenSplash={onOpenSplash}
+        onOpenWizard={onOpenWizard}
         exportItems={exportItems}
         updateAvailable={updateAvailable}
       />

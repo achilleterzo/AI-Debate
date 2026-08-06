@@ -274,3 +274,47 @@ describe('summary system prompts and the output language', () => {
     expect(prompt).not.toContain('language code')
   })
 })
+
+describe('participantFromDraft', () => {
+  const draft = {
+    name: 'Ada Lovelace',
+    traits: ['You argue from first principles.', 'You demand worked examples.'],
+    ageGroup: 3,
+    educationLevel: 'expert',
+    responseLength: 'medium',
+    mood: 'analytical',
+    moodIntensity: 3,
+    reasoningLang: 'en',
+  }
+
+  it('turns generated traits into the participant constraints', () => {
+    const participant = Debate.participantFromDraft(0, draft)
+    expect(participant.name).toBe('Ada Lovelace')
+    expect(participant.constraints).toEqual([
+      { text: 'You argue from first principles.', override: false },
+      { text: 'You demand worked examples.', override: false },
+    ])
+    expect(participant.ageGroup).toBe(3)
+    expect(participant.educationLevel).toBe('expert')
+    expect(participant.responseLength).toBe('medium')
+    expect(participant.mood).toBe('analytical')
+    expect(participant.moodIntensity).toBe(3)
+    expect(participant.reasoningLang).toBe('en')
+  })
+
+  it('carries the character type and the moderator role from the caller', () => {
+    const participant = Debate.participantFromDraft(1, draft, { characterType: 'historical', isModerator: true })
+    expect(participant.characterType).toBe('historical')
+    expect(participant.isModerator).toBe(true)
+    expect(participant.id).toBe(1)
+  })
+
+  it('keeps the defaults for everything the draft leaves out', () => {
+    const participant = Debate.participantFromDraft(0, { name: 'Nobody' })
+    const base = Debate.mkParticipant(0, '')
+    expect(participant.constraints).toEqual([])
+    expect(participant.mood).toBe(base.mood)
+    expect(participant.ageGroup).toBe(base.ageGroup)
+    expect(participant.model).toBe('')
+  })
+})

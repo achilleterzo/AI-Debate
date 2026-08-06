@@ -484,6 +484,31 @@ export class Debate {
     return participants.map(participant => Session.serializeParticipant(participant, Debate.sessionConstants()))
   }
 
+  /**
+   * A generated persona as a brand-new participant.
+   *
+   * Unlike applying a draft to an existing row there is nothing to preserve:
+   * the traits become the constraints and everything the draft leaves out
+   * keeps its default, so an incomplete answer degrades into a plain
+   * participant instead of a broken one.
+   */
+  static participantFromDraft(idx, draft = {}, { characterType = null, isModerator = false } = {}) {
+    const base = Debate.mkParticipant(idx, '')
+    return {
+      ...base,
+      name: draft.name || base.name,
+      characterType,
+      isModerator,
+      constraints: (draft.traits ?? []).map(trait => ({ text: trait, override: false })),
+      ...(draft.ageGroup != null ? { ageGroup: draft.ageGroup } : {}),
+      ...(draft.educationLevel ? { educationLevel: draft.educationLevel } : {}),
+      ...(draft.mood ? { mood: draft.mood } : {}),
+      ...(draft.moodIntensity != null ? { moodIntensity: draft.moodIntensity } : {}),
+      ...(Object.prototype.hasOwnProperty.call(draft, 'responseLength') ? { responseLength: draft.responseLength } : {}),
+      ...(draft.reasoningLang ? { reasoningLang: draft.reasoningLang } : {}),
+    }
+  }
+
   static reindexParticipants(participants = []) {
     return participants.map((participant, index) => ({
       ...Debate.mkParticipant(index, participant.model),
@@ -521,8 +546,12 @@ export class Debate {
    * closes or polices the round — so moving it would change *when* moderation
    * lands, not just who speaks first. Only the other participants are shuffled,
    * among the positions the moderators leave free.
+   *
+   * `lastSpeakerId` is who closed the previous round: the shuffle never hands
+   * them the opening slot, because speaking twice in a row makes them answer
+   * themselves across the round boundary.
    */
-  static buildRoundOrder(participants = [], { randomize = false, random = Math.random } = {}) {
+  static buildRoundOrder(participants = [], { randomize = false, random = Math.random, lastSpeakerId = null } = {}) {
     const ids = participants.map(participant => participant.id)
     if (!randomize || ids.length < 2) return ids
 
@@ -532,6 +561,15 @@ export class Debate {
       const current = movable[index]
       movable[index] = movable[swap]
       movable[swap] = current
+    }
+
+    // Only worth correcting when the opening slot is one of the shuffled ones:
+    // a moderator opening the round holds a fixed position by design.
+    const opensTheRound = !participants[0]?.isModerator
+    if (opensTheRound && lastSpeakerId != null && movable.length > 1 && movable[0] === lastSpeakerId) {
+      const swap = 1 + Math.floor(random() * (movable.length - 1))
+      movable[0] = movable[swap]
+      movable[swap] = lastSpeakerId
     }
 
     let cursor = 0
@@ -875,7 +913,7 @@ export class Debate {
     return { changed, participants: updated }
   }
 
-  static shouldModeratorIntervene({ actor, history = [], participants = [], roundModerationSignal = null, round = 0, roundLimit = 0 }) {
+  static shouldModeratorIntervene({ actor, history = [], participants = [], roundModerationSignal = null, round = 0 }) {
     const result = {
       shouldIntervene: false,
       scheduledFacilitation: false,
@@ -919,12 +957,15 @@ export class Debate {
     if (mode === 'facilitator') {
       const turnLabel = round + 1
       const interval = normalizeModeratorFacilitationInterval(actor.moderatorFacilitationInterval)
-      const isLastRound = roundLimit > 0 && turnLabel >= roundLimit
-      // A reactive moderation preempts the scheduled synthesis: the turn goes
-      // to containment, which is what the prompt and the rewrite guards
+      // The cadence is the whole promise of the setting: every N rounds means
+      // every N rounds, the last one included. Excluding it used to drop the
+      // only facilitation of a debate whose interval matched its length.
+      //
+      // A reactive moderation still preempts the scheduled synthesis: the turn
+      // goes to containment, which is what the prompt and the rewrite guards
       // already assume when both would apply. With an interval of 1 the two
-      // now collide every round, so the decision has to settle it here.
-      if (turnLabel % interval === 0 && !isLastRound && !moderationRequested) {
+      // collide every round, so the decision has to settle it here.
+      if (turnLabel % interval === 0 && !moderationRequested) {
         result.shouldIntervene = true
         result.scheduledFacilitation = true
         return result
@@ -1166,6 +1207,8 @@ export class Debate {
 
     let lastModerationTargets = []
     let pendingModeratorRequest = null
+    // Who closed the previous round, so the next shuffle does not open with them.
+    let lastRoundSpeakerId = null
 
     const queuedInterjections = () => {
       const queued = interjectRef.current
@@ -1204,7 +1247,8 @@ export class Debate {
       if (stopRef.current) break
       if (roundLimit > 0 && round >= roundLimit && step === 0) break
 
-      const roundOrder = Debate.buildRoundOrder(parts, { randomize: !!randomTurnOrder })
+      const roundOrder = Debate.buildRoundOrder(parts, { randomize: !!randomTurnOrder, lastSpeakerId: lastRoundSpeakerId })
+      lastRoundSpeakerId = roundOrder[roundOrder.length - 1] ?? null
 
        let roundModerationSignal = { needed: false, reason: '', targets: [] }
 
@@ -1372,7 +1416,6 @@ export class Debate {
                 participants: parts,
                 roundModerationSignal,
                 round,
-                roundLimit,
               })
           if (!moderationDecision.shouldIntervene) continue
           if (moderationDecision.reactiveModeration || extraModeratorTurn) {

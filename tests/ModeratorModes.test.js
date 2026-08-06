@@ -50,7 +50,7 @@ describe('shouldModeratorIntervene by mode', () => {
     }
   })
 
-  it('facilitator follows the configured interval, skipping the last round', () => {
+  it('facilitator follows the configured interval, last round included', () => {
     const every2 = { moderatorFacilitationInterval: 2 }
 
     // round is 0-indexed: round 1 → turn 2 (scheduled)
@@ -61,9 +61,14 @@ describe('shouldModeratorIntervene by mode', () => {
     // round 0 → turn 1 (odd, not scheduled)
     expect(decide('facilitator', { round: 0, roundLimit: 6, actorOverrides: every2 }).shouldIntervene).toBe(false)
 
-    // round 3 → turn 4 with roundLimit 4: last round, not scheduled
+    // round 3 → turn 4 with roundLimit 4: the cadence holds on the last round
     const lastRound = decide('facilitator', { round: 3, roundLimit: 4, actorOverrides: every2 })
-    expect(lastRound.shouldIntervene).toBe(false)
+    expect(lastRound.shouldIntervene).toBe(true)
+    expect(lastRound.scheduledFacilitation).toBe(true)
+
+    // an interval as long as the debate still gets its one facilitation
+    const every6 = { moderatorFacilitationInterval: 6 }
+    expect(decide('facilitator', { round: 5, roundLimit: 6, actorOverrides: every6 }).scheduledFacilitation).toBe(true)
 
     // an interval of 3 fires on turns 3 and 6
     const every3 = { moderatorFacilitationInterval: 3 }

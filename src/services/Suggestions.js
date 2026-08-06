@@ -174,6 +174,33 @@ export function buildParticipantPrompt({
   ].join('\n\n')
 }
 
+/**
+ * Shared ground rules for a debate being set up from scratch.
+ *
+ * They are derived from the mode and from what the user said the debate is
+ * for, so they constrain how everyone argues rather than what any single
+ * participant defends — that is what the personas are for.
+ */
+export function buildGlobalRulesPrompt({
+  debateMode = 'free',
+  debateModeLabel = debateMode,
+  debateModeInstruction = '',
+  purpose = '',
+  count = 3,
+}) {
+  return [
+    `Shared debate mode: ${debateModeLabel} (${debateMode}).${debateModeInstruction ? ` ${debateModeInstruction}` : ''}`,
+    purpose.trim()
+      ? `What this debate is for:\n${purpose.trim()}`
+      : 'The user has not described a purpose: derive the rules from the debate mode alone.',
+    `Write ${count} shared ground rules that keep the whole table working toward that purpose.`,
+    'Each rule applies to every participant: how to argue here, what to prioritise, what to avoid, what makes a contribution useful in this debate. Never name a participant, never assign anyone a position, never state the conclusion the debate should reach.',
+    'Write each rule as a direct instruction to the participants.',
+    `Each rule must be a single sentence, under ${MAX_SUGGESTION_CHARS} characters, self-contained and immediately usable.`,
+    `Return exactly ${count} strings in a JSON array.`,
+  ].join('\n\n')
+}
+
 const AGE_ALIASES = { child: 0, teenager: 1, teen: 1, adult: 2, mature: 3, elder: 4, elderly: 4, senior: 4 }
 const EDUCATION_VALUES = ['street', 'primary', 'proficient', 'academic', 'expert']
 const RESPONSE_LENGTH_VALUES = ['short', 'medium', 'detailed']

@@ -51,3 +51,46 @@ describe('buildRoundOrder', () => {
     expect(Debate.buildRoundOrder(moderatorsOnly, { randomize: true })).toEqual([0, 1])
   })
 })
+
+describe('buildRoundOrder across the round boundary', () => {
+  const plainRoster = [
+    { id: 0, tag: 'A', isModerator: false },
+    { id: 1, tag: 'B', isModerator: false },
+    { id: 2, tag: 'C', isModerator: false },
+  ]
+
+  it('never opens a round with whoever closed the previous one', () => {
+    for (let run = 0; run < 200; run += 1) {
+      for (const lastSpeakerId of [0, 1, 2]) {
+        const order = Debate.buildRoundOrder(plainRoster, { randomize: true, lastSpeakerId })
+        expect(order[0], `last ${lastSpeakerId}`).not.toBe(lastSpeakerId)
+        expect([...order].sort()).toEqual([0, 1, 2])
+      }
+    }
+  })
+
+  it('still lets the previous closer speak later in the round', () => {
+    const positions = new Set()
+    for (let run = 0; run < 200; run += 1) {
+      positions.add(Debate.buildRoundOrder(plainRoster, { randomize: true, lastSpeakerId: 0 }).indexOf(0))
+    }
+    expect(positions.has(0)).toBe(false)
+    expect(positions.size).toBeGreaterThan(1)
+  })
+
+  it('leaves a moderator opening slot alone, since it is fixed by design', () => {
+    const moderatorFirst = [
+      { id: 0, tag: 'M', isModerator: true },
+      { id: 1, tag: 'A', isModerator: false },
+      { id: 2, tag: 'B', isModerator: false },
+    ]
+    for (let run = 0; run < 50; run += 1) {
+      expect(Debate.buildRoundOrder(moderatorFirst, { randomize: true, lastSpeakerId: 0 })[0]).toBe(0)
+    }
+  })
+
+  it('has nothing to correct with a single movable participant', () => {
+    const roster = [{ id: 0, isModerator: true }, { id: 1, isModerator: false }]
+    expect(Debate.buildRoundOrder(roster, { randomize: true, lastSpeakerId: 1 })).toEqual([0, 1])
+  })
+})
