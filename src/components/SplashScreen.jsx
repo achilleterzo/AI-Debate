@@ -26,9 +26,10 @@ function SplashLogo() {
  * comes back next time. The steps are kept as plain data so this can grow
  * into the setup wizard without reworking the layout.
  */
-export default function SplashScreen({ showOnStartup, onShowOnStartupChange, onClose }) {
+export default function SplashScreen({ showOnStartup, onShowOnStartupChange, onClose, onStart }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.splash
+  const common = UI_STRINGS.common
 
   useEffect(() => {
     const handler = event => {
@@ -114,16 +115,27 @@ export default function SplashScreen({ showOnStartup, onShowOnStartupChange, onC
             />
             {ui.showOnStartup}
           </label>
-          <button
-            onClick={onClose}
-            autoFocus
-            style={{
-              background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff',
-              borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            {ui.start}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={onStart ?? onClose}
+              autoFocus
+              style={{
+                background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff',
+                borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              {ui.start}
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent', border: '1px solid #3a3a3a', color: '#888',
+                borderRadius: 6, padding: '7px 16px', fontSize: 12, cursor: 'pointer',
+              }}
+            >
+              {common.close}
+            </button>
+          </div>
         </div>
       </div>
     </div>

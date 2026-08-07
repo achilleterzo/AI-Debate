@@ -190,10 +190,8 @@ function AppInner({ settings }) {
 
   // Set when the chat is forked and consumed by the next start, which must not
   // treat an empty transcript as a reason to discard the branch's summary and
-  // caches. The state twin only drives the menu, which stays reachable after a
-  // fork so a full reset is still one click away.
+  // caches.
   const forkedRef = useRef(false)
-  const [forked, setForked] = useState(false)
 
   const {
     hasTopic,
@@ -437,6 +435,21 @@ function AppInner({ settings }) {
     })
   }
 
+  /**
+   * Connect the general endpoint, outside the modal.
+   *
+   * The wizard's first step needs the same effects the modal's save produces —
+   * remember the address, adopt it, refresh the model list — without the modal
+   * being on screen to host them.
+   */
+  const connectMainEndpoint = (rawValue) => {
+    const normalized = (rawValue ?? '').trim().replace(/\/$/, '')
+    if (!normalized) return
+    setEndpointHistory(Storage.saveEndpointToHistory(normalized))
+    setEndpointInput(normalized)
+    fetchModels(normalized)
+  }
+
   const handleSaveEndpoint = (rawValue) => {
     if (!activeEndpointModal) return
     const normalized = (rawValue ?? '').trim().replace(/\/$/, '')
@@ -570,7 +583,6 @@ function AppInner({ settings }) {
     memoryRef.current = []
     seqRef.current = 0
     forkedRef.current = false
-    setForked(false)
     setParticipants(prev => prev.map(resetUnlockedAffinities))
   }, [setConclusions, setMemory, setMessages, setParticipants, setSummary, setSummaryDebug, setTopicValue, forkedRef, memoryRef, seqRef, summaryRef])
 
@@ -589,7 +601,6 @@ function AppInner({ settings }) {
     setMessages([])
     setTopicValue(previousTopic)
     forkedRef.current = true
-    setForked(true)
     textareaRef.current?.focus()
   }, [messages, setMessages, setTopicValue, forkedRef, textareaRef])
 
@@ -749,6 +760,7 @@ function AppInner({ settings }) {
           showOnStartup={splash.showOnStartup}
           onShowOnStartupChange={splash.setShowOnStartup}
           onClose={splash.close}
+          onStart={() => { splash.close(); setWizardOpen(true) }}
         />
       )}
       {wizardOpen && (
@@ -761,6 +773,15 @@ function AppInner({ settings }) {
           uiLang={uiLang}
           characterTypes={CHARACTER_TYPES}
           moodSelectStyles={moodSelectStyles}
+          endpointValue={endpointInput || DEFAULT_URL}
+          endpointHistory={endpointHistory}
+          onConnect={connectMainEndpoint}
+          connecting={connecting}
+          connectError={connectError}
+          ollamaOk={ollamaOk}
+          models={models}
+          defaultModel={defaultModel}
+          onDefaultModelChange={setDefaultModel}
         />
       )}
       {/* ── left column: menu + participants ── */}
@@ -776,6 +797,9 @@ function AppInner({ settings }) {
           onOpenPromptSettings={handleOpenPromptSettings}
           onOpenSplash={splash.open}
           onOpenWizard={() => setWizardOpen(true)}
+          onNewChat={handleReset}
+          onFork={handleFork}
+          canFork={!running && messages.length > 0}
           exportItems={exportItems}
           updateAvailable={updateCheck.updateAvailable}
           ollamaOk={ollamaOk}
@@ -1032,9 +1056,6 @@ function AppInner({ settings }) {
           onStop={handleStop}
           onIntervene={handleInterjection}
           onResume={() => handleResume()}
-          onReset={handleReset}
-          onFork={handleFork}
-          forked={forked}
         />
         </div>{/* end controls row */}
         </div>{/* end column wrapper */}

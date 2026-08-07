@@ -171,7 +171,8 @@ export default function PromptSettingsModal({
                     {TOOL_SETTINGS.map(tool => {
                       const enabled = enabledTools?.[tool.id] !== false
                       return (
-                        <div key={tool.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '7px 9px', border: '1px solid #252525', borderRadius: 7, background: '#101010', opacity: running ? 0.55 : 1 }}>
+                        <div key={tool.id} style={{ border: '1px solid #252525', borderRadius: 7, background: '#101010', opacity: running ? 0.55 : 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '7px 9px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                             <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{tool.icon}</span>
                             <span style={{ fontSize: 12, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ui[tool.labelKey]} <span style={{ color: '#777' }}>({tool.id})</span></span>
@@ -187,6 +188,21 @@ export default function PromptSettingsModal({
                           >
                             <div style={{ position: 'absolute', top: 2, left: enabled ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
                           </div>
+                          </div>
+                          {tool.id === 'fetch_url' && enabled && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '0 9px 8px' }}>
+                              <span style={{ fontSize: 11, color: '#777', marginRight: 2 }}>{ui.pageBlockLabel}</span>
+                              {PAGE_BLOCK_STEPS.map(step => (
+                                <button
+                                  key={step}
+                                  onClick={() => !running && onPageBlockKbChange?.(step)}
+                                  style={{ background: pageBlockKb === step ? '#2b3a2b' : 'transparent', border: `1px solid ${pageBlockKb === step ? '#4ade80' : '#2e2e2e'}`, color: pageBlockKb === step ? '#4ade80' : '#999', borderRadius: 6, padding: '3px 9px', cursor: running ? 'default' : 'pointer', fontSize: 11 }}
+                                >
+                                  {step}k
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -206,19 +222,6 @@ export default function PromptSettingsModal({
                     style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 12 }}
                   />
                   <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.searchApiKeyHint}</span>
-                  <label style={{ fontSize: 11, color: '#999', marginTop: 6 }}>{ui.pageBlockLabel}</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {PAGE_BLOCK_STEPS.map(step => (
-                      <button
-                        key={step}
-                        onClick={() => !running && onPageBlockKbChange?.(step)}
-                        style={{ background: pageBlockKb === step ? '#2b3a2b' : 'transparent', border: `1px solid ${pageBlockKb === step ? '#4ade80' : '#2e2e2e'}`, color: pageBlockKb === step ? '#4ade80' : '#999', borderRadius: 6, padding: '4px 10px', cursor: running ? 'default' : 'pointer', fontSize: 12 }}
-                      >
-                        {step}k
-                      </button>
-                    ))}
-                  </div>
-                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.pageBlockHint}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
                   <span style={{ fontSize: 12, color: '#888' }}>{appUi.timeout}</span>

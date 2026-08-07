@@ -55,7 +55,7 @@ export const SUMMARY_ACCUMULATE_STEPS = [2, 4, 8, 16, 32, 64]
 // truncated — the rest stays reachable through the block number — so this is a
 // context budget per call rather than a limit on what can be read.
 export const DEFAULT_PAGE_BLOCK_KB = 16
-export const PAGE_BLOCK_STEPS = [16, 32, 64, 128, 256]
+export const PAGE_BLOCK_STEPS = [8, 16, 32, 64, 128, 256]
 export const MIN_PAGE_BLOCK_KB = PAGE_BLOCK_STEPS[0]
 export const MAX_PAGE_BLOCK_KB = PAGE_BLOCK_STEPS[PAGE_BLOCK_STEPS.length - 1]
 

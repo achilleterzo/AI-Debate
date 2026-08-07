@@ -1542,7 +1542,22 @@ export class Debate {
         // payload carries no user turn at all — which is exactly the shape of
         // the very first turn, where the topic lives in the system prompt.
         if (!contextMessages.some(message => message.role === 'user')) {
-          contextMessages.push({ role: 'user', content: '<turn_request>\nThe debate starts now. Give your opening statement on the active topic, staying in character and following your system instructions.\n</turn_request>' })
+          // "Give your opening statement" alone reads as a writing task, and a
+          // model that reads it that way looks nothing up: measured, Gemma
+          // called no tool in 3 runs out of 3 on that wording, and named the
+          // subject to look up it called one in 3 out of 3. Naming the subject
+          // is what carries the cue — asking to "verify any figure" in the
+          // abstract did not move it.
+          const openingTopic = [...realHistory].reverse()
+            .find(message => message.role === 'topic' && message.content?.trim())?.content.trim() ?? ''
+          const subject = openingTopic.length > 200 ? `${openingTopic.slice(0, 200)}…` : openingTopic
+          const researchCue = subject
+            ? `Before writing, look up the current facts and figures on "${subject}" that your argument will rest on.`
+            : 'Before writing, look up the current facts and figures your argument will rest on.'
+          contextMessages.push({
+            role: 'user',
+            content: `<turn_request>\nThe debate starts now. ${researchCue} Then give your opening statement on the active topic, staying in character and following your system instructions.\n</turn_request>`,
+          })
         }
 
         // Links posted with the topic are named, not opened. Announcing them

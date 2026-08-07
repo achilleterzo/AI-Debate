@@ -11,6 +11,9 @@ export default function HeaderTop({
   onOpenPromptSettings,
   onOpenSplash,
   onOpenWizard,
+  onNewChat,
+  onFork,
+  canFork,
   exportItems,
   updateAvailable,
   ollamaOk,
@@ -46,6 +49,9 @@ export default function HeaderTop({
         onOpenPromptSettings={onOpenPromptSettings}
         onOpenSplash={onOpenSplash}
         onOpenWizard={onOpenWizard}
+        onNewChat={onNewChat}
+        onFork={onFork}
+        canFork={canFork}
         exportItems={exportItems}
         updateAvailable={updateAvailable}
       />

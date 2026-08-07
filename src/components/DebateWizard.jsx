@@ -4,10 +4,10 @@ import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { OUTPUT_LANG_CUSTOM, isCustomOutputLanguage } from '../prompts/LanguagePrompt'
 import { WIZARD_MAX_PARTICIPANTS, WIZARD_MIN_PARTICIPANTS, WIZARD_STATUS } from '../hooks/useDebateWizard'
+import { DEFAULT_URL as DEFAULT_ENDPOINT } from '../settings/Settings'
 
 const languageOptions = UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code }))
 
-const STEP_COUNT = 3
 
 // The card clips its content, so the menu is portalled to the body and lifted
 // above the wizard's own 1200 overlay rather than being cut off inside it.
@@ -52,6 +52,14 @@ export default function DebateWizard({
   uiLang,
   characterTypes = [],
   moodSelectStyles,
+  endpointValue = '',
+  onConnect,
+  connecting = false,
+  connectError = null,
+  ollamaOk = null,
+  models = [],
+  defaultModel = '',
+  onDefaultModelChange,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.wizard
@@ -60,13 +68,22 @@ export default function DebateWizard({
   const participantsUi = UI_STRINGS.participants
   const modeLabels = UI_STRINGS.modes
 
-  const [step, setStep] = useState(1)
+  // Whether the connection step is part of this run is decided once, when the
+  // wizard opens. Recomputing it live would insert or drop a step underneath
+  // someone already walking through them.
+  const [requiresConnection] = useState(() => !wizard.available)
+  const stepIds = requiresConnection ? ['connection', 'mode', 'people', 'purpose'] : ['mode', 'people', 'purpose']
+  const [stepIndex, setStepIndex] = useState(0)
+  const currentStep = stepIds[stepIndex]
+  const isLastStep = stepIndex === stepIds.length - 1
+
+  const [endpoint, setEndpoint] = useState(endpointValue)
   const [mode, setMode] = useState(debateMode)
   const [lang, setLang] = useState(uiLang)
   const [customLang, setCustomLang] = useState(isCustomOutputLanguage(uiLang) ? uiLang : '')
   const [count, setCount] = useState(WIZARD_MIN_PARTICIPANTS)
   const [characterType, setCharacterType] = useState(null)
-  const [withModerator, setWithModerator] = useState(false)
+  const [withModerator, setWithModerator] = useState(true)
   const [purpose, setPurpose] = useState('')
 
   const running = wizard.isRunning
@@ -83,6 +100,11 @@ export default function DebateWizard({
 
   const resolvedLang = usingCustomLang ? customLang.trim() : lang
   const canGenerate = wizard.available && !running && !!resolvedLang
+  // The connection step is a gate, not a suggestion: nothing further in the
+  // wizard can be produced without a reachable endpoint and a model.
+  const canLeaveStep = currentStep === 'connection' ? wizard.available
+    : currentStep === 'mode' ? !!resolvedLang
+    : true
 
   const unavailableNote = wizard.unavailableReason === 'offline'
     ? appUi.wandOffline
@@ -90,7 +112,20 @@ export default function DebateWizard({
       ? appUi.wandNoModel
       : null
 
-  const stepTitles = [ui.step1Title, ui.step2Title, ui.step3Title]
+  const stepTitleFor = {
+    connection: ui.stepConnectionTitle,
+    mode: ui.step1Title,
+    people: ui.step2Title,
+    purpose: ui.step3Title,
+  }
+  const stepTitles = stepIds.map(id => stepTitleFor[id])
+
+  const cloudModels = models.filter(entry => entry.endsWith('cloud')).sort()
+  const localModels = models.filter(entry => !entry.endsWith('cloud')).sort()
+  const modelOptions = [
+    ...(cloudModels.length ? [{ label: common.cloud, options: cloudModels.map(entry => ({ value: entry, label: entry })) }] : []),
+    ...(localModels.length ? [{ label: common.local, options: localModels.map(entry => ({ value: entry, label: entry })) }] : []),
+  ]
 
   const submit = () => {
     if (!canGenerate) return
@@ -133,9 +168,22 @@ export default function DebateWizard({
         <div style={{ padding: '20px 24px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f0' }}>{ui.title}</div>
-            <span style={{ fontSize: 11, color: '#777', fontFamily: 'var(--mono)' }}>{ui.stepOf(step, STEP_COUNT)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 11, color: '#777', fontFamily: 'var(--mono)' }}>{ui.stepOf(stepIndex + 1, stepIds.length)}</span>
+              {/* Disabled while generating, for the same reason Escape and the
+                  backdrop are: the run would keep going with nothing showing it. */}
+              <button
+                onClick={onClose}
+                disabled={running}
+                title={common.close}
+                aria-label={common.close}
+                style={{ background: 'transparent', border: 'none', color: running ? '#3a3a3a' : '#666', fontSize: 16, lineHeight: 1, cursor: running ? 'default' : 'pointer', padding: 0 }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
-          <p style={{ fontSize: 12, color: '#9a9a9a', lineHeight: 1.5 }}>{ui.tagline}</p>
+          <p style={{ fontSize: 12, color: '#9a9a9a', lineHeight: 1.5 }}>{requiresConnection ? ui.taglineWithConnection : ui.tagline}</p>
           <div style={{ display: 'flex', gap: 6 }}>
             {stepTitles.map((title, index) => (
               <div
@@ -143,16 +191,68 @@ export default function DebateWizard({
                 title={title}
                 style={{
                   flex: 1, height: 3, borderRadius: 2,
-                  background: index + 1 <= step ? '#7c6aff' : '#2e2e2e',
+                  background: index <= stepIndex ? '#7c6aff' : '#2e2e2e',
                 }}
               />
             ))}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#ddd' }}>{stepTitles[step - 1]}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#ddd' }}>{stepTitles[stepIndex]}</div>
         </div>
 
         <div style={{ padding: '0 24px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {step === 1 && (
+          {currentStep === 'connection' && (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <FieldLabel hint={ui.connectionHint}>{appUi.connect}</FieldLabel>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    value={endpoint}
+                    onChange={event => setEndpoint(event.target.value)}
+                    onKeyDown={event => { if (event.key === 'Enter' && endpoint.trim()) onConnect?.(endpoint) }}
+                    placeholder={DEFAULT_ENDPOINT}
+                    spellCheck={false}
+                    autoFocus
+                    disabled={connecting}
+                    style={{ flex: 1, background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '7px 10px', fontSize: 13, fontFamily: 'var(--mono)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onConnect?.(endpoint)}
+                    disabled={connecting || !endpoint.trim()}
+                    style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '7px 16px', fontSize: 12, fontWeight: 600, cursor: connecting || !endpoint.trim() ? 'default' : 'pointer', opacity: connecting || !endpoint.trim() ? 0.6 : 1 }}
+                  >
+                    {connecting ? appUi.connecting : appUi.connect}
+                  </button>
+                </div>
+                {connectError
+                  ? <div style={{ fontSize: 12, color: '#f87171' }}>{connectError}</div>
+                  : ollamaOk === true
+                    ? <div style={{ fontSize: 12, color: '#4ade80' }}>{ui.connectionOk(models.length)}</div>
+                    : null}
+              </div>
+
+              {/* The wizard writes personas with a model, so choosing one is
+                  part of connecting rather than a later detail. */}
+              {models.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <FieldLabel>{appUi.defaultModel}</FieldLabel>
+                  <ReactSelect
+                    options={modelOptions}
+                    value={defaultModel ? { value: defaultModel, label: defaultModel } : null}
+                    onChange={option => onDefaultModelChange?.(option?.value ?? '')}
+                    placeholder={common.chooseModel}
+                    isDisabled={connecting}
+                    styles={languageSelectStyles}
+                    menuPortalTarget={typeof document === 'undefined' ? null : document.body}
+                  />
+                </div>
+              )}
+
+              {!wizard.available && <div style={{ fontSize: 12, color: '#7d7d7d' }}>{ui.connectionRequired}</div>}
+            </>
+          )}
+
+          {currentStep === 'mode' && (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <FieldLabel>{common.debateMode}</FieldLabel>
@@ -196,7 +296,7 @@ export default function DebateWizard({
             </>
           )}
 
-          {step === 2 && (
+          {currentStep === 'people' && (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <FieldLabel hint={withModerator ? ui.moderatorTotal(count) : null}>{ui.participantsCount}</FieldLabel>
@@ -231,7 +331,7 @@ export default function DebateWizard({
             </>
           )}
 
-          {step === 3 && (
+          {currentStep === 'purpose' && (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <FieldLabel hint={ui.purposeHint}>{ui.purposeTitle}</FieldLabel>
@@ -272,17 +372,17 @@ export default function DebateWizard({
           padding: '12px 24px', borderTop: '1px solid #2e2e2e', background: '#141414', flexWrap: 'wrap',
         }}>
           <button
-            onClick={() => step === 1 ? onClose() : setStep(step - 1)}
+            onClick={() => stepIndex === 0 ? onClose() : setStepIndex(stepIndex - 1)}
             disabled={running}
             style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '7px 16px', fontSize: 12, cursor: running ? 'default' : 'pointer', opacity: running ? 0.6 : 1 }}
           >
-            {step === 1 ? common.cancel : ui.back}
+            {stepIndex === 0 ? common.cancel : ui.back}
           </button>
-          {step < STEP_COUNT ? (
+          {!isLastStep ? (
             <button
-              onClick={() => setStep(step + 1)}
-              disabled={step === 1 && !resolvedLang}
-              style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: step === 1 && !resolvedLang ? 'default' : 'pointer', opacity: step === 1 && !resolvedLang ? 0.6 : 1 }}
+              onClick={() => setStepIndex(stepIndex + 1)}
+              disabled={!canLeaveStep}
+              style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: canLeaveStep ? 'pointer' : 'default', opacity: canLeaveStep ? 1 : 0.6 }}
             >
               {ui.next}
             </button>

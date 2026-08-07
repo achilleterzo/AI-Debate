@@ -9,6 +9,9 @@ export default function TopMenu({
   onOpenPromptSettings,
   onOpenSplash,
   onOpenWizard,
+  onNewChat,
+  onFork,
+  canFork = false,
   exportItems,
   updateAvailable = false,
 }) {
@@ -17,6 +20,7 @@ export default function TopMenu({
   const MenuItemComponent = DropdownItem
   const menuRef = useRef(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [newOpen, setNewOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
 
   useEffect(() => {
@@ -24,6 +28,7 @@ export default function TopMenu({
     const handler = event => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setMenuOpen(false)
+        setNewOpen(false)
         setExportOpen(false)
       }
     }
@@ -34,6 +39,7 @@ export default function TopMenu({
   const withClose = onClick => () => {
     onClick?.()
     setMenuOpen(false)
+    setNewOpen(false)
     setExportOpen(false)
   }
 
@@ -43,7 +49,7 @@ export default function TopMenu({
         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 22, padding: '2px 4px', lineHeight: 1, position: 'relative' }}
         onClick={() => setMenuOpen(v => {
           const next = !v
-          if (!next) setExportOpen(false)
+          if (!next) { setNewOpen(false); setExportOpen(false) }
           return next
         })}
         title={updateAvailable ? `${ui.title} — ${ui.updateBadge}` : ui.title}
@@ -63,6 +69,32 @@ export default function TopMenu({
           background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8,
           padding: '6px 0', minWidth: 210, boxShadow: '0 4px 16px #0008',
         }}>
+          <div
+            style={{ position: 'relative' }}
+            onMouseEnter={() => setNewOpen(true)}
+            onMouseLeave={() => setNewOpen(false)}
+          >
+            <MenuItemComponent onClick={() => setNewOpen(v => !v)}>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                {ui.newMenu}
+                <span style={{ color: '#666', fontSize: 11 }}>▸</span>
+              </span>
+            </MenuItemComponent>
+            {newOpen && (
+              <div style={{
+                position: 'absolute', left: '100%', top: -6, zIndex: 261,
+                background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8,
+                padding: '6px 0', minWidth: 200, boxShadow: '0 4px 16px #0008',
+              }}>
+                <MenuItemComponent disabled={running} onClick={withClose(onNewChat)}>{ui.newChat}</MenuItemComponent>
+                {/* A fork needs a transcript to branch from. */}
+                <MenuItemComponent disabled={!canFork} onClick={withClose(onFork)}>{ui.newFork}</MenuItemComponent>
+                {/* Off-limits mid-debate: it rebuilds the table from scratch. */}
+                <MenuItemComponent disabled={running} onClick={withClose(onOpenWizard)}>{ui.setupWizard}</MenuItemComponent>
+              </div>
+            )}
+          </div>
+          <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
           <div
             style={{ position: 'relative' }}
             onMouseEnter={() => setExportOpen(true)}
@@ -86,9 +118,6 @@ export default function TopMenu({
               </div>
             )}
           </div>
-          <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
-          {/* Off-limits mid-debate: it rebuilds the table from scratch. */}
-          <MenuItemComponent disabled={running} onClick={withClose(onOpenWizard)}>{ui.setupWizard}</MenuItemComponent>
           <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
           <MenuItemComponent onClick={withClose(onLoadSnapshot)}>{ui.loadSnapshot}</MenuItemComponent>
           <MenuItemComponent onClick={withClose(onSaveSnapshot)}>{ui.saveSnapshot}</MenuItemComponent>
