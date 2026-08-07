@@ -47,6 +47,10 @@ export default function AppModals({
   running,
   enabledTools,
   onEnabledToolsChange,
+  searchApiKey,
+  onSearchApiKeyChange,
+  pageBlockKb,
+  onPageBlockKbChange,
 }) {
   return (
     <>
@@ -103,6 +107,10 @@ export default function AppModals({
           running={running}
           enabledTools={enabledTools}
           onEnabledToolsChange={onEnabledToolsChange}
+          searchApiKey={searchApiKey}
+          onSearchApiKeyChange={onSearchApiKeyChange}
+          pageBlockKb={pageBlockKb}
+          onPageBlockKbChange={onPageBlockKbChange}
         />
       )}
       {customLangModal && (

@@ -1,7 +1,7 @@
 import { Web } from '../services/Web'
 import { getProvider } from '../providers/index.js'
 import { stripPromptScaffolding } from '../prompts/PromptTags'
-import { LLM_TOOLS } from '../tools'
+import { LLM_TOOLS, executeFetchUrl } from '../tools'
 
 /**
  * Sent when the turn has no tool rounds left, or when the model answered with
@@ -159,7 +159,6 @@ export async function streamChat({
   onComplete = null,
   onEstimate = null,
   noResultsMessage = query => `No results for: ${query}`,
-  sourceUrls = [],
   executeTool = null,
   onToolInvocation = null,
   onToolRound = null,
@@ -383,18 +382,20 @@ export async function streamChat({
             console.log(`[webSearch] cache hit (tool loop): "${queryStr}"`)
             apiMessages = [...apiMessages, { role: 'tool', tool_name: 'web_search', content: cachedResult }]
           } else {
-            const sourceResult = await Web.searchTopicSources(queryStr, { sourceUrls })
-            if (sourceResult) {
-              console.log(`[webSearch] source hit: "${queryStr}"`)
-              apiMessages = [...apiMessages, { role: 'tool', tool_name: 'web_search', content: sourceResult }]
-              continue
-            }
             onToken(separateToolRounds
               ? [full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n')
               : [visiblePrefix, full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n'))
             const result = await Web.search(queryStr, { noResultsMessage: noResultsMessage(queryStr) })
             apiMessages = [...apiMessages, { role: 'tool', tool_name: 'web_search', content: result }]
           }
+        } else if (toolName === 'fetch_url') {
+          const targetUrl = String(toolArgs?.url ?? '')
+          const pageLabel = Number(toolArgs?.page) > 1 ? ` (block ${Number(toolArgs.page)})` : ''
+          onToken(separateToolRounds
+            ? [full, `*🌐 Reading: ${targetUrl}${pageLabel}...*`].filter(Boolean).join('\n\n')
+            : [visiblePrefix, full, `*🌐 Reading: ${targetUrl}${pageLabel}...*`].filter(Boolean).join('\n\n'))
+          const result = await executeFetchUrl(toolArgs)
+          apiMessages = [...apiMessages, { role: 'tool', tool_name: 'fetch_url', content: result }]
         } else if (typeof executeTool === 'function') {
           const result = await executeTool(toolName, toolArgs)
           if (result != null) {

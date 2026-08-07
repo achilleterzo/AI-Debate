@@ -102,6 +102,7 @@ function AppInner({ settings }) {
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     enabledTools, setEnabledTools,
+    searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
   } = settings
   // The overrides stay stored while the switch is off, so turning it back on
   // restores the previous choice; what the operations see is the gated value.
@@ -187,9 +188,16 @@ function AppInner({ settings }) {
     summaryAccumulateThreshold,
   })
 
+  // Set when the chat is forked and consumed by the next start, which must not
+  // treat an empty transcript as a reason to discard the branch's summary and
+  // caches. The state twin only drives the menu, which stays reachable after a
+  // fork so a full reset is still one click away.
+  const forkedRef = useRef(false)
+  const [forked, setForked] = useState(false)
+
   const {
-    topic,
-    setTopic,
+    hasTopic,
+    syncTopicFlag,
     topicRef,
     textareaRef,
     topicWrapRef,
@@ -213,6 +221,7 @@ function AppInner({ settings }) {
     roundLimitRef,
     summaryRef,
     turnRef,
+    forkedRef,
     startDebate,
     queueInterjection,
     setMessages,
@@ -248,7 +257,7 @@ function AppInner({ settings }) {
     participants,
     summaryModelOverride: effectiveSummaryModelOverride,
     messages,
-    topic,
+    topicRef,
     attachedDocs,
     summaryRef,
     uiLang,
@@ -560,8 +569,42 @@ function AppInner({ settings }) {
     setMemory([])
     memoryRef.current = []
     seqRef.current = 0
+    forkedRef.current = false
+    setForked(false)
     setParticipants(prev => prev.map(resetUnlockedAffinities))
-  }, [setConclusions, setMemory, setMessages, setParticipants, setSummary, setSummaryDebug, setTopicValue, memoryRef, seqRef, summaryRef])
+  }, [setConclusions, setMemory, setMessages, setParticipants, setSummary, setSummaryDebug, setTopicValue, forkedRef, memoryRef, seqRef, summaryRef])
+
+  /**
+   * Branch from the debate instead of ending it.
+   *
+   * Everything the branch earned survives - memory, conclusions, affinities,
+   * the summary, the pages already fetched - and only the transcript goes. The
+   * topic returns to the composer so it can be edited into the variation the
+   * fork exists to try. `seqRef` is deliberately not reset: the conclusions
+   * that stay keep their sequence numbers, and restarting the counter would
+   * make new messages collide with them.
+   */
+  const forkChat = useCallback(() => {
+    const previousTopic = [...messages].reverse().find(message => message.role === 'topic')?.content ?? ''
+    setMessages([])
+    setTopicValue(previousTopic)
+    forkedRef.current = true
+    setForked(true)
+    textareaRef.current?.focus()
+  }, [messages, setMessages, setTopicValue, forkedRef, textareaRef])
+
+  const handleFork = () => {
+    if (running || messages.length === 0) return
+    openConfirm(
+      {
+        title: ui.forkChatTitle,
+        message: ui.forkChatMessage,
+        confirmLabel: ui.forkButton,
+        danger: false,
+      },
+      () => forkChat(),
+    )
+  }
 
   const handleReset = () => {
     if (running) return
@@ -577,7 +620,7 @@ function AppInner({ settings }) {
   }
 
   const allModelsSet = participants.length >= 2 && participants.every(p => Debate.hasConfiguredModel(p, defaultModel))
-  const canStart  = topic.trim() && allModelsSet && !running && ollamaOk
+  const canStart  = hasTopic && allModelsSet && !running && ollamaOk
   const canResume = messages.length > 0 && allModelsSet && !running && ollamaOk
 
   const handleOpenPromptSettings = () => {
@@ -621,7 +664,6 @@ function AppInner({ settings }) {
       baseUrl,
       moderationCooling,
       summarizeAttachments,
-      topic,
       messages,
       summary,
       conclusions,
@@ -647,6 +689,7 @@ function AppInner({ settings }) {
       setSummary,
     },
     refs: { sequence: seqRef, summary: summaryRef, turn: turnRef },
+    topicRef,
     setTopicValue,
     invalidSnapshotMessage: ui.invalidJsonFile,
   })
@@ -940,7 +983,7 @@ function AppInner({ settings }) {
         {/* ── row: topic input + buttons ── */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
         <TopicComposer
-          topic={topic}
+          hasTopic={hasTopic}
           topicRef={topicRef}
           textareaRef={textareaRef}
           topicWrapRef={topicWrapRef}
@@ -953,7 +996,7 @@ function AppInner({ settings }) {
           canStart={canStart}
           allModelsSet={allModelsSet}
           ollamaOk={ollamaOk}
-          setTopic={setTopic}
+          syncTopicFlag={syncTopicFlag}
           flushTopic={flushTopic}
           setTopicValue={setTopicValue}
           handleStart={handleStart}
@@ -982,7 +1025,7 @@ function AppInner({ settings }) {
           canResume={canResume}
           allModelsSet={allModelsSet}
           ollamaOk={ollamaOk}
-          topic={topic}
+          hasTopic={hasTopic}
           topicRef={topicRef}
           textareaRef={textareaRef}
           onStart={() => handleStart()}
@@ -990,6 +1033,8 @@ function AppInner({ settings }) {
           onIntervene={handleInterjection}
           onResume={() => handleResume()}
           onReset={handleReset}
+          onFork={handleFork}
+          forked={forked}
         />
         </div>{/* end controls row */}
         </div>{/* end column wrapper */}
@@ -1040,6 +1085,10 @@ function AppInner({ settings }) {
         running={running}
         enabledTools={enabledTools}
         onEnabledToolsChange={setEnabledTools}
+        searchApiKey={searchApiKey}
+        onSearchApiKeyChange={setSearchApiKey}
+        pageBlockKb={pageBlockKb}
+        onPageBlockKbChange={setPageBlockKb}
       />
       </div>
     </div>

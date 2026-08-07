@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Storage } from '../data/Storage'
 import { Debate } from '../debate/Debate'
+import { Web } from '../services/Web'
 import {
   DEBUG_MODE_STORAGE_KEY,
   DEFAULT_DYNAMIC_AFFINITY,
@@ -13,10 +14,13 @@ import {
   DEFAULT_SUMMARY_MODEL_ENABLED,
   DEFAULT_SUMMARY_MODEL_OVERRIDE,
   DEFAULT_SUMMARIZE_ATTACHMENTS,
+  DEFAULT_PAGE_BLOCK_KB,
+  DEFAULT_SEARCH_API_KEY,
   DEFAULT_TIMEOUT_SEC,
   DEFAULT_URL,
   DEFAULT_USE_SUMMARY,
   normalizeModerationCooling,
+  normalizePageBlockKb,
 } from '../settings/Settings'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from '../prompts/DefaultGeneralPersonalityInstructions'
 import { DEFAULT_DEBATE_MODE, normalizeDebateMode } from '../prompts/Modes'
@@ -52,6 +56,8 @@ export function useAppSettings() {
   const [defaultModel, setDefaultModel] = useState(saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL)
   const [debateMode, setDebateMode] = useState(() => normalizeDebateMode(saved?.debateMode ?? DEFAULT_DEBATE_MODE))
   const [enabledTools, setEnabledTools] = useState(() => normalizeEnabledTools(saved?.enabledTools ?? DEFAULT_ENABLED_TOOLS))
+  const [searchApiKey, setSearchApiKey] = useState(saved?.searchApiKey ?? DEFAULT_SEARCH_API_KEY)
+  const [pageBlockKb, setPageBlockKb] = useState(() => normalizePageBlockKb(saved?.pageBlockKb ?? DEFAULT_PAGE_BLOCK_KB))
 
   return {
     saved,
@@ -70,6 +76,7 @@ export function useAppSettings() {
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     debateMode, setDebateMode, enabledTools, setEnabledTools,
+    searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
   }
 }
 
@@ -81,8 +88,17 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     generalPersonalityInstructions, defaultModel,
     debateMode,
     enabledTools,
+    searchApiKey,
+    pageBlockKb,
   } = settings
   const { conclusionModel, customConclusionPrompt, standardConclusionPrompt } = conclusions
+
+  // The web service is a static class reached from non-React code, so the
+  // settings have to be pushed into it rather than read out of a context.
+  useEffect(() => {
+    Web.configure({ searchApiKey, pageBlockKb: normalizePageBlockKb(pageBlockKb) })
+  }, [searchApiKey, pageBlockKb])
+
   useEffect(() => {
     Storage.saveSettings({
       participants: Debate.serializeParticipantsForSession(participants),
@@ -96,6 +112,8 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       generalPersonalityInstructions: generalPersonalityInstructions ?? DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS,
       debateMode: normalizeDebateMode(debateMode),
       enabledTools,
+      searchApiKey: searchApiKey ?? DEFAULT_SEARCH_API_KEY,
+      pageBlockKb: normalizePageBlockKb(pageBlockKb),
     })
-  }, [participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools])
+  }, [participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
 }

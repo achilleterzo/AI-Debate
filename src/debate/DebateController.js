@@ -55,7 +55,6 @@ export function useDebateController({
   const baseUrlRef = useRef(baseUrl)
   const useSummaryRef = useRef(useSummary)
   const characterContextRef = useRef({})
-  const fetchedUrlsRef = useRef({})
 
   const conclusionConvRef = useRef('')
 
@@ -96,7 +95,6 @@ export function useDebateController({
     handleRequest: request => setLastRequest({ request }),
     handleResponse: exchange => setLastRequest(exchange),
     characterContextRef,
-    fetchedUrlsRef,
     setMessages,
     roundLimitRef,
     nextSeq,
@@ -159,13 +157,14 @@ export function useDebateController({
     uiLang,
   ])
 
-  const startDebate = useCallback(({ resumeMessages, resumeRound, resumeSummary, injectTopic, extraRounds = 0 }) => {
+  const startDebate = useCallback(({ resumeMessages, resumeRound, resumeSummary, injectTopic, extraRounds = 0, preserveContext = false }) => {
     Debate.start({
       resumeMessages,
       resumeRound,
       resumeSummary,
       injectTopic,
       extraRounds,
+      preserveContext,
       runtime: createRuntime(),
     })
   }, [createRuntime])

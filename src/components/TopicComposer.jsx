@@ -1,10 +1,11 @@
+import { useEffect } from 'react'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { SUGGESTION_MODE } from '../services/Suggestions'
 import MagicWand from './MagicWand'
 import { styles } from './Style'
 
 export default function TopicComposer({
-  topic,
+  hasTopic,
   topicRef,
   textareaRef,
   topicWrapRef,
@@ -17,7 +18,7 @@ export default function TopicComposer({
   canStart,
   allModelsSet,
   ollamaOk,
-  setTopic,
+  syncTopicFlag,
   flushTopic,
   setTopicValue,
   handleStart,
@@ -29,18 +30,24 @@ export default function TopicComposer({
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
 
+  // The field is uncontrolled — its text lives in the ref, so React never
+  // writes it back. Restoring it on mount is what survives a remount, and it
+  // reads the ref outside render, where a ref may be read.
+  useEffect(() => {
+    if (textareaRef.current && topicRef.current) textareaRef.current.value = topicRef.current
+  }, [textareaRef, topicRef])
+
   return (
     <div ref={topicWrapRef} style={{ position: 'relative', flex: 1, display: 'flex' }}>
       <textarea
         ref={textareaRef}
-        style={{ ...styles.textarea, flex: 1, ...(wand && (topic.trim() || messages.length > 0 || attachedDocs.length > 0) ? { paddingRight: 42 } : {}) }}
-        defaultValue={topic}
+        style={{ ...styles.textarea, flex: 1, ...(wand && (hasTopic || messages.length > 0 || attachedDocs.length > 0) ? { paddingRight: 42 } : {}) }}
         onChange={event => {
           topicRef.current = event.target.value
-          // Keep the state in sync on every keystroke: the Start/Continue
-          // buttons derive their enabled state from it, so deferring to blur
-          // left them stale while typing.
-          setTopic(event.target.value)
+          // The Start/Continue buttons derive their enabled state from whether
+          // the field is empty, so that flag is updated on every keystroke and
+          // never deferred to blur — it just costs a render only when it flips.
+          syncTopicFlag(event.target.value)
           if (event.target.value && topicDropOpen) setTopicDropOpen(false)
         }}
         onBlur={flushTopic}
@@ -65,7 +72,7 @@ export default function TopicComposer({
       />
       {/* The wand can use either the existing debate or attached documents as
           source material for a shared topic / continuation suggestion. */}
-      {wand && (topic.trim() || messages.length > 0 || attachedDocs.length > 0) && (
+      {wand && (hasTopic || messages.length > 0 || attachedDocs.length > 0) && (
         <div style={{ position: 'absolute', right: 8, top: 6 }}>
           <MagicWand
             wand={wand}

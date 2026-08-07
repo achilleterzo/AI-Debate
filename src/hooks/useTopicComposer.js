@@ -14,6 +14,7 @@ export function useTopicComposer({
   roundLimitRef,
   summaryRef,
   turnRef,
+  forkedRef,
   startDebate,
   queueInterjection,
   setMessages,
@@ -22,24 +23,39 @@ export function useTopicComposer({
   setSummaryInProgress,
   setHeaderOpen,
 }) {
-  const [topic, setTopic] = useState('')
+  // The text itself lives in the ref, never in state. Nothing rendered by App
+  // needs the characters — the buttons and labels only ask whether the field is
+  // empty — so keeping the text in state made every keystroke re-render the
+  // whole app, timeline included, and the cost grew with the debate.
+  const [hasTopic, setHasTopic] = useState(false)
   const [topicDropOpen, setTopicDropOpen] = useState(false)
   const [topicHistory, setTopicHistory] = useState(Storage.loadTopics)
   const topicRef = useRef('')
+  const hasTopicRef = useRef(false)
   const textareaRef = useRef(null)
   const topicWrapRef = useRef(null)
 
+  // Fires on the empty/non-empty transition and on nothing else: the buttons
+  // still light up on the first character, synchronously, but the characters
+  // after it cost no render at all.
+  const syncTopicFlag = useCallback(value => {
+    const next = String(value ?? '').trim().length > 0
+    if (hasTopicRef.current === next) return
+    hasTopicRef.current = next
+    setHasTopic(next)
+  }, [])
+
   const flushTopic = useCallback(() => {
     const value = topicRef.current
-    setTopic(value)
+    syncTopicFlag(value)
     return value
-  }, [])
+  }, [syncTopicFlag])
 
   const setTopicValue = useCallback(value => {
     topicRef.current = value
     if (textareaRef.current) textareaRef.current.value = value
-    setTopic(value)
-  }, [])
+    syncTopicFlag(value)
+  }, [syncTopicFlag])
 
   useEffect(() => {
     if (!topicDropOpen) return
@@ -86,17 +102,31 @@ export function useTopicComposer({
       return
     }
 
-    summaryRef.current = ''
-    setSummary('')
-    setSummaryDebug(null)
-    setSummaryInProgress(false)
+    // A fork also starts with an empty transcript, but everything the branch
+    // accumulated is meant to survive it: the summary of what was said, the
+    // pages already fetched. Only a genuine fresh start clears them.
+    const forked = !!forkedRef?.current
+    if (forkedRef) forkedRef.current = false
+
+    if (!forked) {
+      summaryRef.current = ''
+      setSummary('')
+      setSummaryDebug(null)
+      setSummaryInProgress(false)
+      Web.clearCaches()
+    }
     turnRef.current = { round: 0, step: 0 }
     setMessages([])
-    Web.clearCaches()
     setHeaderOpen(false)
-    startDebate({ resumeMessages: null, resumeRound: null, resumeSummary: '', injectTopic: topicText })
+    startDebate({
+      resumeMessages: null,
+      resumeRound: null,
+      resumeSummary: forked ? summaryRef.current : '',
+      injectTopic: topicText,
+      preserveContext: forked,
+    })
     setTopicValue('')
-  }, [defaultModel, interjectRef, logLaunchEstimate, messages, participants, setHeaderOpen, setMessages, setSummary, setSummaryDebug, setSummaryInProgress, setTopicValue, startDebate, summaryRef, turnRef])
+  }, [defaultModel, forkedRef, interjectRef, logLaunchEstimate, messages, participants, setHeaderOpen, setMessages, setSummary, setSummaryDebug, setSummaryInProgress, setTopicValue, startDebate, summaryRef, turnRef])
 
   const handleResume = useCallback((topicInput = topicRef.current) => {
     if (messages.length === 0) return
@@ -117,9 +147,9 @@ export function useTopicComposer({
   }, [interjectRef, logLaunchEstimate, maxTurns, messages, roundLimitRef, setTopicValue, startDebate, summaryRef, turnRef])
 
   const handleInterjection = useCallback(() => {
-    const text = topicRef.current.trim() || topic.trim()
+    const text = topicRef.current.trim()
     if (text) queueInterjection(text, () => setTopicValue(''))
-  }, [queueInterjection, setTopicValue, topic])
+  }, [queueInterjection, setTopicValue])
 
   const removeHistoryEntry = useCallback(index => {
     const next = topicHistory.filter((_, entryIndex) => entryIndex !== index)
@@ -129,8 +159,8 @@ export function useTopicComposer({
   }, [topicHistory])
 
   return {
-    topic,
-    setTopic,
+    hasTopic,
+    syncTopicFlag,
     topicRef,
     textareaRef,
     topicWrapRef,

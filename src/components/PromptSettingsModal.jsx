@@ -5,6 +5,7 @@ import { useUiStrings } from '../i18n/UiStringsContext'
 import { TRANSLATED_LANGUAGE_CODES } from '../i18n/locales'
 import { UPDATE_ERROR, UPDATE_STATUS } from '../services/Updates'
 import { TOOL_SETTINGS } from '../tools/ToolSettings'
+import { PAGE_BLOCK_STEPS } from '../settings/Settings'
 
 const TABS = ['main', 'promptRules', 'advanced']
 
@@ -25,6 +26,10 @@ export default function PromptSettingsModal({
   running,
   enabledTools,
   onEnabledToolsChange,
+  searchApiKey,
+  onSearchApiKeyChange,
+  pageBlockKb,
+  onPageBlockKbChange,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.promptSettingsModal
@@ -186,6 +191,34 @@ export default function PromptSettingsModal({
                       )
                     })}
                   </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>{ui.webAccessTitle}</span>
+                  <label style={{ fontSize: 11, color: '#999' }}>{ui.searchApiKeyLabel}</label>
+                  <input
+                    type="password"
+                    value={searchApiKey ?? ''}
+                    onChange={e => onSearchApiKeyChange?.(e.target.value)}
+                    placeholder={ui.searchApiKeyPlaceholder}
+                    spellCheck={false}
+                    autoComplete="off"
+                    disabled={running}
+                    style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 12 }}
+                  />
+                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.searchApiKeyHint}</span>
+                  <label style={{ fontSize: 11, color: '#999', marginTop: 6 }}>{ui.pageBlockLabel}</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {PAGE_BLOCK_STEPS.map(step => (
+                      <button
+                        key={step}
+                        onClick={() => !running && onPageBlockKbChange?.(step)}
+                        style={{ background: pageBlockKb === step ? '#2b3a2b' : 'transparent', border: `1px solid ${pageBlockKb === step ? '#4ade80' : '#2e2e2e'}`, color: pageBlockKb === step ? '#4ade80' : '#999', borderRadius: 6, padding: '4px 10px', cursor: running ? 'default' : 'pointer', fontSize: 12 }}
+                      >
+                        {step}k
+                      </button>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.pageBlockHint}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
                   <span style={{ fontSize: 12, color: '#888' }}>{appUi.timeout}</span>

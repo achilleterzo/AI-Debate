@@ -66,7 +66,10 @@ export default function ChatTimeline({
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.chat
-  if (messages.length === 0 && !running) {
+  // After a fork the transcript is empty but the conclusions remain, and they
+  // are the record of what the branch came from: the empty state must not
+  // swallow them.
+  if (messages.length === 0 && conclusions.length === 0 && !running) {
     return <div style={styles.empty}>{ui.empty}</div>
   }
 

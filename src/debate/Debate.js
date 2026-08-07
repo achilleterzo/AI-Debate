@@ -5,6 +5,7 @@ import { Session } from '../data/Session'
 import { buildSystemPrompt } from './PromptBuilder'
 import { streamChat } from './Stream'
 import { Web } from '../services/Web'
+import { buildOrderedItems } from '../utils/Sorting'
 import { MOODS } from '../prompts/Moods'
 import { MOOD_INTENSITY } from '../prompts/MoodIntensity'
 import { DEFAULT_RESPONSE_LENGTH, RESPONSE_LENGTHS } from '../prompts/ResponseLengths'
@@ -1046,6 +1047,7 @@ export class Debate {
     resumeSummary,
     injectTopic,
     extraRounds = 0,
+    preserveContext = false,
     runtime,
   }) {
     const {
@@ -1067,7 +1069,6 @@ export class Debate {
       handleRequest,
       handleResponse,
       characterContextRef,
-      fetchedUrlsRef,
       setMessages,
       roundLimitRef,
       nextSeq,
@@ -1199,9 +1200,12 @@ export class Debate {
       }
     }
 
-    if (!resumeMessages) {
+    // A fork starts with no messages but is not a new subject: it restarts
+    // from a variation of the same topic. Discarding the pages already read
+    // and the character contexts already resolved would spend a round of
+    // fetches and model calls rebuilding what is still valid.
+    if (!resumeMessages && !preserveContext) {
       characterContextRef.current = {}
-      fetchedUrlsRef.current = {}
       Web.clearCaches()
     }
 
@@ -1451,61 +1455,28 @@ export class Debate {
         }
 
         const contextMessages = []
-        const injectedUrls = new Set()
-        const urlContextBlocks = []
 
-        if (!fetchedUrlsRef.current[actor.id]) fetchedUrlsRef.current[actor.id] = new Set()
-        const actorFetchedUrls = fetchedUrlsRef.current[actor.id]
-
-        const injectUrlsFrom = async content => {
-          const urls = Web.extractUrls(content)
-          for (const url of urls) {
-            if (injectedUrls.has(url)) continue
-            injectedUrls.add(url)
-            if (actorFetchedUrls.has(url)) continue
-            actorFetchedUrls.add(url)
-            const page = await Web.fetchAndSummarizePage(url, {
-              summarizePage: async raw => {
-                let summary = ''
-                await streamChat({
-                  baseUrl: actorBaseUrl,
-                  model: actor.model,
-                  // Sections and named links are what someone judging a site
-                  // looks for, and a summary that drops them reads as if they
-                  // were not there.
-                  messages: [{ role: 'user', content: `Summarize the following page in a concise, neutral and informative way (150-250 words). Focus on key facts, claims, and context. Also list the sections, named links and legal or institutional pages that appear in it (about, contacts, privacy, cookies, terms, ethics, accessibility) and any rating or score shown. Do not editorialize, and do not report anything as missing.\n\nPage content:\n${raw}` }],
-                  systemPrompt: 'You are a precise summarization assistant. Output only the summary, no preamble.',
-                  useTools: false,
-                  think: false,
-                  onToken: token => { summary = token },
-                  timeoutMs,
-                })
-                return summary
-              },
-            })
-            // Failures are pushed too: silence about a page the participant was
-            // asked to judge is what invites it to invent one.
-            if (page?.text) urlContextBlocks.push(`### ${url}\n${page.text}`)
-          }
-        }
-
-        const pushMsg = async (role, content) => {
+        // Pages are no longer opened on sight. A URL that appears in the
+        // conversation is visible to the participant in the conversation
+        // itself, and `fetch_url` lets it read the page when it decides the
+        // page matters — instead of every participant paying for every link
+        // anyone happened to mention.
+        const pushMsg = (role, content) => {
           contextMessages.push({ role, content })
-          await injectUrlsFrom(content)
         }
 
-        const pushHistoryMsg = async message => {
+        const pushHistoryMsg = message => {
           if (message.role === 'topic') {
-            await pushMsg('user', `[Topic]: ${message.content}`)
+            pushMsg('user', `[Topic]: ${message.content}`)
           } else if (message.role === 'participant_joined' || message.role === 'participant_left') {
             return
           } else if (message.role === 'user') {
-            await pushMsg('user', `[Moderator]: ${message.content}`)
+            pushMsg('user', `[Moderator]: ${message.content}`)
           } else if (message.role === 'interjection') {
-            await pushMsg('user', `[Topic update]: ${message.content}`)
+            pushMsg('user', `[Topic update]: ${message.content}`)
           } else if (message.role === 'dice') {
             const ownerName = message.diceOwner?.name || message.diceOwner?.tag || 'a participant'
-            await pushMsg('user', `[DICE RESULT — NUMBERS SHARED WITH ALL PARTICIPANTS]\nThe individual tool call was made by ${ownerName}. Preserve that ownership: use the result as established, do not claim the group rolled it, do not retract it, and do not roll it again.\n${message.content}`)
+            pushMsg('user', `[DICE RESULT — NUMBERS SHARED WITH ALL PARTICIPANTS]\nThe individual tool call was made by ${ownerName}. Preserve that ownership: use the result as established, do not claim the group rolled it, do not retract it, and do not roll it again.\n${message.content}`)
           } else if (message.role === actor.tag) {
             if (message.content && message.content.trim().startsWith('<function_calls>')) return
             if (!String(message.content ?? '').trim()) return
@@ -1526,23 +1497,29 @@ export class Debate {
         }
 
         const hasSummary = useSummary && !!summaryRef.current
-        if (hasSummary) {
-          // The actor's own messages inside this window still go in as
-          // `assistant` (see pushHistoryMsg), so it keeps reading its previous
-          // turns as its own words rather than as someone else's.
-          const recentMessages = Debate.getRecentContext(realHistory, parts.length)
-          for (const message of recentMessages) await pushHistoryMsg(message)
-        } else {
-          for (const message of realHistory) await pushHistoryMsg(message)
-        }
+        // The actor's own messages inside this window still go in as
+        // `assistant` (see pushHistoryMsg), so it keeps reading its previous
+        // turns as its own words rather than as someone else's.
+        const historyForContext = hasSummary
+          ? Debate.getRecentContext(realHistory, parts.length)
+          : realHistory
 
-        // Conclusions are shared analytical turns. Present them as ordinary
-        // user-context messages so every participant can respond to them,
-        // instead of hiding them in a side-channel JSON context.
-        for (const conclusion of conclusionsRef?.current || []) {
+        // Conclusions are shared analytical turns, so they travel among the
+        // messages rather than in a block of their own at the end: one drawn
+        // after the third round belongs after the third round, which is where
+        // the timeline already places it. All of them are carried even when a
+        // summary narrows the message window — they are compact, and after a
+        // fork they are the only record of what came before.
+        const orderedContext = buildOrderedItems(historyForContext, conclusionsRef?.current || [])
+        for (const item of orderedContext) {
+          if (item.kind !== 'conclusion') {
+            pushHistoryMsg(item.msg)
+            continue
+          }
+          const conclusion = item.c
           if (!conclusion?.content?.trim()) continue
           const title = conclusion.title || conclusion.type || 'Conclusion'
-          await pushMsg('user', `[Shared conclusion — ${title}]\n${conclusion.content.trim()}`)
+          pushMsg('user', `[Shared conclusion — ${title}]\n${conclusion.content.trim()}`)
         }
 
         // The context size always applies: with a summary it bounds the recent
@@ -1568,6 +1545,9 @@ export class Debate {
           contextMessages.push({ role: 'user', content: '<turn_request>\nThe debate starts now. Give your opening statement on the active topic, staying in character and following your system instructions.\n</turn_request>' })
         }
 
+        // Links posted with the topic are named, not opened. Announcing them
+        // is what keeps them usable now that nothing is fetched on sight: the
+        // participant knows they exist and can read them if they matter to it.
         const sourceUrls = [...new Set(
           realHistory
             .filter(message => message.role === 'topic' || message.role === 'interjection')
@@ -1600,8 +1580,8 @@ export class Debate {
           debateMode: normalizeDebateMode(debateMode),
           constants: Debate.buildPromptConstants(),
         })
-        if (urlContextBlocks.length > 0) {
-          systemPrompt += `\n\n<fetched_sources>\nThe following pages have already been fetched for you. Do not search for them again.\n\nThis is everything you have observed about them. Treat it as a partial view: state what it shows, and never claim that a page or a site lacks something merely because it does not appear here — an absence you have not verified is a guess, not a finding.\n\n${urlContextBlocks.join('\n\n')}\n</fetched_sources>`
+        if (sourceUrls.length > 0 && enabledTools?.fetch_url !== false) {
+          systemPrompt += `\n\n<topic_sources>\nThese URLs were supplied with the topic. They have NOT been read: nothing about their content has been observed by you or by anyone else at this table.\n\n${sourceUrls.map(url => `- ${url}`).join('\n')}\n\nIf one of them matters to your argument, read it with the fetch_url tool before saying anything about what it contains. Never describe a page you have not fetched, and never claim that a page or a site lacks something you have not looked for.\n</topic_sources>`
         }
 
         if (actor.localUser || actor.model === Debate.USER_MODEL) {
@@ -1769,7 +1749,6 @@ export class Debate {
               setStreamingSeq(activeMessageSeq)
               syncHistory()
             },
-            sourceUrls,
             onEstimate: handlePromptEstimate,
             onComplete: ({ visibleContent, doneReason }) => {
               rawResponseContent = visibleContent || ''

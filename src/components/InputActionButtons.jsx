@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from 'react'
 import { useUiStrings } from '../i18n/UiStringsContext'
+import DropdownItem from './DropdownItem'
 import { styles } from './Style'
 
 export default function InputActionButtons({
@@ -14,7 +16,7 @@ export default function InputActionButtons({
   canResume,
   allModelsSet,
   ollamaOk,
-  topic,
+  hasTopic,
   topicRef,
   textareaRef,
   onStart,
@@ -22,9 +24,32 @@ export default function InputActionButtons({
   onIntervene,
   onResume,
   onReset,
+  onFork,
+  forked = false,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
+  const menuRef = useRef(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = event => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
+
+  const canFork = messages.length > 0
+  // A fork empties the transcript but leaves the branch standing, so the menu
+  // has to outlive it: a full reset is the only way back to a clean slate.
+  const showActionsMenu = !running && (messages.length > 0 || forked)
+
+  const runAndClose = action => () => {
+    setMenuOpen(false)
+    action?.()
+  }
 
   return (
     <>
@@ -159,26 +184,58 @@ export default function InputActionButtons({
             title={
               !allModelsSet ? ui.allParticipantsNeedModel
               : !ollamaOk ? ui.ollamaUnreachable
-              : topic.trim() ? ui.resumeWithInterjection
+              : hasTopic ? ui.resumeWithInterjection
               : ui.resumePingPong
             }
           >
-            {messages.some(m => m.role === 'error') ? ui.resumePingPong : topic.trim() ? ui.continueWithPrompt : ui.continue}
+            {messages.some(m => m.role === 'error') ? ui.resumePingPong : hasTopic ? ui.continueWithPrompt : ui.continue}
           </button>
+        </>
+      )}
+
+      {showActionsMenu && (
+        <div ref={menuRef} style={{ position: 'relative', alignSelf: 'stretch', display: 'flex' }}>
           <button
             style={{
               ...styles.connectBtn(false),
               minHeight: 44,
               alignSelf: 'stretch',
-              background: '#7f1d1d',
-              borderColor: '#b91c1c',
-              color: '#fee2e2',
+              padding: '0 12px',
+              background: '#2a2a2a',
+              borderColor: '#3a3a3a',
+              color: '#bbb',
+              fontSize: 18,
+              lineHeight: 1,
             }}
-            onClick={onReset}
+            onClick={() => setMenuOpen(open => !open)}
+            title={ui.debateActions}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
           >
-            {ui.resetButton}
+            ⋮
           </button>
-        </>
+          {menuOpen && (
+            <div
+              role="menu"
+              style={{
+                position: 'absolute', right: 0, bottom: '110%', zIndex: 260,
+                background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8,
+                padding: '6px 0', minWidth: 210, boxShadow: '0 -4px 16px #0008',
+              }}
+            >
+              <DropdownItem
+                disabled={!canFork}
+                onClick={runAndClose(onFork)}
+              >
+                {ui.forkButton}
+              </DropdownItem>
+              <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
+              <DropdownItem danger onClick={runAndClose(onReset)}>
+                {ui.resetButton}
+              </DropdownItem>
+            </div>
+          )}
+        </div>
       )}
     </>
   )

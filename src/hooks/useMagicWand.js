@@ -37,7 +37,7 @@ export function useMagicWand({
   participants,
   summaryModelOverride,
   messages,
-  topic,
+  topicRef,
   attachedDocs = [],
   summaryRef,
   uiLang,
@@ -79,7 +79,9 @@ export function useMagicWand({
     const languageNamed = outputLanguagePhrase(uiLang)
     // The text currently being drafted is the user's active instruction. On
     // resume, prefer it over the original topic stored in the conversation.
-    const topicText = topic.trim() || messages.find(message => message.role === 'topic')?.content || ''
+    // Read at click time, not at render time: the field's text lives in a ref
+    // precisely so that typing it does not re-render the app.
+    const topicText = (topicRef?.current || '').trim() || messages.find(message => message.role === 'topic')?.content || ''
     const forParticipant = isParticipantMode(mode)
     const participantIndex = forParticipant ? Number(String(mode).split(':')[1]) : -1
     const languageCodes = UI_LANGUAGE_OPTIONS.map(entry => entry.code)
@@ -166,7 +168,7 @@ export function useMagicWand({
       : { mode, status: WAND_STATUS.ERROR, suggestions: [], error: null })
   }, [
     attachedDocs, baseUrl, messages, model, online, participants, setLastPromptEstimate, setLastRequest,
-    summaryRef, timeoutSec, topic, uiLang, debateMode,
+    summaryRef, timeoutSec, topicRef, uiLang, debateMode,
   ])
 
   return {

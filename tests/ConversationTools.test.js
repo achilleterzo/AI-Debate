@@ -21,6 +21,7 @@ describe('conversation tools', () => {
   it('registers the web, history and moderator tools for the LLM', () => {
     expect(LLM_TOOLS.map(tool => tool.function.name)).toEqual([
       'web_search',
+      'fetch_url',
       GET_RECENT_MESSAGES_TOOL.function.name,
       REQUEST_MODERATOR_INTERVENTION_TOOL.function.name,
       MEMORY_TOOL.function.name,

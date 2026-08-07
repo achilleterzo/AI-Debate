@@ -51,6 +51,25 @@ export const MODERATION_COOLING_STEPS = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]
 
 export const SUMMARY_ACCUMULATE_STEPS = [2, 4, 8, 16, 32, 64]
 
+// How much of a fetched page `fetch_url` returns per call. A page is never
+// truncated — the rest stays reachable through the block number — so this is a
+// context budget per call rather than a limit on what can be read.
+export const DEFAULT_PAGE_BLOCK_KB = 16
+export const PAGE_BLOCK_STEPS = [16, 32, 64, 128, 256]
+export const MIN_PAGE_BLOCK_KB = PAGE_BLOCK_STEPS[0]
+export const MAX_PAGE_BLOCK_KB = PAGE_BLOCK_STEPS[PAGE_BLOCK_STEPS.length - 1]
+
+export function normalizePageBlockKb(raw) {
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value <= 0) return DEFAULT_PAGE_BLOCK_KB
+  return Math.min(MAX_PAGE_BLOCK_KB, Math.max(MIN_PAGE_BLOCK_KB, Math.round(value)))
+}
+
+// The search key is optional. Without one the reader still answers, at 20
+// requests a minute shared per IP; with one that ceiling rises and the keyed
+// search backend — which refuses anonymous callers — becomes available.
+export const DEFAULT_SEARCH_API_KEY = ''
+
 export function normalizeModerationCooling(raw) {
   const value = Number(raw)
   if (!Number.isFinite(value) || value <= 0) return DEFAULT_MODERATION_COOLING

@@ -7,17 +7,22 @@ export function useSnapshots({
   state,
   actions,
   refs,
+  topicRef,
   setTopicValue,
   invalidSnapshotMessage,
 }) {
   const handleSaveSnapshot = useCallback(() => {
+    // The composer keeps its text in a ref so that typing does not re-render
+    // the app, which means the current text is only readable at click time.
+    const topic = topicRef?.current ?? ''
     const snapshot = Session.buildSnapshotData({
       ...state,
+      topic,
       turn: refs.turn.current,
       constants: Debate.sessionConstants(),
     })
-    Session.downloadSnapshot(snapshot, { topic: state.topic, messages: state.messages })
-  }, [refs.turn, state])
+    Session.downloadSnapshot(snapshot, { topic, messages: state.messages })
+  }, [refs.turn, state, topicRef])
 
   const handleLoadSnapshot = useCallback(() => {
     Session.promptSnapshotFile({
