@@ -386,3 +386,9 @@ See [SECURITY.md](SECURITY.md) for the project's security model and limitations.
 ## License
 
 See [LICENSE](LICENSE) for the applicable license terms.
+
+## Support
+
+If you find AI Debate useful and want to support its development:
+
+[Buy me a coffee](https://buymeacoffee.com/achilleterb)
