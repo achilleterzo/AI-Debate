@@ -3,6 +3,7 @@ import { UI_LANGUAGE_OPTIONS as LANGUAGES } from '../i18n/UiStrings'
 import { PALETTE } from '../dataset/Palette'
 import { Session } from '../data/Session'
 import { buildSystemPrompt } from './PromptBuilder'
+import { formatHistoryMessage } from './ContextPayload'
 import { streamChat } from './Stream'
 import { getProvider } from '../providers/index.js'
 import { Web } from '../services/Web'
@@ -16,7 +17,7 @@ import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePrompt'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorFacilitationInterval, normalizeModeratorPermissiveness } from '../settings/Settings'
-import { createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
+import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
@@ -35,7 +36,7 @@ function continuationOverlap(previous, current) {
 
 function carryToolInvocations(history, fromSeq, toSeq) {
   const source = history.find(message => message.seq === fromSeq)
-  if (!source?.toolInvocations?.length && !source?.toolEvents?.length) return history
+  if (!source?.toolInvocations?.length && !source?.toolEvents?.length && !source?.quotes?.length) return history
   return history.map(message => message.seq === toSeq
     ? {
         ...message,
@@ -45,8 +46,24 @@ function carryToolInvocations(history, fromSeq, toSeq) {
         ...(source.toolEvents?.length
           ? { toolEvents: [...(message.toolEvents || []), ...source.toolEvents] }
           : {}),
+        // A citation belongs to the turn, not to the segment the model happened
+        // to be writing when it called the tool: merging the segments must not
+        // drop it, or the quotation card disappears from a completed turn.
+        ...(source.quotes?.length
+          ? { quotes: mergeQuotes(message.quotes, source.quotes) }
+          : {}),
       }
     : message)
+}
+
+/** Citations of one turn, in order, without repeating the same message twice. */
+function mergeQuotes(existing = [], incoming = []) {
+  const merged = [...(existing || [])]
+  for (const quote of incoming || []) {
+    if (merged.some(current => current.messageId === quote.messageId)) continue
+    merged.push(quote)
+  }
+  return merged
 }
 
 function reconcileToolContinuation(history, previousSeq, currentSeq, currentContent) {
@@ -1472,34 +1489,8 @@ export class Debate {
         }
 
         const pushHistoryMsg = message => {
-          if (message.role === 'topic') {
-            pushMsg('user', `[Topic]: ${message.content}`)
-          } else if (message.role === 'participant_joined' || message.role === 'participant_left') {
-            return
-          } else if (message.role === 'user') {
-            pushMsg('user', `[Moderator]: ${message.content}`)
-          } else if (message.role === 'interjection') {
-            pushMsg('user', `[Topic update]: ${message.content}`)
-          } else if (message.role === 'dice') {
-            const ownerName = message.diceOwner?.name || message.diceOwner?.tag || 'a participant'
-            pushMsg('user', `[DICE RESULT — NUMBERS SHARED WITH ALL PARTICIPANTS]\nThe individual tool call was made by ${ownerName}. Preserve that ownership: use the result as established, do not claim the group rolled it, do not retract it, and do not roll it again.\n${message.content}`)
-          } else if (message.role === actor.tag) {
-            if (message.content && message.content.trim().startsWith('<function_calls>')) return
-            if (!String(message.content ?? '').trim()) return
-              contextMessages.push({ role: 'assistant', content: message.content })
-           } else {
-             if (message.content && message.content.trim().startsWith('<function_calls>')) return
-             // A turn that produced nothing is not a contribution. Passing it on
-             // as `Name said:` with no words makes the others read the table as
-             // silent and spend their own turns asking who has not spoken yet.
-             if (!String(message.content ?? '').trim()) return
-             const other = parts.find(participant => participant.tag === message.role)
-             const otherName = other?.name || other?.tag || message.role
-             const content = other?.isModerator
-               ? `[MODERATOR DIRECTIVE — PROCEDURAL AUTHORITY]\n${otherName}: ${message.content}\n\nThis is a binding process instruction. Follow it in your next response; do not debate or ignore it.`
-               : `${otherName} said: ${message.content}`
-             contextMessages.push({ role: 'user', content })
-           }
+          const formatted = formatHistoryMessage({ message, actor, participants: parts })
+          if (formatted) contextMessages.push(formatted)
         }
 
         const hasSummary = useSummary && !!summaryRef.current
@@ -1592,6 +1583,7 @@ export class Debate {
         ].filter(tool => enabledTools?.[tool.function.name] !== false)
         const toolsAvailable = availableTools.length > 0
           && await getProvider().supportsTools(actor.model, { baseUrl: actorBaseUrl })
+        const quoteToolAvailable = availableTools.some(tool => tool.function.name === QUOTE_MESSAGE_TOOL.function.name)
         let systemPrompt = buildSystemPrompt({
           actor,
           allParticipants: parts,
@@ -1611,6 +1603,7 @@ export class Debate {
           generalPersonalityInstructions,
           debateMode: normalizeDebateMode(debateMode),
           toolsAvailable,
+          quoteToolAvailable,
           constants: Debate.buildPromptConstants(),
         })
         if (sourceUrls.length > 0) {
@@ -1666,6 +1659,28 @@ export class Debate {
           }
           const conversationToolExecutor = createConversationToolExecutor({
             getMessages: () => history,
+            // The citation is attached to the message being written, not stored
+            // apart from it: it travels with the turn through the timeline, the
+            // snapshots, the exports and every later payload.
+            quote: args => {
+              const result = buildQuote({
+                messages: history,
+                participants: parts,
+                messageId: args?.messageId,
+                excerpt: args?.excerpt,
+              })
+              if (!result.accepted) return result
+              // Citing the message currently being written is the one reference
+              // that can never resolve for a reader: it points at itself.
+              if (result.quote.messageId === activeMessageSeq) {
+                return { accepted: false, reason: 'You cannot cite the message you are writing right now.' }
+              }
+              history = history.map(message => message.seq === activeMessageSeq
+                ? { ...message, quotes: mergeQuotes(message.quotes, [result.quote]) }
+                : message)
+              syncHistory()
+              return result
+            },
             rollDice: isRolePlay
               ? args => {
                   const result = rollDice(args)

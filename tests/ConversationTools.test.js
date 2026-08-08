@@ -4,6 +4,7 @@ import {
   LLM_TOOLS,
   REQUEST_MODERATOR_INTERVENTION_TOOL,
   MEMORY_TOOL,
+  QUOTE_MESSAGE_TOOL,
   createConversationToolExecutor,
   formatRecentMessages,
 } from '../src/tools'
@@ -23,6 +24,7 @@ describe('conversation tools', () => {
       'web_search',
       'fetch_url',
       GET_RECENT_MESSAGES_TOOL.function.name,
+      QUOTE_MESSAGE_TOOL.function.name,
       REQUEST_MODERATOR_INTERVENTION_TOOL.function.name,
       MEMORY_TOOL.function.name,
     ])

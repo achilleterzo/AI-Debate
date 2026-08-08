@@ -110,6 +110,7 @@ export default {
     joined: 'entrou',
     round: n => `rodada ${n}`,
     moderation: 'Moderação',
+    openQuoted: 'Ir para a mensagem citada',
     copyResponse: 'Copiar resposta',
     inspectPayload: 'Inspecionar payload',
   },

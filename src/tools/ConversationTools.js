@@ -70,6 +70,9 @@ export function formatRecentMessages(messages = [], { limit = 10, participantTag
     .filter(message => !normalizedSearchTerm || String(message.content).toLowerCase().includes(normalizedSearchTerm))
     .slice(-requestedLimit)
     .map(message => ({
+      // The id travels with the message so a result pulled from outside the
+      // visible window can still be cited with quote_message.
+      ...(message.seq != null ? { id: message.seq } : {}),
       role: message.role,
       turn: message.turn ?? null,
       content: String(message.content).trim(),
@@ -78,10 +81,16 @@ export function formatRecentMessages(messages = [], { limit = 10, participantTag
   return JSON.stringify({ messages: eligible })
 }
 
-export function createConversationToolExecutor({ getMessages, requestModeratorIntervention, applyModeration, rollDice, memory }) {
+export function createConversationToolExecutor({ getMessages, requestModeratorIntervention, applyModeration, rollDice, memory, quote }) {
   return async (name, args = {}) => {
     if (name === GET_RECENT_MESSAGES_TOOL.function.name) {
       return formatRecentMessages(getMessages?.() || [], args)
+    }
+    if (name === 'quote_message') {
+      const result = await quote?.(args)
+      return result == null
+        ? JSON.stringify({ accepted: false, reason: 'Quoting is not available.' })
+        : JSON.stringify(result)
     }
     if (name === REQUEST_MODERATOR_INTERVENTION_TOOL.function.name) {
       const result = await requestModeratorIntervention?.(args)

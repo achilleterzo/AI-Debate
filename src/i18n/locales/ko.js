@@ -110,6 +110,7 @@ export default {
     joined: '참가함',
     round: n => `라운드 ${n}`,
     moderation: '진행',
+    openQuoted: '인용된 메시지로 이동',
     copyResponse: '응답 복사',
     inspectPayload: '페이로드 검사',
   },

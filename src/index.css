@@ -14,8 +14,13 @@
   --text-muted: #888;
   --accent: #7c6aff;
   --user-bg: #2a2a3d;
-  --mono: ui-monospace, Consolas, monospace;
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* 'Noto Color Emoji' goes last on purpose. Its subsets also cover digits,
+     `#` and `*` — the keycap pieces — so ahead of the text fonts it would
+     repaint ordinary numbers as emoji. Last, it is only ever reached for a
+     codepoint the text fonts have no glyph for. */
+  --sans-text: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace, 'Noto Color Emoji';
+  --sans: var(--sans-text), 'Noto Color Emoji';
 }
 
 html, body, #root {
@@ -52,6 +57,15 @@ pre, pre *, code {
     max-width: none;
     margin: 0;
   }
+}
+
+/* A character used as an interface icon, not as an emoji. `⚙` sits in the
+   symbol block Noto Color Emoji also covers, and no Windows text font claims
+   it, so with the emoji font in the stack it arrives as a full-colour
+   pictogram next to the monochrome SVG icons it shares a row with. The
+   variation selector does not help — only stopping before the emoji font does. */
+.ui-glyph {
+  font-family: var(--sans-text);
 }
 
 * {

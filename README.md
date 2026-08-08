@@ -105,6 +105,7 @@ Tools are exposed as capabilities that participants may choose to use. They are 
 - `web_search` searches for current external information.
 - `fetch_url` reads a web page as Markdown or raw text, preserves links, and supports long-page pagination.
 - `get_recent_messages` retrieves selected recent conversation messages, optionally filtered by participant or search term.
+- `quote_message` cites one earlier message by its id. The citation is shown in the chat as a short card that jumps to the original, and it travels in the payload of the following turns so the other participants know exactly which message was answered.
 - `memory` writes or reads durable shared memory. Entries retain their author, can be filtered by author or query, and are readable by the other participants.
 - `request_moderator_intervention` asks the moderator for an extra procedural turn.
 - `apply_moderation` lets the moderator apply a procedural intervention.
@@ -115,6 +116,7 @@ These tools represent different kinds of context:
 | Capability | Meaning |
 | --- | --- |
 | Conversation history | What happened in the current discussion |
+| Direct citation | Which exact message a participant is answering |
 | Shared memory | What a participant deliberately preserved for future turns |
 | Web tools | Information retrieved from outside the session |
 | Moderator request | Procedural coordination inside the session |

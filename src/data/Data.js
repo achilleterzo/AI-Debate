@@ -13,7 +13,9 @@ import {
   describeToolInvocation,
   isLastContinuationBalloon,
   isRenderableParticipantMessage,
+  messageAnchorId,
   resolveDiceOwner,
+  roleEmojiFor,
   tailClassFor,
 } from '../utils/ChatGrouping'
 
@@ -77,7 +79,8 @@ export class Data {
 
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const md = s => renderMessageMarkdown(s)
-    const toolIcons = { web_search: '🔍', get_recent_messages: '🕘', request_moderator_intervention: '🙋', apply_moderation: '🛑', roll_dice: '🎲', memory: '🧠' }
+    const toolIcons = { web_search: '🔍', get_recent_messages: '🕘', quote_message: '❝', request_moderator_intervention: '🙋', apply_moderation: '🛑', roll_dice: '🎲', memory: '🧠' }
+    const anchor = messageAnchorId
     const now = new Date().toLocaleString('it-IT')
     const mode = debateModeInfo(debateMode)
     const language = debateLanguageLabel(uiLang)
@@ -132,12 +135,18 @@ export class Data {
       const ownerName = owner?.name || owner?.tag || 'Shared dice result'
       const border = owner?.border || fallbackActor?.border || '#514a78'
       const vars = `--dice-bg:${owner?.bg || fallbackActor?.bg || '#17152a'};--dice-border:${border};--dice-glow:${border}44;--dice-label:${owner?.label || fallbackActor?.label || '#c9bfff'};`
-      return `<div class="dice-note" style="${vars}"><span class="dice-note-owner">🎲 ${esc(ownerName)}</span><span>${esc(result.content)}</span></div>`
+      return `<div${result.seq != null ? ` id="${anchor(result.seq)}"` : ''} class="dice-note" style="${vars}"><span class="dice-note-owner">🎲 ${esc(ownerName)}</span><span>${esc(result.content)}</span></div>`
     }
-    const balloon = ({ content, actor, radius, tail, moderation }) => {
+    const quoteRoleLabels = { topic: 'Topic', interjection: 'Variation', user: 'User', dice: '🎲' }
+    const quoteCard = quote => {
+      const author = participants.find(participant => participant.tag === quote.authorTag) || null
+      const authorName = quoteRoleLabels[quote.role] || quote.authorName || author?.name || author?.tag || quote.authorTag || '?'
+      return `<a class="quote-card" href="#${anchor(quote.messageId)}" style="--quote-color:${author?.label || '#8b5cf6'}"><span class="quote-card-mark">❝</span><span class="quote-card-author">${esc(authorName)}</span><span class="quote-card-text">${esc(quote.excerpt)}</span></a>`
+    }
+    const balloon = ({ content, actor, radius, tail, moderation, seq = null }) => {
       const vars = `--balloon-bg:${actor.bg};--balloon-border:${actor.border};--balloon-radius:${radius};`
       const badge = moderation ? '<div class="moderation-badge">Moderation</div>' : ''
-      return `<div class="bubble balloon${moderation ? ' balloon-moderation' : ''}${tail ? ` ${tail}` : ''}" style="${vars}">${badge}${md(content)}</div>`
+      return `<div${seq != null ? ` id="${anchor(seq)}"` : ''} class="bubble balloon${moderation ? ' balloon-moderation' : ''}${tail ? ` ${tail}` : ''}" style="${vars}">${badge}${md(content)}</div>`
     }
 
     let lastTurn = null
@@ -154,13 +163,15 @@ export class Data {
 
       const msg = item.msg
 
+      const anchorAttr = msg.seq != null ? ` id="${anchor(msg.seq)}"` : ''
+
       if (msg.role === 'topic') {
-        body += `<div class="topic"><h1>Topic</h1>${md(msg.content)}</div>`
+        body += `<div${anchorAttr} class="topic"><h1>Topic</h1>${md(msg.content)}</div>`
         continue
       }
 
       if (msg.role === 'user') {
-        body += `<div class="msg msg-right"><div class="msg-label" style="--label-color:#f97316">User</div>${balloon({
+        body += `<div${anchorAttr} class="msg msg-right"><div class="msg-label" style="--label-color:#f97316">User</div>${balloon({
           content: msg.content,
           actor: { bg: '#2a1f1f', border: '#f97316aa' },
           radius: '12px 12px 2px 12px',
@@ -170,7 +181,7 @@ export class Data {
       }
 
       if (msg.role === 'interjection') {
-        body += `<div class="topic-variation"><h2>↳ Variation</h2>${md(msg.content)}</div>`
+        body += `<div${anchorAttr} class="topic-variation"><h2>↳ Variation</h2>${md(msg.content)}</div>`
         continue
       }
 
@@ -190,7 +201,7 @@ export class Data {
         const snap = msg.participantSnapshot
         const isLeft = msg.role === 'participant_left'
         const displayName = esc(snap?.name || snap?.tag || '?')
-        body += `<div class="presence-row"><div class="presence-chip ${isLeft ? 'presence-chip-left' : 'presence-chip-joined'}" style="--label-color:${snap?.label || '#888'}"><span class="presence-chip-arrow">${isLeft ? '←' : '→'}</span><span class="presence-chip-name">${displayName}</span><span>${isLeft ? 'has left the conversation' : 'has joined the conversation'}</span></div></div>`
+        body += `<div${anchorAttr} class="presence-row"><div class="presence-chip ${isLeft ? 'presence-chip-left' : 'presence-chip-joined'}" style="--label-color:${snap?.label || '#888'}"><span class="presence-chip-arrow">${isLeft ? '←' : '→'}</span><span class="presence-chip-name">${displayName}</span><span>${isLeft ? 'has left the conversation' : 'has joined the conversation'}</span></div></div>`
         continue
       }
 
@@ -203,6 +214,7 @@ export class Data {
         isModerationIntervention,
         continuationItems,
         primaryContent,
+        quotes,
         leadingToolEvents,
         trailingToolEvents,
         leadingDiceResults,
@@ -220,6 +232,7 @@ export class Data {
       const radiusOwn = actor.radiusOwn || '12px'
 
       const parts = []
+      parts.push(...quotes.map(quoteCard))
       parts.push(...leadingToolEvents.map(event => toolPill(event.invocation)))
       parts.push(...leadingDiceResults.map(result => diceNote(result, resolveDiceOwner(result, participants), actor)))
       if (primaryContent) {
@@ -246,12 +259,14 @@ export class Data {
           actor,
           radius: isLastBalloon ? radiusOwn : '12px',
           tail: isLastBalloon ? tailClass : '',
+          seq: continuation.seq,
         }))
       })
 
-      const name = esc(actor.name || actor.tag)
+      const emoji = roleEmojiFor(actor)
+      const name = `${emoji ? `<span class="msg-label-emoji">${emoji}</span>` : ''}${esc(actor.name || actor.tag)}`
       const labelColor = isModerationIntervention ? '#ef4444' : actor.label
-      body += `<div class="msg ${alignClass}"><div class="msg-label" style="--label-color:${labelColor}">${name}${msg.turn ? ` <span class="msg-label-round">(round ${msg.turn})</span>` : ''}</div><div class="balloon-group" style="--group-align:${contentAlignment}">${parts.join('')}</div></div>`
+      body += `<div${anchorAttr} class="msg ${alignClass}"><div class="msg-label" style="--label-color:${labelColor}">${name}${msg.turn ? ` <span class="msg-label-round">(round ${msg.turn})</span>` : ''}</div><div class="balloon-group" style="--group-align:${contentAlignment}">${parts.join('')}</div></div>`
     }
 
     const html = `<!DOCTYPE html>
@@ -266,7 +281,10 @@ export class Data {
        around them — header, topic, conclusions, layout — is defined below. */
 ${CHAT_CSS}
     *{box-sizing:border-box;}
-    body{margin:0 auto;padding:28px 32px;background:#0f0f0f;color:#e0e0e0;font-family:system-ui,'Segoe UI',Roboto,sans-serif;font-size:15px;max-width:900px;}
+    /* An export is a single portable file, so it names the emoji font and lets
+       the reader's system supply it — embedding several megabytes of glyphs in
+       every saved debate is not a trade worth making. */
+    body{margin:0 auto;padding:28px 32px;background:#0f0f0f;color:#e0e0e0;font-family:system-ui,'Segoe UI',Roboto,sans-serif,'Noto Color Emoji';font-size:15px;max-width:900px;}
     h1{font-size:16px;font-weight:700;color:#a78bfa;margin:0 0 6px;}
     .meta{font-size:11px;color:#888;border-bottom:1px solid #2e2e2e;padding-bottom:10px;margin-bottom:20px;line-height:1.8;}
     .topic{margin:0 auto 20px;width:100%;}
@@ -406,7 +424,13 @@ ${CHAT_CSS}
       if (!actor) continue
       const name = actor.name || actor.tag
       const moderationLabel = actor.isModerator && msg.messageType === 'moderation' ? ' · Moderazione' : ''
-      out += `### ${name}${moderationLabel}\n\n${msg.content}\n\n---\n\n`
+      // Markdown has no anchors to click, so a citation keeps the one thing a
+      // reader can still act on: who was quoted and what they had said.
+      const quoteRoleLabels = { topic: 'Topic', interjection: 'Variation', user: 'User', dice: '🎲' }
+      const citations = (msg.quotes || [])
+        .map(quote => `> ❝ **${quoteRoleLabels[quote.role] || quote.authorName || quote.authorTag || '?'}**: ${quote.excerpt}\n`)
+        .join('')
+      out += `### ${name}${moderationLabel}\n\n${citations ? `${citations}\n` : ''}${msg.content}\n\n---\n\n`
     }
 
     Data.triggerDownload(out, `${slug}.md`, 'text/markdown;charset=utf-8')
@@ -458,6 +482,7 @@ ${CHAT_CSS}
       messages: messages.filter(m => m.role !== 'error').map(m => {
         const actor = Data.resolveActor(m, participants)
         return {
+          id: m.seq ?? null,
           role: m.role,
           turn: m.turn ?? null,
           content: m.content,
@@ -466,6 +491,7 @@ ${CHAT_CSS}
           messageType: m.messageType ?? null,
           kind: actor?.isModerator && m.messageType === 'moderation' ? 'moderation' : 'message',
           dice: m.dice ?? null,
+          quotes: m.quotes?.length ? m.quotes : null,
         }
       }),
       conclusions: conclusions.map(({ type, title, customPrompt, content, createdAt, seq }) => ({ type, title: title ?? null, customPrompt: customPrompt ?? null, content, createdAt, seq })),

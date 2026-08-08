@@ -6,13 +6,57 @@ import {
   describeToolInvocation,
   isLastContinuationBalloon,
   isRenderableParticipantMessage,
+  messageAnchorId,
   resolveActor,
+  roleEmojiFor,
   resolveDiceOwner,
   tailClassFor,
 } from '../utils/ChatGrouping'
 import { normalizeMathShorthands, renderMessageMarkdown } from '../utils/MessageMarkdown'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { TOOL_ICONS } from '../tools'
+
+/**
+ * Opens the cited message.
+ *
+ * Scrolling away from the bottom is what tells `useAppLayout` to stop
+ * following the stream, which is exactly right here: the reader went to look
+ * at something and should not be yanked back by the next token.
+ */
+function scrollToMessage(messageId) {
+  const target = typeof document === 'undefined' ? null : document.getElementById(messageAnchorId(messageId))
+  if (!target) return
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  target.classList.remove('message-highlight')
+  // Forcing a reflow restarts the animation when the same card is clicked
+  // twice in a row, which otherwise looks like the second click did nothing.
+  void target.offsetWidth
+  target.classList.add('message-highlight')
+  window.setTimeout(() => target.classList.remove('message-highlight'), 1700)
+}
+
+function quoteCard(quote, key, alignment, participants, ui) {
+  const author = participants.find(participant => participant.tag === quote.authorTag) || null
+  // The topic, a variation and a moderator note are quotable but belong to no
+  // participant, so they are named the way the timeline already names them
+  // rather than by the transport role behind them.
+  const roleLabels = { topic: ui.topic, interjection: ui.variation, user: ui.user, dice: '🎲' }
+  const authorName = roleLabels[quote.role] || quote.authorName || author?.name || author?.tag || quote.authorTag || '?'
+  return (
+    <button
+      type="button"
+      key={key}
+      className="quote-card"
+      title={ui.openQuoted}
+      style={{ alignSelf: alignment, '--quote-color': author?.label || '#8b5cf6' }}
+      onClick={() => scrollToMessage(quote.messageId)}
+    >
+      <span className="quote-card-mark">❝</span>
+      <span className="quote-card-author">{authorName}</span>
+      <span className="quote-card-text">{quote.excerpt}</span>
+    </button>
+  )
+}
 
 function toolInvocationPill(invocation, key, alignment) {
   const details = describeToolInvocation(invocation)
@@ -31,6 +75,7 @@ function diceNote(result, owner, key, extraStyle, fallbackActor) {
   return (
     <div
       key={key}
+      id={result.seq != null ? messageAnchorId(result.seq) : undefined}
       className="dice-note"
       style={{
         ...extraStyle,
@@ -113,7 +158,7 @@ export default function ChatTimeline({
     const { msg, idx: i } = item
     if (msg.role === 'topic') {
       elems.push(
-        <div key={`topic-${i}`} style={{ textAlign: 'center' }}>
+        <div key={`topic-${i}`} id={messageAnchorId(msg.seq)} style={{ textAlign: 'center' }}>
           <div className="bubble balloon" style={{ ...styles.bubble('topic'), display: 'inline-block', fontSize: 13, color: '#aaa' }}>
             <span style={{ color: '#555', marginRight: 6 }}>{ui.topic}</span>
             <span className="selectable" dangerouslySetInnerHTML={{ __html: markedInline(normalizeMathShorthands(msg.content || '')) }} />
@@ -125,7 +170,7 @@ export default function ChatTimeline({
 
     if (msg.role === 'interjection') {
       elems.push(
-        <div key={`interjection-${i}`} style={{ textAlign: 'center' }}>
+        <div key={`interjection-${i}`} id={messageAnchorId(msg.seq)} style={{ textAlign: 'center' }}>
           <div className="bubble balloon" style={{ ...styles.bubble('topic'), display: 'inline-block', fontSize: 13, color: '#aaa', '--balloon-border': '#3a3a2e', '--balloon-bg': '#1e1e16' }}>
             <span style={{ color: '#777', marginRight: 6 }}>{ui.variation}</span>
             <span className="selectable" dangerouslySetInnerHTML={{ __html: markedInline(normalizeMathShorthands(msg.content || '')) }} />
@@ -137,7 +182,7 @@ export default function ChatTimeline({
 
     if (msg.role === 'user') {
       elems.push(
-        <div key={`user-${i}`} style={styles.msgWrap('user', null)}>
+        <div key={`user-${i}`} id={messageAnchorId(msg.seq)} style={styles.msgWrap('user', null)}>
           <div className="msg-label" style={styles.roleTag('user', null)}>{ui.user}</div>
           <div style={{ width: '82%', alignSelf: 'flex-end', ...(regularBalloonMaxWidth ? { maxWidth: regularBalloonMaxWidth } : {}) }}>
             {/* Right-aligned like the balloon radius assumes, so the tail goes
@@ -239,6 +284,7 @@ export default function ChatTimeline({
       continuationItems,
       continuationText,
       primaryContent,
+      quotes,
       leadingToolEvents,
       trailingToolEvents,
       leadingDiceResults,
@@ -261,9 +307,12 @@ export default function ChatTimeline({
     // Moderation is a centred banner, not a spoken line, so it gets none.
     const tailClass = isModerationIntervention ? '' : ` ${tailClassFor(actor)}`
     elems.push(
-      <div key={`msg-${i}`} style={{ ...styles.msgWrap(msg.role, actor), ...(isModerationIntervention ? { alignItems: 'center' } : {}) }}>
+      <div key={`msg-${i}`} id={messageAnchorId(msg.seq)} style={{ ...styles.msgWrap(msg.role, actor), ...(isModerationIntervention ? { alignItems: 'center' } : {}) }}>
         <div className="msg-label" style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', width: '92%', maxWidth: regularBalloonMaxWidth || 980, justifyContent: 'flex-start', '--label-color': '#ef4444' } : {}) }}>
-          <span>{actor.name || actor.tag} <span className="msg-label-round">({ui.round(msg.turn)})</span></span>
+          <span>
+            {roleEmojiFor(actor) && <span className="msg-label-emoji" title={UI_STRINGS.common.moderator}>{roleEmojiFor(actor)}</span>}
+            {actor.name || actor.tag} <span className="msg-label-round">({ui.round(msg.turn)})</span>
+          </span>
           {isStreamingMsg && (
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.75, animation: 'spin 1s linear infinite' }}>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
@@ -299,6 +348,7 @@ export default function ChatTimeline({
               </button>
             </div>
           )}
+          {quotes.map((quote, quoteIndex) => quoteCard(quote, `quote-${i}-${quoteIndex}`, contentAlignment, participants, ui))}
           {leadingToolEvents.map((event, eventIndex) => toolInvocationPill(event.invocation, `tool-before-${i}-${eventIndex}`, contentAlignment))}
           {leadingDiceResults.map((result, resultIndex) => diceNote(
             result,
@@ -337,7 +387,7 @@ export default function ChatTimeline({
               >{copiedIdx === i ? '✓' : <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"/><path d="M3 8H2a1 1 0 01-1-1V2a1 1 0 011-1h5a1 1 0 011 1v1"/></svg>}</button>
               {groupedPayloadMessage && (
                 <button
-                  className="float-btn"
+                  className="float-btn ui-glyph"
                   style={styles.floatBtn(false)}
                   title={ui.inspectPayload}
                   onClick={() => setPayloadModal(
@@ -367,6 +417,7 @@ export default function ChatTimeline({
             return (
               <div
                 key={`continuation-message-${continuationIndex}`}
+                id={messageAnchorId(continuation.seq)}
                 className={`bubble balloon${isLastBalloon ? tailClass : ''}`}
                 style={{ ...styles.bubble(continuation.role, actor), '--balloon-radius': isLastBalloon ? actor.radiusOwn : '12px' }}
               >

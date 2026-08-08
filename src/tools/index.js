@@ -3,9 +3,10 @@ import { FETCH_URL_TOOL } from './FetchUrlTool'
 import { APPLY_MODERATION_TOOL, GET_RECENT_MESSAGES_TOOL, REQUEST_MODERATOR_INTERVENTION_TOOL } from './ConversationTools'
 import { ROLL_DICE_TOOL } from './DiceTool'
 import { MEMORY_TOOL } from './MemoryTool'
+import { QUOTE_MESSAGE_TOOL } from './QuoteTool'
 
 /** Tool definitions sent to the LLM when the current request allows tools. */
-export const LLM_TOOLS = [WEB_SEARCH_TOOL, FETCH_URL_TOOL, GET_RECENT_MESSAGES_TOOL, REQUEST_MODERATOR_INTERVENTION_TOOL, MEMORY_TOOL]
+export const LLM_TOOLS = [WEB_SEARCH_TOOL, FETCH_URL_TOOL, GET_RECENT_MESSAGES_TOOL, QUOTE_MESSAGE_TOOL, REQUEST_MODERATOR_INTERVENTION_TOOL, MEMORY_TOOL]
 export const ROLE_PLAY_TOOLS = [...LLM_TOOLS, ROLL_DICE_TOOL]
 export const MODERATOR_TOOLS = [APPLY_MODERATION_TOOL]
 export const LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION = LLM_TOOLS.filter(tool => tool.function.name !== REQUEST_MODERATOR_INTERVENTION_TOOL.function.name)
@@ -15,6 +16,7 @@ export const TOOL_ICONS = {
   web_search: '🔍',
   fetch_url: '🌐',
   get_recent_messages: '🕘',
+  quote_message: '❝',
   request_moderator_intervention: '🙋',
   apply_moderation: '🛑',
   roll_dice: '🎲',
@@ -28,6 +30,15 @@ export {
   createConversationToolExecutor,
   formatRecentMessages,
 } from './ConversationTools'
+
+export {
+  QUOTE_MESSAGE_TOOL,
+  QUOTE_MAX_EXCERPT_CHARS,
+  abbreviateQuote,
+  buildQuote,
+  quotableMessageIds,
+  resolveQuotableMessage,
+} from './QuoteTool'
 
 export { WEB_SEARCH_TOOL }
 export { FETCH_URL_TOOL, executeFetchUrl } from './FetchUrlTool'

@@ -106,6 +106,7 @@ export default {
     joined: '已加入',
     round: n => `第 ${n} 轮`,
     moderation: '主持',
+    openQuoted: '跳转到被引用的消息',
     copyResponse: '复制回复',
     inspectPayload: '查看请求内容',
   },

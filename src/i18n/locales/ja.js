@@ -106,6 +106,7 @@ export default {
     joined: '参加',
     round: n => `ラウンド ${n}`,
     moderation: 'モデレーション',
+    openQuoted: '引用元のメッセージへ移動',
     copyResponse: '返信をコピー',
     inspectPayload: 'ペイロードを確認',
   },

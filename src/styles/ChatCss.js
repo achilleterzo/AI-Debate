@@ -23,7 +23,7 @@ export const CHAT_CSS = `
 		margin: .7em 0 .3em; font-size: 1em; font-weight: 700; color: #fff;
 	}
 	.bubble code {
-		font-family: var(--mono, ui-monospace, Consolas, monospace); font-size: .85em;
+		font-family: var(--mono, ui-monospace, Consolas, monospace, 'Noto Color Emoji'); font-size: .85em;
 		background: #0f0f0f; border: 1px solid #2e2e2e;
 		border-radius: 3px; padding: 1px 5px;
 	}
@@ -115,6 +115,12 @@ export const CHAT_CSS = `
 		color: var(--label-color, #888);
 	}
 	.msg-label-round { font-weight: 400; color: #555; text-transform: none; }
+	/* The role marker keeps the emoji font's own metrics: letter-spacing and
+	   uppercasing are for the name next to it, not for a pictogram. */
+	.msg-label-emoji {
+		margin-right: 5px; letter-spacing: 0;
+		font-size: 12px; line-height: 1; vertical-align: -1px;
+	}
 	.turn-badge {
 		font-size: 11px; color: #555; text-align: center;
 		margin: 2px 0; letter-spacing: .5px; user-select: none;
@@ -132,6 +138,42 @@ export const CHAT_CSS = `
 	.tool-pill-icon { margin-right: 5px; }
 	.tool-pill-name { color: #aaa; }
 	.tool-pill-details { color: #666; }
+
+	/* ── citations of another message ────────────────────────────────────── */
+	/* Rendered as a button in the chat and as an anchor in the export, so the
+	   rules below reset both back to the same card. */
+	.quote-card {
+		display: flex; align-items: baseline; gap: 6px;
+		max-width: 100%; box-sizing: border-box;
+		margin: 0; padding: 5px 10px;
+		text-align: left; text-decoration: none;
+		font: inherit; font-size: 11px; line-height: 1.5;
+		color: #999;
+		background: #14131f;
+		border: 1px solid var(--quote-color, #514a78);
+		border-left-width: 3px;
+		border-radius: 6px;
+		cursor: pointer;
+		transition: background .15s, color .15s;
+	}
+	.quote-card:hover { background: #1c1b2c; color: #ccc; }
+	.quote-card-mark { color: var(--quote-color, #8b5cf6); font-weight: 700; }
+	.quote-card-author { color: var(--quote-color, #c9bfff); font-weight: 700; white-space: nowrap; }
+	.quote-card-text {
+		flex: 1; min-width: 0;
+		font-style: italic;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+
+	/* Where a citation lands, so the reader sees which message it opened.
+	   The margin keeps an anchor jump in the exported page from parking the
+	   message flush against the top edge of the viewport. */
+	[id^="message-"] { scroll-margin-top: 24px; }
+	.message-highlight { animation: quoteTargetFlash 1.6s ease-out; }
+	@keyframes quoteTargetFlash {
+		0%, 55% { background: #8b5cf633; box-shadow: 0 0 0 6px #8b5cf622; border-radius: 12px; }
+		100% { background: transparent; box-shadow: none; border-radius: 12px; }
+	}
 
 	/* ── dice results ────────────────────────────────────────────────────── */
 	.dice-note {

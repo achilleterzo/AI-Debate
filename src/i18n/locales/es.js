@@ -111,6 +111,7 @@ export default {
     joined: 'se unió',
     round: n => `ronda ${n}`,
     moderation: 'Moderación',
+    openQuoted: 'Ir al mensaje citado',
     copyResponse: 'Copiar respuesta',
     inspectPayload: 'Inspeccionar payload',
   },

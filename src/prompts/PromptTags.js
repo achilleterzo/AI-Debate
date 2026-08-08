@@ -19,6 +19,7 @@ export const PROMPT_SECTION_TAGS = [
   'debate_mode',
   'fetched_sources',
   'identity',
+  'message_references',
   'moderation_tool_requirement',
   'moderation_trigger',
   'moderator_authority',

@@ -63,7 +63,7 @@ export default function SummaryPanel({
         )}
         {debugMode && summaryDebug?.payload && (
           <button
-            className="float-btn"
+            className="float-btn ui-glyph"
             style={{ ...styles.floatBtn(false), position: 'static', opacity: 1 }}
             title={ui.inspectSummaryPayload}
             onClick={e => {

@@ -10,6 +10,31 @@
 
 const NON_PARTICIPANT_ROLES = ['participant_joined', 'participant_left', 'dice', 'topic', 'interjection', 'error']
 
+/**
+ * Marks the moderator wherever their name is shown.
+ *
+ * The moderation badge only appears on a procedural intervention, so on an
+ * ordinary turn nothing distinguished the moderator from the participants it
+ * is there to police. The scales sit next to the name instead: they belong to
+ * the role, not to a single message.
+ */
+export const MODERATOR_EMOJI = '⚖️'
+
+/** The emoji preceding a speaker's name, empty for an ordinary participant. */
+export function roleEmojiFor(actor) {
+  return actor?.isModerator ? MODERATOR_EMOJI : ''
+}
+
+/**
+ * DOM id a citation card jumps to.
+ *
+ * Shared by the chat and the export so a quotation clicked in a saved page
+ * lands exactly where it lands in the app.
+ */
+export function messageAnchorId(seq) {
+  return `message-${seq}`
+}
+
 export function isRenderableParticipantMessage(message) {
   return !!message && !NON_PARTICIPANT_ROLES.includes(message.role)
 }
@@ -31,6 +56,9 @@ export function describeToolInvocation(invocation) {
   if (invocation?.name === 'get_recent_messages') {
     return [args.searchTerm, Array.isArray(args.participantTags) && args.participantTags.length ? `@${args.participantTags.join(', @')}` : null]
       .filter(Boolean).join(' · ')
+  }
+  if (invocation?.name === 'quote_message') {
+    return args.messageId != null ? `#${args.messageId}` : ''
   }
   if (invocation?.name === 'request_moderator_intervention') return args.reason || args.focus || ''
   if (invocation?.name === 'roll_dice' && args.count && args.sides) return `${args.count}d${args.sides}`
@@ -94,6 +122,27 @@ export function buildMessageGroup({ items, itemIndex, participants, isLocalUser 
     ? msg.toolEvents
     : (msg.toolInvocations || []).map(invocation => ({ type: 'invocation', invocation, beforeContent: false }))
 
+  // Citations belong to the whole turn: a tool round splits one turn across
+  // several messages, and a card attached to the second segment still has to
+  // appear once, at the head of the group the reader sees.
+  const quotes = []
+  for (const candidate of [msg, ...continuationItems]) {
+    for (const quote of candidate.quotes || []) {
+      if (quote?.messageId == null) continue
+      if (quotes.some(current => current.messageId === quote.messageId)) continue
+      quotes.push(quote)
+    }
+  }
+
+  // A citation that resolved is shown as its card, so the pill for the same
+  // call would say the same thing twice. One that did not resolve keeps its
+  // pill: the turn argues against a message the reader cannot open, and that
+  // is worth seeing.
+  const renderedToolEvents = toolEvents.filter(event => (
+    event.invocation?.name !== 'quote_message'
+    || !quotes.some(quote => String(quote.messageId) === String(event.invocation?.arguments?.messageId))
+  ))
+
   return {
     msg,
     actor,
@@ -102,8 +151,9 @@ export function buildMessageGroup({ items, itemIndex, participants, isLocalUser 
     continuationItems,
     continuationText,
     primaryContent,
-    leadingToolEvents: toolEvents.filter(event => event.type === 'invocation' && event.beforeContent),
-    trailingToolEvents: toolEvents.filter(event => !(event.type === 'invocation' && event.beforeContent)),
+    quotes,
+    leadingToolEvents: renderedToolEvents.filter(event => event.type === 'invocation' && event.beforeContent),
+    trailingToolEvents: renderedToolEvents.filter(event => !(event.type === 'invocation' && event.beforeContent)),
     leadingDiceResults: continuationItems.filter(candidate => candidate.role === 'dice' && candidate.beforeContent),
     primaryIsLastBalloon: !continuationItems.some(candidate => candidate.role !== 'dice'),
   }

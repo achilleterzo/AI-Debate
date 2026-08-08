@@ -19,6 +19,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/noto-color-emoji": "^5.3.0",
     "electron-window-state": "^5.0.3",
     "jspdf": "^4.2.1",
     "marked": "^18.0.2",
