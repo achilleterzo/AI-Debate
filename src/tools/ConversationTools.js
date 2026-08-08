@@ -17,6 +17,9 @@ export const GET_RECENT_MESSAGES_TOOL = {
       required: ['limit'],
     },
   },
+  constraints: [
+    ""
+  ],
 }
 
 export const REQUEST_MODERATOR_INTERVENTION_TOOL = {
@@ -32,6 +35,9 @@ export const REQUEST_MODERATOR_INTERVENTION_TOOL = {
       required: ['reason'],
     },
   },
+  constraints: [
+    ""
+  ],
 }
 
 export const APPLY_MODERATION_TOOL = {
@@ -47,6 +53,9 @@ export const APPLY_MODERATION_TOOL = {
       required: ['reason'],
     },
   },
+  constraints: [
+    ""
+  ],
 }
 
 export function formatRecentMessages(messages = [], { limit = 10, participantTags = [], searchTerm = '' } = {}) {

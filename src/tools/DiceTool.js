@@ -12,6 +12,9 @@ export const ROLL_DICE_TOOL = {
       required: ['count', 'sides'],
     },
   },
+  constraints: [
+	""
+  ],
 }
 
 function secureRandomInt(max) {

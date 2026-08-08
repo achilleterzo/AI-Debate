@@ -15,6 +15,9 @@ export const MEMORY_TOOL = {
       required: ['action'],
     },
   },
+  constraints: [
+	""
+  ],
 }
 
 export const MEMORY_MAX_ENTRIES = 200

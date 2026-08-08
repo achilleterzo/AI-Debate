@@ -29,6 +29,9 @@ export const FETCH_URL_TOOL = {
       required: ['url'],
     },
   },
+  constraints: [
+	""
+  ],
 }
 
 /**
