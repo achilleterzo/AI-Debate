@@ -33,7 +33,7 @@ export default {
     purposeTitle: 'Finalità e requisiti aggiuntivi',
     purposeHint: 'Guida sia i personaggi sia le regole condivise. Lascia vuoto per partire dalla sola modalità.',
     purposePlaceholder: 'es. decidere se riscrivere il servizio pagamenti, valutando costo, rischio e tempi',
-    replaceWarning: 'La generazione sostituisce tutti i partecipanti attuali e le regole globali.',
+    replaceWarning: 'La generazione sostituisce tutti i partecipanti attuali e le regole globali, e avvia una nuova chat.',
     back: 'Indietro',
     next: 'Avanti',
     generate: 'Genera',

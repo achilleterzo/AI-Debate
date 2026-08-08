@@ -28,7 +28,7 @@ export default {
     purposeTitle: 'Finalidad y requisitos adicionales',
     purposeHint: 'Guía tanto los personajes como las reglas compartidas. Déjalo vacío para partir solo del modo.',
     purposePlaceholder: 'p. ej. decidir si reescribir el servicio de pagos, sopesando coste, riesgo y plazos',
-    replaceWarning: 'Generar sustituye a todos los participantes actuales y las reglas globales.',
+    replaceWarning: 'Generar sustituye a todos los participantes actuales y las reglas globales, y empieza un chat nuevo.',
     back: 'Atrás',
     next: 'Siguiente',
     generate: 'Generar',

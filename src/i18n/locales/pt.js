@@ -28,7 +28,7 @@ export default {
     purposeTitle: 'Finalidade e requisitos adicionais',
     purposeHint: 'Orienta tanto as personagens quanto as regras partilhadas. Deixe vazio para partir apenas do modo.',
     purposePlaceholder: 'ex. decidir se reescrever o serviço de pagamentos, ponderando custo, risco e prazos',
-    replaceWarning: 'Gerar substitui todos os participantes atuais e as regras globais.',
+    replaceWarning: 'Gerar substitui todos os participantes atuais e as regras globais, e inicia uma nova conversa.',
     back: 'Voltar',
     next: 'Seguinte',
     generate: 'Gerar',

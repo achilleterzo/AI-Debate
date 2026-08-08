@@ -28,7 +28,7 @@ export default {
     purposeTitle: '목적과 추가 요구사항',
     purposeHint: '캐릭터와 공통 규칙 모두에 반영됩니다. 비워 두면 모드만 사용합니다.',
     purposePlaceholder: '예: 비용, 위험, 일정을 따져 결제 서비스를 다시 작성할지 결정하기',
-    replaceWarning: '생성하면 현재 참가자와 전역 규칙이 모두 교체됩니다.',
+    replaceWarning: '생성하면 현재 참가자와 전역 규칙이 모두 교체되고 새 대화가 시작됩니다.',
     back: '뒤로',
     next: '다음',
     generate: '생성',

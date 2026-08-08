@@ -28,7 +28,7 @@ export default {
     purposeTitle: 'Zweck und zusätzliche Anforderungen',
     purposeHint: 'Prägt sowohl die Figuren als auch die gemeinsamen Regeln. Leer lassen, um nur vom Modus auszugehen.',
     purposePlaceholder: 'z. B. entscheiden, ob der Zahlungsdienst neu geschrieben wird — Kosten, Risiko und Zeit abwägen',
-    replaceWarning: 'Das Erzeugen ersetzt alle aktuellen Teilnehmer und die globalen Regeln.',
+    replaceWarning: 'Das Erzeugen ersetzt alle aktuellen Teilnehmer und die globalen Regeln und beginnt einen neuen Chat.',
     back: 'Zurück',
     next: 'Weiter',
     generate: 'Erzeugen',

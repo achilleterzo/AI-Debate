@@ -28,7 +28,7 @@ export default {
     purposeTitle: 'Finalité et exigences supplémentaires',
     purposeHint: 'Oriente les personnages et les règles communes. Laissez vide pour partir du seul mode.',
     purposePlaceholder: 'ex. décider s’il faut réécrire le service de paiement, en pesant coût, risque et délais',
-    replaceWarning: 'La génération remplace tous les participants actuels et les règles globales.',
+    replaceWarning: 'La génération remplace tous les participants actuels et les règles globales, et démarre une nouvelle conversation.',
     back: 'Retour',
     next: 'Suivant',
     generate: 'Générer',

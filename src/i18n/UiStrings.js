@@ -122,7 +122,7 @@ export const UI_STRINGS = {
     purposeTitle: 'Purpose and extra requirements',
     purposeHint: 'Shapes both the personas and the shared rules. Leave it empty to work from the mode alone.',
     purposePlaceholder: 'e.g. decide whether to rewrite the payment service, weighing cost, risk and delivery time',
-    replaceWarning: 'Generating replaces every current participant and the global rules.',
+    replaceWarning: 'Generating replaces every current participant and the global rules, and starts a new chat.',
     back: 'Back',
     next: 'Next',
     generate: 'Generate',

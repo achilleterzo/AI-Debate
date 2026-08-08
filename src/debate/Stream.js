@@ -10,6 +10,32 @@ import { LLM_TOOLS, executeFetchUrl } from '../tools'
  */
 const FINAL_ANSWER_NUDGE = 'Tool use for this turn is over — no further tool call will be executed, and asking for one will produce nothing. Using the tool results already in this conversation, write your full contribution now, following your system instructions. If a tool returned nothing useful, say what you could not verify instead of assuming it is absent. Do not announce further searches, and do not reply with an empty message.'
 
+/**
+ * Identity of a tool call, for spotting one the turn has already answered.
+ *
+ * Keys are sorted so that `{url, page}` and `{page, url}` are the same call:
+ * the arguments come back as JSON from the model, in whatever order it wrote
+ * them, and a repeat is a repeat regardless of how it was typed.
+ */
+function toolResultKey(name, args) {
+  const canonical = args && typeof args === 'object' && !Array.isArray(args)
+    ? Object.fromEntries(Object.entries(args).sort(([left], [right]) => left.localeCompare(right)))
+    : args
+  return `${name}|${JSON.stringify(canonical ?? null)}`
+}
+
+/**
+ * Stands in for a result the conversation is already carrying.
+ *
+ * A model that asks for the same page twice in one turn used to get a second
+ * verbatim copy appended: a 26 KB page became 53 KB of payload, and every
+ * later request in the turn carried both. The content it needs is already
+ * above, so the repeat is answered with a pointer to it.
+ */
+function repeatedToolResultNote(name) {
+  return `The ${name} call with these exact arguments already ran in this turn and its full result is earlier in this conversation. Nothing has changed, so it is not repeated here: read the result above and continue from it.`
+}
+
 function trimText(txt, maxChars) {
   const s = String(txt || '')
   if (s.length <= maxChars) return s
@@ -220,6 +246,9 @@ export async function streamChat({
 
   const MAX_TOOL_ROUNDS = 2
   let toolRound = 0
+  // Tool calls this turn has already answered, so a repeat costs a pointer
+  // instead of a second copy of the same page in every remaining request.
+  const deliveredToolResults = new Set()
   let nudgedForAnswer = false
   let retried = false
   let retriedTooLong = false
@@ -421,6 +450,17 @@ export async function streamChat({
       toolRound++
       if (full) visiblePrefix = [visiblePrefix, full].filter(Boolean).join('\n\n')
       apiMessages = [...apiMessages, { role: 'assistant', content: full || '', tool_calls: toolCalls }]
+      const appendToolResult = (name, args, content) => {
+        const key = toolResultKey(name, args)
+        const repeated = deliveredToolResults.has(key)
+        deliveredToolResults.add(key)
+        if (repeated) console.log(`${label} ${name} ripetuto con gli stessi argomenti — risultato non riallegato`)
+        apiMessages = [...apiMessages, {
+          role: 'tool',
+          tool_name: name,
+          content: repeated ? repeatedToolResultNote(name) : String(content),
+        }]
+      }
       for (const toolCall of toolCalls) {
         const toolName = toolCall.function?.name
         let toolArgs = toolCall.function?.arguments ?? {}
@@ -434,13 +474,13 @@ export async function streamChat({
           const cachedResult = Web.getCachedSearchResult(queryStr)
           if (cachedResult) {
             console.log(`[webSearch] cache hit (tool loop): "${queryStr}"`)
-            apiMessages = [...apiMessages, { role: 'tool', tool_name: 'web_search', content: cachedResult }]
+            appendToolResult('web_search', toolArgs, cachedResult)
           } else {
             onToken(separateToolRounds
               ? [full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n')
               : [visiblePrefix, full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n'))
             const result = await Web.search(queryStr, { noResultsMessage: noResultsMessage(queryStr) })
-            apiMessages = [...apiMessages, { role: 'tool', tool_name: 'web_search', content: result }]
+            appendToolResult('web_search', toolArgs, result)
           }
         } else if (toolName === 'fetch_url') {
           const targetUrl = String(toolArgs?.url ?? '')
@@ -449,12 +489,10 @@ export async function streamChat({
             ? [full, `*🌐 Reading: ${targetUrl}${pageLabel}...*`].filter(Boolean).join('\n\n')
             : [visiblePrefix, full, `*🌐 Reading: ${targetUrl}${pageLabel}...*`].filter(Boolean).join('\n\n'))
           const result = await executeFetchUrl(toolArgs)
-          apiMessages = [...apiMessages, { role: 'tool', tool_name: 'fetch_url', content: result }]
+          appendToolResult('fetch_url', toolArgs, result)
         } else if (typeof executeTool === 'function') {
           const result = await executeTool(toolName, toolArgs)
-          if (result != null) {
-            apiMessages = [...apiMessages, { role: 'tool', tool_name: toolName, content: String(result) }]
-          }
+          if (result != null) appendToolResult(toolName, toolArgs, result)
         }
       }
       // Out of tool rounds, so the next reply is the answer. Saying so is what

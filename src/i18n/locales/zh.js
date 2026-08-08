@@ -28,7 +28,7 @@ export default {
     purposeTitle: '目的与额外要求',
     purposeHint: '同时影响角色设定与共同规则。留空则仅依据模式。',
     purposePlaceholder: '例如：权衡成本、风险与工期，决定是否重写支付服务',
-    replaceWarning: '生成会替换当前所有参与者和全局规则。',
+    replaceWarning: '生成会替换当前所有参与者和全局规则，并开始新的对话。',
     back: '上一步',
     next: '下一步',
     generate: '生成',

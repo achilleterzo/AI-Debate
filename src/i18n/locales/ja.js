@@ -28,7 +28,7 @@ export default {
     purposeTitle: '目的と追加の要件',
     purposeHint: 'キャラクターと共通ルールの両方に反映されます。空欄の場合はモードのみを使います。',
     purposePlaceholder: '例: 決済サービスを書き直すべきか、コスト・リスク・期間を踏まえて判断する',
-    replaceWarning: '生成すると現在の参加者と全体ルールはすべて置き換えられます。',
+    replaceWarning: '生成すると現在の参加者と全体ルールはすべて置き換えられ、新しいチャットが始まります。',
     back: '戻る',
     next: '次へ',
     generate: '生成',

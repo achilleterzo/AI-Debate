@@ -14,22 +14,29 @@ import { getProvider } from '../providers/index.js'
  * An endpoint that cannot answer leaves the entry `null`: unknown, not
  * unsupported. A control shown for a model we could not ask stays enabled.
  */
-export function useModelCapabilities(participants = [], baseUrl = '') {
+export function useModelCapabilities(participants = [], baseUrl = '', defaultModel = '') {
   const [known, setKnown] = useState({})
+
+  // What the turn would actually run, the way the debate loop resolves it: a
+  // participant with no model of its own runs the default, and asking about
+  // the empty string would leave its controls unchecked forever.
+  const targetOf = participant => {
+    if (!participant || participant.localUser || participant.model === Debate.USER_MODEL) return null
+    const model = String(participant.model || '').trim() || String(defaultModel || '').trim()
+    const endpoint = (participant.endpointOverride?.trim() || baseUrl || '').replace(/\/$/, '')
+    if (!model || !endpoint) return null
+    return { key: `${endpoint} ${model}`, endpoint, model }
+  }
 
   const targets = useMemo(() => {
     const seen = new Map()
     for (const participant of participants) {
-      if (participant?.localUser || participant?.model === Debate.USER_MODEL) continue
-      const model = String(participant?.model || '').trim()
-      if (!model) continue
-      const endpoint = (participant.endpointOverride?.trim() || baseUrl || '').replace(/\/$/, '')
-      if (!endpoint) continue
-      const key = `${endpoint} ${model}`
-      if (!seen.has(key)) seen.set(key, { key, endpoint, model })
+      const target = targetOf(participant)
+      if (target && !seen.has(target.key)) seen.set(target.key, target)
     }
     return [...seen.values()]
-  }, [participants, baseUrl])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants, baseUrl, defaultModel])
 
   const signature = useMemo(() => targets.map(target => target.key).join('::'), [targets])
 
@@ -55,9 +62,8 @@ export function useModelCapabilities(participants = [], baseUrl = '') {
   return useMemo(() => {
     const byParticipant = {}
     for (const participant of participants) {
-      const model = String(participant?.model || '').trim()
-      const endpoint = (participant?.endpointOverride?.trim() || baseUrl || '').replace(/\/$/, '')
-      const capabilities = known[`${endpoint} ${model}`]
+      const target = targetOf(participant)
+      const capabilities = target ? known[target.key] : null
       byParticipant[participant.id] = {
         capabilities: capabilities ?? null,
         // `null` is "not answered yet", which must not read as "unsupported".
@@ -66,5 +72,6 @@ export function useModelCapabilities(participants = [], baseUrl = '') {
       }
     }
     return byParticipant
-  }, [participants, baseUrl, known])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants, baseUrl, defaultModel, known])
 }

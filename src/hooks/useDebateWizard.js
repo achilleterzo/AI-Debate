@@ -46,8 +46,6 @@ export function dropDuplicateNames(drafts = []) {
 export function useDebateWizard({
   baseUrl,
   defaultModel,
-  participants,
-  summaryModelOverride,
   timeoutSec,
   ollamaOk = null,
   setLastPromptEstimate,
@@ -58,7 +56,19 @@ export function useDebateWizard({
   const [error, setError] = useState(null)
   const inFlightRef = useRef(null)
 
-  const model = defaultModel || Debate.pickOperationalModel(participants, summaryModelOverride)
+  /*
+   * The default model, and nothing else.
+   *
+   * Every participant the wizard writes is created without a model of its own,
+   * so the whole generated table runs on the default. Falling back to a model
+   * scavenged from the current participants — which this wizard is about to
+   * replace — let the run proceed with no default set: the three requests
+   * succeeded on a borrowed model and then handed back a table that could not
+   * start, or failed outright when the borrowed model no longer existed on the
+   * endpoint. Requiring the default is what puts the connection-and-model step
+   * in front of the run instead.
+   */
+  const model = defaultModel
   const online = ollamaOk === true
   const available = !!model && online
   const unavailableReason = !online ? 'offline' : !model ? 'noModel' : null
