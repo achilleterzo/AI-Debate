@@ -86,11 +86,11 @@ export default function TopMenu({
                 background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8,
                 padding: '6px 0', minWidth: 200, boxShadow: '0 4px 16px #0008',
               }}>
+                {/* Off-limits mid-debate: it rebuilds the table from scratch. */}
+                <MenuItemComponent disabled={running} onClick={withClose(onOpenWizard)}>{ui.setupWizard}</MenuItemComponent>
                 <MenuItemComponent disabled={running} onClick={withClose(onNewChat)}>{ui.newChat}</MenuItemComponent>
                 {/* A fork needs a transcript to branch from. */}
                 <MenuItemComponent disabled={!canFork} onClick={withClose(onFork)}>{ui.newFork}</MenuItemComponent>
-                {/* Off-limits mid-debate: it rebuilds the table from scratch. */}
-                <MenuItemComponent disabled={running} onClick={withClose(onOpenWizard)}>{ui.setupWizard}</MenuItemComponent>
               </div>
             )}
           </div>
