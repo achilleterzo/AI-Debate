@@ -975,3 +975,85 @@ describe('a tool result keeps the size the page-block setting gave it', () => {
     Web.configure({ pageBlockKb: 8 })
   })
 })
+
+describe('a tool asked the same thing twice in one turn', () => {
+  const PAGE = 'PAGEBODY'.repeat(3343)
+  const done = JSON.stringify({ done: true, message: { content: '' } }) + '\n'
+  const bodyOf = lines => ({
+    ok: true,
+    body: new ReadableStream({
+      start(controller) {
+        for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+        controller.close()
+      },
+    }),
+  })
+  const callLine = args => JSON.stringify({ message: { tool_calls: [{ function: { name: 'fetch_url', arguments: args } }] } }) + '\n'
+
+  function run(argsPerRound) {
+    let round = 0
+    const fetchMock = vi.fn(async url => {
+      if (String(url).endsWith('/api/show')) return { ok: true, json: async () => ({ capabilities: ['completion', 'tools'] }) }
+      const args = argsPerRound[round]
+      round += 1
+      return args
+        ? bodyOf([callLine(args), done])
+        : bodyOf([JSON.stringify({ message: { content: 'Ho letto.' } }) + '\n', done])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return { fetchMock, promise: streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'valuta' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'fetch_url' } }],
+      onToken: () => {},
+    }) }
+  }
+
+  function toolMessages(fetchMock) {
+    const chats = fetchMock.mock.calls.filter(c => String(c[0]).endsWith('/api/chat')).map(c => JSON.parse(c[1].body))
+    return chats.at(-1).messages.filter(message => message.role === 'tool')
+  }
+
+  // The block size is process-wide config, so each case states the one it needs
+  // instead of inheriting whatever the previous test left behind.
+  it('points at the copy already in the conversation instead of sending a second one', async () => {
+    Web.configure({ pageBlockKb: 64 })
+    vi.spyOn(Web, 'readUrl').mockResolvedValue({ text: PAGE, status: 'ok', page: 1, pageCount: 1, url: 'http://page' })
+    const { fetchMock, promise } = run([{ url: 'http://page' }, { url: 'http://page' }])
+    await promise
+
+    const results = toolMessages(fetchMock)
+    expect(results).toHaveLength(2)
+    expect(results[0].content).toBe(PAGE)
+    expect(results[1].content).not.toContain('PAGEBODY')
+    expect(results[1].content).toContain('already ran in this turn')
+    Web.readUrl.mockRestore()
+  })
+
+  it('treats the same arguments written in a different order as the same call', async () => {
+    Web.configure({ pageBlockKb: 64 })
+    vi.spyOn(Web, 'readUrl').mockResolvedValue({ text: PAGE, status: 'ok', page: 2, pageCount: 3, url: 'http://page' })
+    const { fetchMock, promise } = run([{ url: 'http://page', page: 2 }, { page: 2, url: 'http://page' }])
+    await promise
+
+    expect(toolMessages(fetchMock)[1].content).not.toContain('PAGEBODY')
+    Web.readUrl.mockRestore()
+  })
+
+  it('still sends a different block of the same page in full', async () => {
+    Web.configure({ pageBlockKb: 64 })
+    vi.spyOn(Web, 'readUrl').mockImplementation(async (url, { page }) => ({
+      text: `BLOCK${page}`.repeat(2000), status: 'partial', page, pageCount: 3, url,
+    }))
+    const { fetchMock, promise } = run([{ url: 'http://page', page: 1 }, { url: 'http://page', page: 2 }])
+    await promise
+
+    const results = toolMessages(fetchMock)
+    expect(results[0].content).toContain('BLOCK1')
+    expect(results[1].content).toContain('BLOCK2')
+    expect(results[1].content).not.toContain('already ran in this turn')
+    Web.readUrl.mockRestore()
+  })
+})

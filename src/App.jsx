@@ -271,8 +271,6 @@ function AppInner({ settings }) {
   const wizard = useDebateWizard({
     baseUrl,
     defaultModel,
-    participants,
-    summaryModelOverride: effectiveSummaryModelOverride,
     timeoutSec,
     ollamaOk,
     setLastPromptEstimate,
@@ -315,7 +313,7 @@ function AppInner({ settings }) {
     [effectiveSummaryEndpointOverride],
   )
   const endpointStatuses = useEndpointStatuses(participants, summaryEndpointTargets)
-  const modelCapabilities = useModelCapabilities(participants, baseUrl)
+  const modelCapabilities = useModelCapabilities(participants, baseUrl, defaultModel)
   const {
     bottomRef,
     chatRef,
@@ -390,10 +388,19 @@ function AppInner({ settings }) {
   /**
    * The wizard designs a whole table, so applying it swaps the roster and the
    * shared rules wholesale — a half-applied setup would mix two debates.
+   *
+   * That is also why it starts a new chat. A transcript belongs to the table
+   * that produced it: messages carry participant tags, memory and conclusions
+   * were written by people who are no longer seated, and the summary describes
+   * a debate nobody at the new table took part in. Keeping any of it next to a
+   * fresh roster is the mixing this function exists to prevent. The reset runs
+   * first so that its affinity pass lands on the outgoing participants and the
+   * new roster then replaces them outright.
    */
   const handleWizardGenerate = async (config) => {
     const result = await wizard.generate(config)
     if (!result) return
+    resetChat()
     setDebateMode(config.debateMode)
     setUiLang(config.uiLang)
     setParticipants(Debate.reindexParticipants(result.participants))

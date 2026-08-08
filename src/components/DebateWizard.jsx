@@ -9,11 +9,52 @@ import { DEFAULT_URL as DEFAULT_ENDPOINT } from '../settings/Settings'
 const languageOptions = UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code }))
 
 
-// The card clips its content, so the menu is portalled to the body and lifted
-// above the wizard's own 1200 overlay rather than being cut off inside it.
-const withPortalledMenu = base => ({
+/**
+ * Adapts the compact participant-row select to a wizard field.
+ *
+ * The base styles are built for the narrow column beside a participant, where
+ * a fixed 170px is the point. Here the select sits in a full-width column next
+ * to the endpoint input, so it takes the whole width and the type size of its
+ * neighbours — and a long value like `cogito-2.1:671b-cloud` stays on one line
+ * with an ellipsis instead of wrapping the box open.
+ *
+ * The menu is portalled because the card clips its own content, and lifted
+ * above the wizard's 1200 overlay rather than being cut off inside it.
+ */
+const asWizardField = base => ({
   ...base,
-  menuPortal: portalBase => ({ ...portalBase, zIndex: 1300 }),
+  container: provided => ({ ...base.container?.(provided) ?? provided, width: '100%' }),
+  control: (provided, state) => ({
+    ...base.control?.(provided, state) ?? provided,
+    minHeight: 34,
+  }),
+  valueContainer: provided => ({
+    ...base.valueContainer?.(provided) ?? provided,
+    padding: '0 10px',
+    flexWrap: 'nowrap',
+  }),
+  singleValue: provided => ({
+    ...base.singleValue?.(provided) ?? provided,
+    fontSize: 13,
+    maxWidth: '100%',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  }),
+  placeholder: provided => ({
+    ...base.placeholder?.(provided) ?? provided,
+    fontSize: 13,
+    whiteSpace: 'nowrap',
+  }),
+  option: (provided, state) => ({
+    ...base.option?.(provided, state) ?? provided,
+    fontSize: 13,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  }),
+  input: provided => ({ ...base.input?.(provided) ?? provided, fontSize: 13 }),
+  menuPortal: provided => ({ ...provided, zIndex: 1300 }),
 })
 
 const chipStyle = (active, disabled) => ({
@@ -88,7 +129,7 @@ export default function DebateWizard({
 
   const running = wizard.isRunning
   const usingCustomLang = isCustomOutputLanguage(lang) || lang === OUTPUT_LANG_CUSTOM
-  const languageSelectStyles = useMemo(() => withPortalledMenu(moodSelectStyles), [moodSelectStyles])
+  const fieldSelectStyles = useMemo(() => asWizardField(moodSelectStyles), [moodSelectStyles])
 
   useEffect(() => {
     const handler = event => {
@@ -242,7 +283,7 @@ export default function DebateWizard({
                     onChange={option => onDefaultModelChange?.(option?.value ?? '')}
                     placeholder={common.chooseModel}
                     isDisabled={connecting}
-                    styles={languageSelectStyles}
+                    styles={fieldSelectStyles}
                     menuPortalTarget={typeof document === 'undefined' ? null : document.body}
                   />
                 </div>
@@ -270,7 +311,7 @@ export default function DebateWizard({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <FieldLabel>{appUi.language}</FieldLabel>
                 <ReactSelect
-                  styles={languageSelectStyles}
+                  styles={fieldSelectStyles}
                   menuPortalTarget={document.body}
                   options={[{ value: OUTPUT_LANG_CUSTOM, label: participantsUi.reasoningLangCustom }, ...languageOptions]}
                   value={usingCustomLang
