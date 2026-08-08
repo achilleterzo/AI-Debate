@@ -1,9 +1,19 @@
 import { useState } from 'react'
 import ReactSelect from 'react-select'
 import { useUiStrings } from '../i18n/UiStringsContext'
-import { MAX_CONSTRAINT_CHARS } from '../services/Suggestions'
+import MagicWand from './MagicWand'
+import { MAX_CONSTRAINT_CHARS, SUGGESTION_MODE, constraintMode } from '../services/Suggestions'
 
-export default function ConstraintModal({ state, onClose, onConfirm, globalSuggestions = [], selectStyles, onDeleteGlobalSuggestion }) {
+// The wand popover has to clear this modal, which already sits above the app.
+const WAND_Z_INDEX = 1200
+
+// The saved-constraint list is taller than the room left under its field, and
+// the dialog clips its own overflow to keep the rounded corners. Rendering the
+// menu into the body takes it out of that box; the z-index then has to clear
+// the dialog it is escaping from.
+const MENU_PORTAL_Z_INDEX = 1150
+
+export default function ConstraintModal({ state, onClose, onConfirm, globalSuggestions = [], selectStyles, onDeleteGlobalSuggestion, wand = null }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.constraintModal
   const common = UI_STRINGS.common
@@ -11,6 +21,12 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
   const [override, setOverride] = useState(!!state?.initialOverride)
   const isDelete = state?.mode === 'delete'
   const isParticipant = state?.scope === 'participant'
+  // Suggesting a rule only makes sense while one is being written, and a
+  // participant rule needs to know which row it is being written for.
+  const wandMode = isDelete ? null
+    : isParticipant
+      ? (Number.isInteger(state?.participantIdx) ? constraintMode(state.participantIdx) : null)
+      : SUGGESTION_MODE.GLOBAL_RULE
   const title = isDelete ? ui.removeTitle : state?.mode === 'edit' ? ui.editTitle : ui.newTitle
   const subtitle = state?.scope === 'global' ? ui.globalSubtitle : ui.participantSubtitle(state?.participantTag ?? '')
 
@@ -22,7 +38,17 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
             <span style={{ fontSize: 13, fontWeight: 700, color: '#cfcfcf' }}>{title}</span>
             <span style={{ fontSize: 11, color: '#777' }}>{subtitle}</span>
           </div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {wand && wandMode && (
+              <MagicWand
+                wand={wand}
+                mode={wandMode}
+                zIndex={WAND_Z_INDEX}
+                onPick={suggestion => setText(suggestion)}
+              />
+            )}
+            <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+          </div>
         </div>
 
         <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -76,7 +102,11 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
                   <div style={{ fontSize: 11, color: '#888' }}>{ui.history}</div>
                   <div>
                     <ReactSelect
-                      styles={selectStyles}
+                      styles={{
+                        ...selectStyles,
+                        menuPortal: base => ({ ...base, zIndex: MENU_PORTAL_Z_INDEX }),
+                      }}
+                      menuPortalTarget={typeof document === 'undefined' ? null : document.body}
                       options={globalSuggestions.map((item, i) => ({ value: String(i), label: item }))}
                       onChange={opt => {
                         const idx = Number(opt?.value)

@@ -31,6 +31,7 @@ export const PROMPT_SECTION_TAGS = [
   'source_priority',
   'tool_protocol',
   'topic_directives',
+  'topic_sources',
   'turn_request',
 ]
 

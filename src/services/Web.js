@@ -84,6 +84,16 @@ export class Web {
     }
   }
 
+  /**
+   * The largest tool result the debate is expected to carry, so the context
+   * guard can budget for it instead of cutting a page block the user asked
+   * for. The margin covers the header and continuation footer `readUrl` wraps
+   * around the block.
+   */
+  static maxToolResultChars() {
+    return Web.config.pageBlockChars + 2000
+  }
+
   static clearCaches() {
     Web.webSearchCache.clear()
     Web.pageCache.clear()

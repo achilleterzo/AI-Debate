@@ -17,12 +17,55 @@ describe('provider registry', () => {
 })
 
 describe('ollamaProvider.supportsTools', () => {
-  it('keeps the existing model exclusions', () => {
-    expect(ollamaProvider.supportsTools('llama3.1:8b')).toBe(true)
-    expect(ollamaProvider.supportsTools('deepseek-r1:14b')).toBe(false)
-    expect(ollamaProvider.supportsTools('MiniMax-Text')).toBe(false)
-    expect(ollamaProvider.supportsTools('')).toBe(true)
-    expect(ollamaProvider.supportsTools(undefined)).toBe(true)
+  const show = capabilities => vi.fn(async () => ({ ok: true, json: async () => ({ capabilities }) }))
+
+  it('believes the endpoint over the model name, in both directions', async () => {
+    // Two models the old name heuristic got wrong: it excluded the whole
+    // deepseek family, and it admitted phi3, which has no tool slot at all.
+    vi.stubGlobal('fetch', show(['completion', 'tools', 'thinking']))
+    await expect(ollamaProvider.supportsTools('deepseek-v4-flash:cloud', { baseUrl: 'http://a' })).resolves.toBe(true)
+
+    vi.stubGlobal('fetch', show(['completion']))
+    await expect(ollamaProvider.supportsTools('phi3:mini', { baseUrl: 'http://a' })).resolves.toBe(false)
+  })
+
+  it('asks the endpoint once per model and remembers the answer', async () => {
+    const fetchMock = show(['completion', 'tools'])
+    vi.stubGlobal('fetch', fetchMock)
+
+    await ollamaProvider.supportsTools('cached-model', { baseUrl: 'http://cache-test' })
+    await ollamaProvider.supportsTools('cached-model', { baseUrl: 'http://cache-test' })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes the capabilities straight off a model listing, with no extra request', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ models: [
+        { name: 'minimax-m2:cloud', capabilities: ['completion', 'tools', 'thinking'] },
+        { name: 'x/flux2-klein:latest', capabilities: ['image'] },
+      ] }),
+    })))
+    await ollamaProvider.listModels('http://listed')
+
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('must not be asked again') }))
+    await expect(ollamaProvider.supportsTools('minimax-m2:cloud', { baseUrl: 'http://listed' })).resolves.toBe(true)
+    await expect(ollamaProvider.supportsTools('x/flux2-klein:latest', { baseUrl: 'http://listed' })).resolves.toBe(false)
+  })
+
+  it('falls back to the name when the endpoint cannot answer', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
+    await expect(ollamaProvider.supportsTools('llama3.1:8b', { baseUrl: 'http://down' })).resolves.toBe(true)
+    await expect(ollamaProvider.supportsTools('deepseek-r1:14b', { baseUrl: 'http://down' })).resolves.toBe(false)
+    await expect(ollamaProvider.supportsTools('deepseek-v4-flash:cloud', { baseUrl: 'http://down' })).resolves.toBe(true)
+    await expect(ollamaProvider.supportsTools('')).resolves.toBe(true)
+    await expect(ollamaProvider.supportsTools(undefined)).resolves.toBe(true)
+  })
+
+  it('falls back when an older Ollama reports no capabilities at all', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ details: {} }) })))
+    await expect(ollamaProvider.supportsTools('phi3:mini', { baseUrl: 'http://old' })).resolves.toBe(true)
   })
 })
 

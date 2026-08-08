@@ -1,5 +1,20 @@
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { describe, expect, it, vi, afterEach, beforeAll } from 'vitest'
 import { streamChat } from '../src/debate/Stream'
+import { ollamaProvider } from '../src/providers/ollama'
+import { Web } from '../src/services/Web'
+
+// A turn asks the endpoint what the model can do before offering it any tool.
+// In the app the model picker has already answered that; here nothing has run
+// yet, so the listing is replayed once and every test starts from a warm cache
+// instead of an unexpected /api/show landing in its fetch mock.
+beforeAll(async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => ({
+    ok: true,
+    json: async () => ({ models: [{ name: 'test-model', capabilities: ['completion', 'tools', 'thinking'] }] }),
+  })))
+  await ollamaProvider.listModels('http://fake')
+  vi.unstubAllGlobals()
+})
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -676,5 +691,287 @@ describe('a turn that spends itself on tools', () => {
 
     expect(result).toBe('La mia posizione è questa.')
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('a model that types the tool call instead of emitting it', () => {
+  const doneEmpty = JSON.stringify({ done: true, message: { content: '' } }) + '\n'
+
+  function bodyOf(lines) {
+    return {
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+          controller.close()
+        },
+      }),
+    }
+  }
+
+  function answerOf(content) {
+    vi.stubGlobal('fetch', vi.fn(async () => bodyOf([
+      JSON.stringify({ message: { content } }) + '\n',
+      doneEmpty,
+    ])))
+    return streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'parla' }],
+      useTools: false,
+      onToken: () => {},
+    })
+  }
+
+  it('drops an Anthropic-style block, unbalanced wrapper included', async () => {
+    const leaked = [
+      'Prima di esprimere un giudizio, devo leggere il materiale.',
+      '',
+      '<invoke name="fetch_url">',
+      '<parameter name="url">https://example.com/</parameter>',
+      '</invoke>',
+      '</tool_calls>',
+    ].join('\n')
+
+    await expect(answerOf(leaked)).resolves.toBe('Prima di esprimere un giudizio, devo leggere il materiale.')
+  })
+
+  it('drops a block still being typed when the stream ends', async () => {
+    await expect(answerOf('Vado a controllare.\n\n<tool_calls>\n<invoke name="web_search">'))
+      .resolves.toBe('Vado a controllare.')
+  })
+
+  it('leaves ordinary prose and markup alone', async () => {
+    const prose = 'Il markup `<div>` resta, e 3 < 5 pure.'
+    await expect(answerOf(prose)).resolves.toBe(prose)
+  })
+
+  it('treats an answer made only of a typed call as no answer at all', async () => {
+    let call = 0
+    const fetchMock = vi.fn(async () => {
+      call += 1
+      if (call === 1) return bodyOf([
+        JSON.stringify({ message: { content: '<tool_calls>\n<invoke name="fetch_url">\n</invoke>\n</tool_calls>' } }) + '\n',
+        doneEmpty,
+      ])
+      return bodyOf([JSON.stringify({ message: { content: 'La mia posizione è questa.' } }) + '\n', doneEmpty])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'parla' }],
+      useTools: false,
+      onToken: () => {},
+    })
+
+    expect(result).toBe('La mia posizione è questa.')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('the tools array is sent only when there is one', () => {
+  const doneEmpty = JSON.stringify({ done: true, message: { content: 'ok' } }) + '\n'
+
+  // Answers /api/show as the real endpoint would, so the capability lookup a
+  // tool-enabled turn performs is served by the declared capabilities and not
+  // by an accidental parse failure falling back to the name.
+  function stub(capabilities = ['completion', 'tools']) {
+    const fetchMock = vi.fn(async url => String(url).endsWith('/api/show')
+      ? { ok: true, json: async () => ({ capabilities }) }
+      : {
+          ok: true,
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(doneEmpty))
+              controller.close()
+            },
+          }),
+        })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  function chatBody(fetchMock) {
+    const chat = fetchMock.mock.calls.find(call => String(call[0]).endsWith('/api/chat'))
+    return JSON.parse(chat[1].body)
+  }
+
+  it('omits an empty tools array rather than advertising nothing', async () => {
+    const fetchMock = stub()
+    await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      useTools: true,
+      tools: [],
+      onToken: () => {},
+    })
+    expect(chatBody(fetchMock)).not.toHaveProperty('tools')
+  })
+
+  it('omits the tools array when the endpoint says the model has no tools', async () => {
+    const fetchMock = stub(['completion'])
+    await streamChat({
+      baseUrl: 'http://no-tools',
+      model: 'phi3:mini',
+      messages: [{ role: 'user', content: 'hi' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'web_search' } }],
+      onToken: () => {},
+    })
+    expect(chatBody(fetchMock)).not.toHaveProperty('tools')
+  })
+
+  it('sends them when the endpoint says the model has tools', async () => {
+    const tools = [{ type: 'function', function: { name: 'web_search' } }]
+    const fetchMock = stub(['completion', 'tools'])
+    await streamChat({
+      baseUrl: 'http://with-tools',
+      model: 'deepseek-v4-flash:cloud',
+      messages: [{ role: 'user', content: 'hi' }],
+      useTools: true,
+      tools,
+      onToken: () => {},
+    })
+    expect(chatBody(fetchMock).tools).toEqual(tools)
+  })
+})
+
+describe('the think flag follows what the model can actually do', () => {
+  const done = JSON.stringify({ done: true, message: { content: 'ok' } }) + '\n'
+
+  function stub(capabilities) {
+    const fetchMock = vi.fn(async url => String(url).endsWith('/api/show')
+      ? { ok: true, json: async () => ({ capabilities }) }
+      : {
+          ok: true,
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(done))
+              controller.close()
+            },
+          }),
+        })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  function chatBody(fetchMock) {
+    return JSON.parse(fetchMock.mock.calls.find(call => String(call[0]).endsWith('/api/chat'))[1].body)
+  }
+
+  async function run(fetchMock, { model, think }) {
+    await streamChat({
+      baseUrl: `http://${model}`,
+      model,
+      messages: [{ role: 'user', content: 'hi' }],
+      useTools: false,
+      think,
+      onToken: () => {},
+    })
+    return chatBody(fetchMock)
+  }
+
+  // `think: true` against a model without the capability is an HTTP 400 from
+  // Ollama — the turn is lost, not silently downgraded.
+  it('drops the flag for a model that cannot think', async () => {
+    const fetchMock = stub(['completion', 'tools'])
+    expect(await run(fetchMock, { model: 'no-think', think: 'high' })).not.toHaveProperty('think')
+  })
+
+  it('keeps it for a model that can', async () => {
+    const fetchMock = stub(['completion', 'thinking'])
+    expect((await run(fetchMock, { model: 'can-think', think: 'high' })).think).toBe('high')
+  })
+
+  it('never asks the endpoint when thinking is already off', async () => {
+    const fetchMock = stub(['completion'])
+    const body = await run(fetchMock, { model: 'thinking-off', think: false })
+    expect(body.think).toBe(false)
+    expect(fetchMock.mock.calls.some(call => String(call[0]).endsWith('/api/show'))).toBe(false)
+  })
+})
+
+describe('a tool result keeps the size the page-block setting gave it', () => {
+  const doneEmpty = JSON.stringify({ done: true, message: { content: '' } }) + '\n'
+  const toolCall = JSON.stringify({ message: { tool_calls: [{ function: { name: 'fetch_url', arguments: { url: 'http://page' } } }] } }) + '\n'
+
+  function bodyOf(lines) {
+    return {
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+          controller.close()
+        },
+      }),
+    }
+  }
+
+  it('sends a 64 KB block whole instead of cutting it to the prose budget', async () => {
+    const block = 'x'.repeat(64 * 1024)
+    Web.configure({ pageBlockKb: 64 })
+    vi.spyOn(Web, 'readUrl').mockResolvedValue({ text: block, status: 'ok', page: 1, pageCount: 1, url: 'http://page' })
+
+    let call = 0
+    const fetchMock = vi.fn(async url => {
+      if (String(url).endsWith('/api/show')) return { ok: true, json: async () => ({ capabilities: ['completion', 'tools'] }) }
+      call += 1
+      return call === 1
+        ? bodyOf([toolCall, doneEmpty])
+        : bodyOf([JSON.stringify({ message: { content: 'Letto.' } }) + '\n', doneEmpty])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'leggi' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'fetch_url' } }],
+      onToken: () => {},
+    })
+
+    const second = JSON.parse(fetchMock.mock.calls.filter(c => String(c[0]).endsWith('/api/chat'))[1][1].body)
+    const toolMessage = second.messages.find(message => message.role === 'tool')
+    expect(toolMessage.content).toHaveLength(block.length)
+    expect(toolMessage.content).not.toContain('truncated for context')
+
+    Web.readUrl.mockRestore()
+  })
+
+  it('still bounds a tool that returns far more than the configured block', async () => {
+    Web.configure({ pageBlockKb: 8 })
+    const runaway = 'y'.repeat(400 * 1024)
+    vi.spyOn(Web, 'readUrl').mockResolvedValue({ text: runaway, status: 'ok', page: 1, pageCount: 1, url: 'http://page' })
+
+    let call = 0
+    const fetchMock = vi.fn(async url => {
+      if (String(url).endsWith('/api/show')) return { ok: true, json: async () => ({ capabilities: ['completion', 'tools'] }) }
+      call += 1
+      return call === 1
+        ? bodyOf([toolCall, doneEmpty])
+        : bodyOf([JSON.stringify({ message: { content: 'Letto.' } }) + '\n', doneEmpty])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'leggi' }],
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'fetch_url' } }],
+      onToken: () => {},
+    })
+
+    const second = JSON.parse(fetchMock.mock.calls.filter(c => String(c[0]).endsWith('/api/chat'))[1][1].body)
+    const toolMessage = second.messages.find(message => message.role === 'tool')
+    expect(toolMessage.content.length).toBeLessThan(runaway.length)
+    expect(toolMessage.content).toContain('truncated for context')
+
+    Web.readUrl.mockRestore()
+    Web.configure({ pageBlockKb: 8 })
   })
 })

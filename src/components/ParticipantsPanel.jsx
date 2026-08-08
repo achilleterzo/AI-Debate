@@ -40,6 +40,7 @@ export default function ParticipantsPanel({
   onConfigureEndpoint = () => {},
   onConfigureCustomLang = () => {},
   endpointStatuses = {},
+  modelCapabilities = {},
   wand = null,
   defaultModel = '',
 }) {
@@ -360,16 +361,32 @@ export default function ParticipantsPanel({
 
             {(
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }} title={ui.thinkingLevelTitle}>{ui.thinkingLevel}:</span>
-                <div style={{ minWidth: 130 }}>
-                  <ReactSelect
-                    styles={moodSelectStyles}
-                    options={thinkingLevelOptions}
-                    value={thinkingLevelOptions.find(o => o.value === Debate.normalizeThinkingLevel(p.thinkingLevel)) ?? thinkingLevelOptions[0]}
-                    onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, thinkingLevel: opt?.value ?? Debate.DEFAULT_THINKING_LEVEL } : x))}
-                    menuPlacement="auto"
-                  />
-                </div>
+                {/* Only a reported "no" disables it. A model the endpoint could
+                    not be asked about leaves the control as it was. */}
+                {(() => {
+                  const canThink = modelCapabilities[p.id]?.thinking !== false
+                  return (
+                    <>
+                      <span
+                        style={{ fontSize: 11, color: canThink ? '#666' : '#3a3a3a', whiteSpace: 'nowrap' }}
+                        title={canThink ? ui.thinkingLevelTitle : ui.thinkingUnsupported}
+                      >{ui.thinkingLevel}:</span>
+                      <div style={{ minWidth: 130 }} title={canThink ? undefined : ui.thinkingUnsupported}>
+                        <ReactSelect
+                          styles={moodSelectStyles}
+                          options={thinkingLevelOptions}
+                          isDisabled={!canThink}
+                          placeholder={ui.thinkingUnsupportedShort}
+                          value={canThink
+                            ? (thinkingLevelOptions.find(o => o.value === Debate.normalizeThinkingLevel(p.thinkingLevel)) ?? thinkingLevelOptions[0])
+                            : null}
+                          onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, thinkingLevel: opt?.value ?? Debate.DEFAULT_THINKING_LEVEL } : x))}
+                          menuPlacement="auto"
+                        />
+                      </div>
+                    </>
+                  )
+                })()}
                 <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }} title={ui.reasoningLangTitle}>{ui.thinkingLanguage}:</span>
                 <div style={{ minWidth: 170 }}>
                   <ReactSelect

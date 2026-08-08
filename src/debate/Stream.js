@@ -16,6 +16,23 @@ function trimText(txt, maxChars) {
   return s.slice(0, Math.max(0, maxChars - 28)) + '\n\n...[truncated for context]'
 }
 
+/**
+ * How much of one message may travel, by role.
+ *
+ * A tool result is not conversation that grew too long: it is exactly the
+ * material the model asked for, already cut to the size the user configured
+ * for a page block. Trimming it again to the prose budget silently overrode
+ * that setting — a 64 KB block arrived as 18 KB with a truncation notice, and
+ * the model reasoned over the remainder as if the page ended there. It keeps
+ * whichever allowance is larger, so lowering the block size still lowers what
+ * is sent, and the guard still bounds a tool that returns far more than asked.
+ */
+function messageBudget(message, maxPerMsg) {
+  return message?.role === 'tool'
+    ? Math.max(maxPerMsg, Web.maxToolResultChars())
+    : maxPerMsg
+}
+
 function compactMessages(arr, { keepLast = Infinity, maxPerMsg = 12000 } = {}) {
   const out = []
   const sys = arr.find(message => message.role === 'system')
@@ -24,8 +41,35 @@ function compactMessages(arr, { keepLast = Infinity, maxPerMsg = 12000 } = {}) {
   const recent = Number.isFinite(keepLast) ? nonSystem.slice(-keepLast) : nonSystem
   const summary = nonSystem.find(message => String(message.content || '').startsWith('[Conversation summary so far]\n'))
   const selected = summary && !recent.includes(summary) ? [summary, ...recent] : recent
-  const tail = selected.map(message => ({ ...message, content: trimText(message.content, maxPerMsg) }))
+  const tail = selected.map(message => ({ ...message, content: trimText(message.content, messageBudget(message, maxPerMsg)) }))
   return [...out, ...tail]
+}
+
+// Markup a model uses when it types a tool call instead of emitting one. The
+// tags come from the training data of the model, not from this app, and they
+// appear in whatever combination the model remembers — a closer with no opener,
+// an opener still streaming, a block nested in another. All of it is transport,
+// none of it ran, and leaving it in the balloon shows the user a call that did
+// not happen. Stripping it can empty the message, which the empty-answer retry
+// downstream then treats as the non-answer it is.
+const PSEUDO_TOOL_TAGS = 'function_calls|tool_calls|tool_call|invoke|antml:invoke'
+const PSEUDO_TOOL_BLOCK_RE = new RegExp(`<(${PSEUDO_TOOL_TAGS})(?:\\s[^>]*)?>[\\s\\S]*?<\\/\\1>`, 'gi')
+const PSEUDO_TOOL_OPEN_TAIL_RE = new RegExp(`<(?:${PSEUDO_TOOL_TAGS})(?:\\s[^>]*)?>[\\s\\S]*$`, 'i')
+const PSEUDO_TOOL_LOOSE_RE = new RegExp(`<\\/?(?:${PSEUDO_TOOL_TAGS})(?:\\s[^>]*)?>|<\\/?(?:antml:)?parameter(?:\\s[^>]*)?>`, 'gi')
+
+function stripPseudoToolCalls(text) {
+  let visible = String(text ?? '')
+  let previous
+  // Nesting means one pass can expose another complete block.
+  do {
+    previous = visible
+    visible = visible.replace(PSEUDO_TOOL_BLOCK_RE, '')
+  } while (visible !== previous)
+  return visible
+    .replace(PSEUDO_TOOL_OPEN_TAIL_RE, '')
+    .replace(PSEUDO_TOOL_LOOSE_RE, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function cleanVisibleText(text) {
@@ -52,7 +96,8 @@ function cleanVisibleText(text) {
     }
   })
   visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*?<\|tool[▁_]calls[▁_]end\|>/g, '').trimEnd()
-  return visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
+  visible = visible.replace(/<\|tool[▁_]calls[▁_]begin\|>[\s\S]*/g, '').trimEnd()
+  return stripPseudoToolCalls(visible)
 }
 
 function cleanToolContinuationText(text, previousSegment = '') {
@@ -181,7 +226,14 @@ export async function streamChat({
   let retriedServerError = false
   let visiblePrefix = ''
   let previousToolSegment = ''
-  const supportsTools = provider.supportsTools(model)
+  // Not asked for a turn that would not use a tool anyway: the answer is
+  // cached per endpoint and model, but the first lookup is a request.
+  const supportsTools = useTools && await provider.supportsTools(model, { baseUrl })
+  // `think` against a model without the capability is an HTTP 400, not a
+  // quietly ignored field: the turn is lost outright. Asked only when the
+  // request would actually carry the flag.
+  const wantsThinking = think !== false && think != null
+  const thinkLevel = wantsThinking && !(await provider.supportsThinking(model, { baseUrl })) ? null : think
   const separateToolRounds = typeof onToolRound === 'function'
 
   while (true) {
@@ -205,8 +257,10 @@ export async function streamChat({
       baseUrl,
       model,
       messages: payloadMessages,
-      tools: wantsTools ? tools : null,
-      think,
+      // An empty array is still a tools array to the provider, and to some
+      // chat templates it reads as "tools exist" — enough to get a pseudo-call.
+      tools: wantsTools && tools?.length ? tools : null,
+      think: thinkLevel,
     })
     const debugRequest = {
       provider: provider.id,

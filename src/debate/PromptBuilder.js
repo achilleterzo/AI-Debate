@@ -5,7 +5,7 @@ import { buildAffinityBlock } from '../prompts/AffinityPrompt'
 import { buildLanguagePrompt } from '../prompts/LanguagePrompt'
 import { DEFAULT_DELIVERY_STYLE } from '../prompts/DeliveryStyle'
 import { buildModeratorPromptBlocks } from '../prompts/ModeratorPrompt'
-import { STRUCTURED_TOOL_CALL_PROTOCOL } from '../prompts/ToolProtocol'
+import { NO_TOOL_CALL_PROTOCOL, STRUCTURED_TOOL_CALL_PROTOCOL } from '../prompts/ToolProtocol'
 import { buildTopicPromptBlocks } from '../prompts/TopicPrompt'
 import { CONTEXT_DISCIPLINE_BLOCK, REASONING_FOCUS_BLOCK, hasNativeReasoning } from '../prompts/ReasoningContext'
 
@@ -14,7 +14,7 @@ function taggedSection(tag, content) {
   return normalized ? `<${tag}>\n${normalized}\n</${tag}>` : ''
 }
 
-export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, constants }) {
+export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, toolsAvailable = true, constants }) {
   const {
     MOODS,
     DEFAULT_MOOD,
@@ -54,16 +54,23 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     history,
     mode,
     externalModerationTrigger,
+    toolsAvailable,
   })
 
   const moderationBlock = actor.isModerator && externalModerationTrigger
     ? `\n\nModeration trigger:\nneeded=${externalModerationTrigger.needed ? 'true' : 'false'}\nreason=${externalModerationTrigger.reason || ''}`
     : ''
-  const moderationToolRequirement = actor.isModerator
+  const moderationInterventionNeeded = actor.isModerator
     && mode.id !== 'role_play'
     && externalModerationTrigger?.needed
-    ? 'A procedural intervention is required in this turn. Before writing ANY visible response, you MUST emit one structured apply_moderation tool call with the concise reason/directive. Do not explain, quote, or simulate the intervention in visible text. The tool call creates the separate moderation message. After the tool result, output exactly [SKIP_TURN] unless your active moderator style explicitly requires a separate substantive contribution.'
-    : ''
+  // Without a tools array the tool-based intervention cannot happen, and
+  // demanding it only produces a pseudo-call. The intervention is still owed:
+  // it is written as the visible turn instead.
+  const moderationToolRequirement = !moderationInterventionNeeded
+    ? ''
+    : toolsAvailable
+      ? 'A procedural intervention is required in this turn. Before writing ANY visible response, you MUST emit one structured apply_moderation tool call with the concise reason/directive. Do not explain, quote, or simulate the intervention in visible text. The tool call creates the separate moderation message. After the tool result, output exactly [SKIP_TURN] unless your active moderator style explicitly requires a separate substantive contribution.'
+      : 'A procedural intervention is required in this turn. You have no tools available, so write it directly as your visible response: the concise reason and directive, nothing else. Do not mention tools, and do not write any call-shaped text.'
 
   const constraintsBlock = buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions })
 
@@ -82,7 +89,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
       mood?.instruction ? `Mood: ${mood.instruction}` : '',
       mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
     ].filter(Boolean).join('\n\n')),
-    taggedSection('tool_protocol', STRUCTURED_TOOL_CALL_PROTOCOL),
+    taggedSection('tool_protocol', toolsAvailable ? STRUCTURED_TOOL_CALL_PROTOCOL : NO_TOOL_CALL_PROTOCOL),
     taggedSection('debate_mode', modeBlock),
     taggedSection('role_play', [rolePlayBlock, rolePlayParticipantRule].filter(Boolean).join('\n\n')),
     taggedSection('moderator_authority', moderatorAuthorityBoundary),

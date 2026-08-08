@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { WAND_STATUS } from '../hooks/useMagicWand'
-import { SUGGESTION_MODE, isParticipantMode } from '../services/Suggestions'
+import { SUGGESTION_MODE, isConstraintMode, isParticipantMode } from '../services/Suggestions'
 
 const ACCENT = '#c084fc'
 const MODAL_WIDTH = 420
@@ -35,7 +35,7 @@ function WandIcon({ size = 15 }) {
  * `mode` identifies which caller opened it, so two wands can share one hook
  * without showing each other's results.
  */
-export default function MagicWand({ wand, mode, onPick, disabled = false, describeItem = null }) {
+export default function MagicWand({ wand, mode, onPick, disabled = false, describeItem = null, zIndex = 1000 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
   const isActive = wand.mode === mode
@@ -54,6 +54,15 @@ export default function MagicWand({ wand, mode, onPick, disabled = false, descri
   const title = wand.unavailableReason === 'offline' ? ui.wandOffline
     : wand.unavailableReason === 'noModel' ? ui.wandNoModel
     : ui.wandTitle
+
+  const panelTitle = isParticipantMode(mode) ? ui.wandParticipantTitle
+    : isConstraintMode(mode) ? ui.wandConstraintTitle
+    : mode === SUGGESTION_MODE.GLOBAL_RULE ? ui.wandGlobalRuleTitle
+    : mode === SUGGESTION_MODE.CONCLUSION ? ui.wandConclusionTitle
+    : ui.wandSteerTitle
+  const loadingText = isParticipantMode(mode) ? ui.wandLoadingParticipant
+    : isConstraintMode(mode) || mode === SUGGESTION_MODE.GLOBAL_RULE ? ui.wandLoadingRules
+    : ui.wandLoading
 
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -85,20 +94,18 @@ export default function MagicWand({ wand, mode, onPick, disabled = false, descri
         <div
           role="presentation"
           onMouseDown={event => { if (event.target === event.currentTarget) wand.close() }}
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#00000066', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}
+          style={{ position: 'fixed', inset: 0, zIndex, background: '#00000066', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}
         >
           <div
             role="dialog"
             aria-modal="true"
-            aria-label={isParticipantMode(mode) ? ui.wandParticipantTitle : mode === SUGGESTION_MODE.CONCLUSION ? ui.wandConclusionTitle : ui.wandSteerTitle}
+            aria-label={panelTitle}
             onMouseDown={event => event.stopPropagation()}
             style={{ width: MODAL_WIDTH, maxWidth: 'calc(100vw - 24px)', maxHeight: 'calc(100vh - 24px)', background: '#1a1622', border: `1px solid ${ACCENT}55`, borderRadius: 10, boxShadow: '0 6px 24px #000a', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
           >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 10px', borderBottom: '1px solid #2e2438', flexShrink: 0 }}>
             <span style={{ fontSize: 10, color: ACCENT, letterSpacing: 0.6, textTransform: 'uppercase', fontWeight: 700 }}>
-              {isParticipantMode(mode) ? ui.wandParticipantTitle
-                : mode === SUGGESTION_MODE.CONCLUSION ? ui.wandConclusionTitle
-                : ui.wandSteerTitle}
+              {panelTitle}
             </span>
             <span style={{ fontSize: 10, color: '#6b6b6b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }} title={wand.model}>
               {wand.model}
@@ -107,7 +114,7 @@ export default function MagicWand({ wand, mode, onPick, disabled = false, descri
 
           {wand.status === WAND_STATUS.LOADING && (
             <div style={{ padding: '12px 12px', fontSize: 12, color: '#8a8a8a' }}>
-              {isParticipantMode(mode) ? ui.wandLoadingParticipant : ui.wandLoading}
+              {loadingText}
             </div>
           )}
 

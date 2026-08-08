@@ -4,6 +4,7 @@ import { PALETTE } from '../dataset/Palette'
 import { Session } from '../data/Session'
 import { buildSystemPrompt } from './PromptBuilder'
 import { streamChat } from './Stream'
+import { getProvider } from '../providers/index.js'
 import { Web } from '../services/Web'
 import { buildOrderedItems } from '../utils/Sorting'
 import { MOODS } from '../prompts/Moods'
@@ -564,10 +565,13 @@ export class Debate {
       movable[swap] = current
     }
 
-    // Only worth correcting when the opening slot is one of the shuffled ones:
-    // a moderator opening the round holds a fixed position by design.
-    const opensTheRound = !participants[0]?.isModerator
-    if (opensTheRound && lastSpeakerId != null && movable.length > 1 && movable[0] === lastSpeakerId) {
+    // The first shuffled slot is where a repeat is heard, whether or not a
+    // moderator sits in front of it: the moderator keeps its fixed position
+    // and frequently skips its turn outright, so the participant right after
+    // it is the one the table experiences as opening the round. Guarding only
+    // when slot zero was movable left the commonest layout — moderator first —
+    // free to let the previous closer speak twice with nothing in between.
+    if (lastSpeakerId != null && movable.length > 1 && movable[0] === lastSpeakerId) {
       const swap = 1 + Math.floor(random() * (movable.length - 1))
       movable[0] = movable[swap]
       movable[swap] = lastSpeakerId
@@ -1211,7 +1215,10 @@ export class Debate {
 
     let lastModerationTargets = []
     let pendingModeratorRequest = null
-    // Who closed the previous round, so the next shuffle does not open with them.
+    // Who the table last actually heard, so the next shuffle does not open
+    // with them. Recorded when a turn produces visible text, not from the
+    // planned order: a skipped turn, an extra moderator turn, or a roster
+    // change all make the tail of the plan the wrong participant to avoid.
     let lastRoundSpeakerId = null
 
     const queuedInterjections = () => {
@@ -1252,7 +1259,6 @@ export class Debate {
       if (roundLimit > 0 && round >= roundLimit && step === 0) break
 
       const roundOrder = Debate.buildRoundOrder(parts, { randomize: !!randomTurnOrder, lastSpeakerId: lastRoundSpeakerId })
-      lastRoundSpeakerId = roundOrder[roundOrder.length - 1] ?? null
 
        let roundModerationSignal = { needed: false, reason: '', targets: [] }
 
@@ -1575,6 +1581,17 @@ export class Debate {
           characterContextRef.current[actor.id] = ctx
         }
         const characterContext = characterContextRef.current[actor.id] ?? null
+        // Resolved before the prompt, not after: what the prompt may say about
+        // tools depends on whether this turn actually carries any. Describing a
+        // tool the request never sends is what makes a model type the call.
+        const availableTools = [
+          ...(parts.some(participant => participant.isModerator)
+          ? (isRolePlay ? ROLE_PLAY_TOOLS : LLM_TOOLS)
+          : (isRolePlay ? ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION : LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION)),
+          ...(actor.isModerator ? MODERATOR_TOOLS : []),
+        ].filter(tool => enabledTools?.[tool.function.name] !== false)
+        const toolsAvailable = availableTools.length > 0
+          && await getProvider().supportsTools(actor.model, { baseUrl: actorBaseUrl })
         let systemPrompt = buildSystemPrompt({
           actor,
           allParticipants: parts,
@@ -1593,10 +1610,14 @@ export class Debate {
           globalConstraints,
           generalPersonalityInstructions,
           debateMode: normalizeDebateMode(debateMode),
+          toolsAvailable,
           constants: Debate.buildPromptConstants(),
         })
-        if (sourceUrls.length > 0 && enabledTools?.fetch_url !== false) {
-          systemPrompt += `\n\n<topic_sources>\nThese URLs were supplied with the topic. They have NOT been read: nothing about their content has been observed by you or by anyone else at this table.\n\n${sourceUrls.map(url => `- ${url}`).join('\n')}\n\nIf one of them matters to your argument, read it with the fetch_url tool before saying anything about what it contains. Never describe a page you have not fetched, and never claim that a page or a site lacks something you have not looked for.\n</topic_sources>`
+        if (sourceUrls.length > 0) {
+          const canFetch = toolsAvailable && enabledTools?.fetch_url !== false
+          systemPrompt += `\n\n<topic_sources>\nThese URLs were supplied with the topic. They have NOT been read: nothing about their content has been observed by you or by anyone else at this table.\n\n${sourceUrls.map(url => `- ${url}`).join('\n')}\n\n${canFetch
+            ? 'If one of them matters to your argument, read it with the fetch_url tool before saying anything about what it contains.'
+            : 'You have no way to open them in this turn, so treat them as unread references: name one only as something you have not been able to examine.'}\nNever describe a page you have not fetched, and never claim that a page or a site lacks something you have not looked for.\n</topic_sources>`
         }
 
         if (actor.localUser || actor.model === Debate.USER_MODEL) {
@@ -1706,12 +1727,6 @@ export class Debate {
               return { accepted: true, message: 'Moderation applied as a separate procedural message.' }
             },
           })
-          const availableTools = [
-            ...(parts.some(participant => participant.isModerator)
-            ? (isRolePlay ? ROLE_PLAY_TOOLS : LLM_TOOLS)
-            : (isRolePlay ? ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION : LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION)),
-            ...(actor.isModerator ? MODERATOR_TOOLS : []),
-          ].filter(tool => enabledTools?.[tool.function.name] !== false)
           const full = await streamChat({
             baseUrl: actorBaseUrl,
             model: actor.model,
@@ -1945,6 +1960,7 @@ export class Debate {
             }
           }
           if (moderatedContent.trim()) {
+            lastRoundSpeakerId = actor.id
             history = history.map(message => message.seq === activeMessageSeq ? {
               ...message,
               content: moderatedContent,

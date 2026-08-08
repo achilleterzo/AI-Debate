@@ -266,3 +266,28 @@ describe('reasoning instructions follow the thinking level', () => {
     }
   })
 })
+
+describe('the tool protocol follows what the request actually carries', () => {
+  it('demands structured calls when tools are on the way', () => {
+    const prompt = build({}, { toolsAvailable: true })
+    expect(prompt).toContain('NON-NEGOTIABLE STRUCTURED TOOL-CALL PROTOCOL')
+    expect(prompt).not.toContain('NO TOOLS ARE AVAILABLE IN THIS TURN')
+  })
+
+  it('says so plainly when no tools are sent, instead of describing an interface that is absent', () => {
+    const prompt = build({}, { toolsAvailable: false })
+    expect(prompt).toContain('NO TOOLS ARE AVAILABLE IN THIS TURN')
+    expect(prompt).not.toContain('NON-NEGOTIABLE STRUCTURED TOOL-CALL PROTOCOL')
+    expect(prompt).not.toContain('structured tool_calls event')
+  })
+
+  it('asks a toolless moderator to write the intervention rather than call for it', () => {
+    const trigger = { needed: true, reason: 'hostility' }
+    const withTools = build({ isModerator: true }, { externalModerationTrigger: trigger, toolsAvailable: true })
+    const withoutTools = build({ isModerator: true }, { externalModerationTrigger: trigger, toolsAvailable: false })
+
+    expect(withTools).toContain('apply_moderation tool call')
+    expect(withoutTools).not.toContain('apply_moderation')
+    expect(withoutTools).toContain('write it directly as your visible response')
+  })
+})

@@ -14,6 +14,7 @@ export default function AppModals({
   onConfirmConstraint,
   globalConstraintHistory,
   onDeleteGlobalSuggestion,
+  wand = null,
   endpointModal,
   onCloseEndpointModal,
   onConfirmEndpoint,
@@ -71,6 +72,7 @@ export default function AppModals({
           globalSuggestions={globalConstraintHistory}
           selectStyles={modelSelectStyles}
           onDeleteGlobalSuggestion={onDeleteGlobalSuggestion}
+          wand={wand}
         />
       )}
       {endpointModal && (

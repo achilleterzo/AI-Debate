@@ -78,14 +78,41 @@ describe('buildRoundOrder across the round boundary', () => {
     expect(positions.size).toBeGreaterThan(1)
   })
 
-  it('leaves a moderator opening slot alone, since it is fixed by design', () => {
-    const moderatorFirst = [
-      { id: 0, tag: 'M', isModerator: true },
-      { id: 1, tag: 'A', isModerator: false },
-      { id: 2, tag: 'B', isModerator: false },
-    ]
+  const moderatorFirst = [
+    { id: 0, tag: 'M', isModerator: true },
+    { id: 1, tag: 'A', isModerator: false },
+    { id: 2, tag: 'B', isModerator: false },
+    { id: 3, tag: 'C', isModerator: false },
+  ]
+
+  it('leaves the moderator in its own slot, which is fixed by design', () => {
     for (let run = 0; run < 50; run += 1) {
       expect(Debate.buildRoundOrder(moderatorFirst, { randomize: true, lastSpeakerId: 0 })[0]).toBe(0)
+    }
+  })
+
+  // A moderator in front does not make a repeat inaudible: it holds a fixed
+  // slot and often skips its turn, so the participant right after it is the
+  // one the table hears open the round.
+  it('protects the first shuffled slot even behind a moderator', () => {
+    for (let run = 0; run < 200; run += 1) {
+      for (const lastSpeakerId of [1, 2, 3]) {
+        const order = Debate.buildRoundOrder(moderatorFirst, { randomize: true, lastSpeakerId })
+        expect(order[1], `last ${lastSpeakerId}`).not.toBe(lastSpeakerId)
+        expect(order[0]).toBe(0)
+        expect([...order].sort()).toEqual([0, 1, 2, 3])
+      }
+    }
+  })
+
+  it('still protects the first slot when the moderator sits mid-round', () => {
+    const moderatorSecond = [
+      { id: 0, tag: 'A', isModerator: false },
+      { id: 1, tag: 'M', isModerator: true },
+      { id: 2, tag: 'B', isModerator: false },
+    ]
+    for (let run = 0; run < 200; run += 1) {
+      expect(Debate.buildRoundOrder(moderatorSecond, { randomize: true, lastSpeakerId: 2 })[0]).not.toBe(2)
     }
   })
 

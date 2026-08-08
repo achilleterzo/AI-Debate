@@ -13,6 +13,10 @@ export const SUGGESTION_MODE = {
   CONCLUSION: 'conclusion',
   /** A participant persona, driven by the selected character type. */
   PARTICIPANT: 'participant',
+  /** A ground rule for the whole table, written into the global constraints. */
+  GLOBAL_RULE: 'globalRule',
+  /** A behaviour rule for one participant, written into its own constraints. */
+  CONSTRAINT: 'constraint',
 }
 
 /** Each participant wand is independent, so its mode carries the row index. */
@@ -22,6 +26,19 @@ export function participantMode(index) {
 
 export function isParticipantMode(mode) {
   return String(mode ?? '').startsWith(`${SUGGESTION_MODE.PARTICIPANT}:`)
+}
+
+export function constraintMode(index) {
+  return `${SUGGESTION_MODE.CONSTRAINT}:${index}`
+}
+
+export function isConstraintMode(mode) {
+  return String(mode ?? '').startsWith(`${SUGGESTION_MODE.CONSTRAINT}:`)
+}
+
+export function modeIndex(mode) {
+  const index = Number(String(mode ?? '').split(':')[1])
+  return Number.isInteger(index) ? index : -1
 }
 
 export const DEFAULT_SUGGESTION_COUNT = 4
@@ -49,6 +66,7 @@ export function buildSuggestionPrompt({
   summary = '',
   participants = [],
   attachedDocs = [],
+  languageNamed = '',
   count = DEFAULT_SUGGESTION_COUNT,
 }) {
   const roster = participants
@@ -95,8 +113,9 @@ export function buildSuggestionPrompt({
     context || 'The debate has just started and has no exchanges yet.',
     task,
     `Each suggestion must be a single sentence, under ${MAX_SUGGESTION_CHARS} characters, self-contained and immediately usable.`,
+    outputLanguageLine(languageNamed, 'suggestion'),
     `Return exactly ${count} strings in a JSON array.`,
-  ].join('\n\n')
+  ].filter(Boolean).join('\n\n')
 }
 
 export function buildParticipantSystemPrompt({ languageNamed }) {
@@ -123,6 +142,7 @@ export function buildParticipantPrompt({
   topic = '',
   others = [],
   count = 3,
+  languageNamed = '',
   languageOptions = [],
   moodOptions = [],
 }) {
@@ -162,7 +182,7 @@ export function buildParticipantPrompt({
     [
       'Each object must have exactly these keys:',
       '"name": the participant name, no title or honorific.',
-      `"traits": 2 or 3 instruction sentences describing stance, expertise and rhetorical habits. Each trait must be at most ${MAX_CONSTRAINT_CHARS} characters; if the characterization needs more space, use additional trait entries instead of truncating it. Write them addressed to the participant ("You argue from…").`,
+      `"traits": 2 or 3 instruction sentences describing stance, expertise and rhetorical habits. Each trait must be at most ${MAX_CONSTRAINT_CHARS} characters; if the characterization needs more space, use additional trait entries instead of truncating it. Address them to the participant directly, in the second person.`,
       '"ageGroup": one of 0 (child), 1 (teenager), 2 (adult), 3 (mature), 4 (elder).',
       '"educationLevel": one of "street", "primary", "proficient", "academic", "expert", or null when unremarkable.',
       `"responseLength": one of "short", "medium", "detailed", or null (Free). Prefer "${isModerator ? 'null (Free) for this moderator' : 'short'}"; choose a longer value only when the persona genuinely needs more room to explain nuanced reasoning.`,
@@ -170,35 +190,125 @@ export function buildParticipantPrompt({
       '"moodIntensity": how strongly that attitude shows, one of 0 (low), 1 (light), 2 (balanced), 3 (strong), 4 (extreme).',
       languageHint,
     ].join('\n'),
+    outputLanguageLine(languageNamed, 'human-readable value', 'leaving the JSON keys and any language code untouched'),
     `Return exactly ${count} objects in a JSON array.`,
-  ].join('\n\n')
+  ].filter(Boolean).join('\n\n')
 }
 
 /**
- * Shared ground rules for a debate being set up from scratch.
+ * Names the output language inside the user prompt, not only in the system
+ * one. Every instruction the wand sends is written in English, and a model
+ * asked for second-person rules will happily copy the language of the request
+ * it is reading — naming the target language again, at the end where the last
+ * instruction carries most weight, is what keeps the answer in it.
+ */
+function outputLanguageLine(languageNamed, subject = 'entry', caveat = '') {
+  return languageNamed
+    ? `Write every ${subject} in ${languageNamed}${caveat ? `, ${caveat}` : ''}. These instructions are in English for convenience; that has no bearing on the language of your answer.`
+    : ''
+}
+
+function existingRulesBlock(existing, label) {
+  const listed = existing.map(entry => String(entry ?? '').trim()).filter(Boolean)
+  return listed.length > 0
+    ? `${label}\n${listed.map(entry => `- ${entry}`).join('\n')}\n\nEvery proposal must add something these do not already cover. Never restate one, never contradict one.`
+    : ''
+}
+
+/**
+ * Shared ground rules for the whole table.
  *
  * They are derived from the mode and from what the user said the debate is
  * for, so they constrain how everyone argues rather than what any single
- * participant defends — that is what the personas are for.
+ * participant defends — that is what the personas are for. Used both by the
+ * setup wizard and by the wand on the global constraints, which write to the
+ * same list and would otherwise pull the debate in two directions.
  */
 export function buildGlobalRulesPrompt({
   debateMode = 'free',
   debateModeLabel = debateMode,
   debateModeInstruction = '',
   purpose = '',
+  existing = [],
+  verificationTools = [],
+  languageNamed = '',
   count = 3,
 }) {
+  // Naming the tools is what turns "be rigorous" into a rule that changes what
+  // a turn does. Only the ones actually enabled are named: a rule that sends
+  // the table to a tool nobody has is an instruction to invent the result.
+  const verificationTask = verificationTools.length > 0
+    ? [
+        `The participants can call these tools during the debate: ${verificationTools.join(', ')}.`,
+        'Spend exactly one of the rules on verification: it must require checking disputed factual claims with those tools and arguing from what the tool actually returned — never from an assumed result, a remembered figure, or a source nobody opened.',
+      ].join(' ')
+    : ''
+
   return [
     `Shared debate mode: ${debateModeLabel} (${debateMode}).${debateModeInstruction ? ` ${debateModeInstruction}` : ''}`,
     purpose.trim()
       ? `What this debate is for:\n${purpose.trim()}`
       : 'The user has not described a purpose: derive the rules from the debate mode alone.',
+    existingRulesBlock(existing, 'Ground rules already in force:'),
     `Write ${count} shared ground rules that keep the whole table working toward that purpose.`,
     'Each rule applies to every participant: how to argue here, what to prioritise, what to avoid, what makes a contribution useful in this debate. Never name a participant, never assign anyone a position, never state the conclusion the debate should reach.',
+    verificationTask,
     'Write each rule as a direct instruction to the participants.',
     `Each rule must be a single sentence, under ${MAX_SUGGESTION_CHARS} characters, self-contained and immediately usable.`,
+    outputLanguageLine(languageNamed, 'rule'),
     `Return exactly ${count} strings in a JSON array.`,
-  ].join('\n\n')
+  ].filter(Boolean).join('\n\n')
+}
+
+/**
+ * Behaviour rules for one participant.
+ *
+ * The selectors above the constraint list already say who this participant is;
+ * a rule that repeats them costs a line of every prompt and changes nothing.
+ * So the configuration goes in as context to build on, not as material to
+ * paraphrase, and the rules the row already carries go in to be avoided.
+ */
+export function buildParticipantConstraintPrompt({
+  name = '',
+  tag = '',
+  isModerator = false,
+  moderatorMode = 'containment',
+  profile = [],
+  existing = [],
+  others = [],
+  debateMode = 'free',
+  debateModeLabel = debateMode,
+  debateModeInstruction = '',
+  topic = '',
+  languageNamed = '',
+  count = DEFAULT_SUGGESTION_COUNT,
+}) {
+  const who = name ? `${name} (${tag})` : tag || 'this participant'
+  const roster = others
+    .map(other => `- ${other.name || other.tag}${other.isModerator ? ' (moderator)' : ''}`)
+    .join('\n')
+
+  const roleTask = isModerator
+    ? `This participant is the debate moderator, running the ${moderatorMode} style. The rules must sharpen how it facilitates — when to step in, what to let pass, how to phrase a ruling — and must never turn it into an advocate for a substantive position.`
+    : 'The rules must sharpen how this participant argues: what it goes after, what evidence it demands, what it refuses to concede, the habits that make it recognisable across turns.'
+
+  return [
+    `Shared debate mode: ${debateModeLabel} (${debateMode}).${debateModeInstruction ? ` ${debateModeInstruction}` : ''}`,
+    topic.trim() ? `Debate topic:\n${topic.trim()}` : 'No debate topic has been set yet.',
+    `You are writing behaviour rules for ${who}, and for nobody else at the table.`,
+    profile.length > 0
+      ? `How ${who} is already configured:\n${profile.map(entry => `- ${entry}`).join('\n')}\n\nThe application already applies all of it. Do not restate it: build on it, and propose only what those settings cannot express on their own.`
+      : `Nothing has been configured for ${who} yet, so the rules have to do the defining.`,
+    existingRulesBlock(existing, `Rules ${who} already carries:`),
+    roster ? `Others at the table (context only; never write a rule for them):\n${roster}` : '',
+    `Propose ${count} distinct rules. ${roleTask}`,
+    // No English exemplar of the second-person form here: a model shown one
+    // copies it, and the rule comes back in English however the debate reads.
+    `Address each one to the participant directly, in the second person. Never name ${who} in the third person, never assign the position it must defend, and never state how the debate should end.`,
+    `Each rule must be a single sentence, under ${MAX_SUGGESTION_CHARS} characters, self-contained and immediately usable.`,
+    outputLanguageLine(languageNamed, 'rule'),
+    `Return exactly ${count} strings in a JSON array.`,
+  ].filter(Boolean).join('\n\n')
 }
 
 const AGE_ALIASES = { child: 0, teenager: 1, teen: 1, adult: 2, mature: 3, elder: 4, elderly: 4, senior: 4 }

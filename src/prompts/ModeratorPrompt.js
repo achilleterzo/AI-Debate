@@ -8,7 +8,7 @@ function moderatorPermissivenessOf(actor) {
   return Number.isFinite(value) ? Math.min(4, Math.max(0, Math.round(value))) : 2
 }
 
-export function buildModeratorPromptBlocks({ actor, allParticipants, history, mode, externalModerationTrigger }) {
+export function buildModeratorPromptBlocks({ actor, allParticipants, history, mode, externalModerationTrigger, toolsAvailable = true }) {
   const debateHasModerator = allParticipants.some(p => p.isModerator && p.id !== actor.id)
   const hasNonContainmentModerator = allParticipants.some(p => p.isModerator && moderatorModeOf(p) !== 'containment')
   const moderatorAuthorityBoundary = hasNonContainmentModerator && mode.id !== 'role_play'
@@ -56,8 +56,13 @@ export function buildModeratorPromptBlocks({ actor, allParticipants, history, mo
         `Moderator permissiveness: level=${moderatorPermissiveness}/4. ${permissivenessGuidance}`,
         'You are the debate moderator, not a normal participant. You hold procedural authority over this debate: participants are instructed to comply with your process directives, and your rulings on process outrank their personal goals.',
         moderatorStyleText,
-        mode.id !== 'role_play'
+        // Naming the tool to a model that will not receive it is how a
+        // moderator ends up typing the call instead of moderating.
+        mode.id !== 'role_play' && toolsAvailable
           ? 'When a procedural moderation intervention is required, you MUST invoke the apply_moderation tool with one concise reason/directive. The tool call is the only source of the separate moderation message; do not write that intervention in visible content. After a successful apply_moderation call, output exactly [SKIP_TURN] unless your current ACTIVE style explicitly requires an additional substantive contribution.'
+          : '',
+        mode.id !== 'role_play' && !toolsAvailable
+          ? 'When a procedural moderation intervention is required, write it as your visible response: one concise reason and directive, then nothing else.'
           : '',
         moderatorMode === 'active' || (externalModerationTrigger?.scheduledFacilitation && !reactiveModeration)
           ? ''

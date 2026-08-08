@@ -3,10 +3,14 @@ import {
   SUGGESTION_MODE,
   MAX_CONSTRAINT_CHARS,
   buildGlobalRulesPrompt,
+  buildParticipantConstraintPrompt,
   buildParticipantPrompt,
   buildSuggestionPrompt,
   buildSuggestionSystemPrompt,
+  constraintMode,
+  isConstraintMode,
   isParticipantMode,
+  modeIndex,
   participantMode,
   parseParticipantDrafts,
   parseSuggestions,
@@ -371,5 +375,152 @@ describe('buildGlobalRulesPrompt', () => {
     const prompt = buildGlobalRulesPrompt({ purpose: 'anything' })
     expect(prompt).toContain('Never name a participant')
     expect(prompt).toContain('never assign anyone a position')
+  })
+})
+
+describe('constraintMode', () => {
+  it('carries the row index and never collides with the persona wand', () => {
+    expect(constraintMode(2)).toBe('constraint:2')
+    expect(isConstraintMode(constraintMode(2))).toBe(true)
+    expect(isParticipantMode(constraintMode(2))).toBe(false)
+    expect(isConstraintMode(participantMode(2))).toBe(false)
+    expect(modeIndex(constraintMode(7))).toBe(7)
+    expect(modeIndex(SUGGESTION_MODE.GLOBAL_RULE)).toBe(-1)
+  })
+})
+
+describe('buildGlobalRulesPrompt verification and existing rules', () => {
+  it('spends one rule on verification, naming the tools that exist', () => {
+    const prompt = buildGlobalRulesPrompt({
+      purpose: 'Assess a vendor',
+      verificationTools: ['web_search', 'fetch_url'],
+    })
+    expect(prompt).toContain('web_search, fetch_url')
+    expect(prompt).toContain('Spend exactly one of the rules on verification')
+    expect(prompt).toContain('what the tool actually returned')
+  })
+
+  it('says nothing about verification when no tool is enabled', () => {
+    const prompt = buildGlobalRulesPrompt({ purpose: 'Assess a vendor', verificationTools: [] })
+    expect(prompt).not.toContain('verification')
+    expect(prompt).not.toContain('tool')
+  })
+
+  it('shows the rules already in force so the new ones add to them', () => {
+    const prompt = buildGlobalRulesPrompt({ purpose: 'x', existing: ['Cite a source for every figure.', '  '] })
+    expect(prompt).toContain('Ground rules already in force:\n- Cite a source for every figure.')
+    expect(prompt).toContain('Every proposal must add something these do not already cover')
+    expect(prompt).not.toContain('- \n')
+  })
+
+  it('omits the block entirely when there are none yet', () => {
+    expect(buildGlobalRulesPrompt({ purpose: 'x' })).not.toContain('already in force')
+  })
+})
+
+describe('buildParticipantConstraintPrompt', () => {
+  const base = {
+    name: 'Ada',
+    tag: 'A',
+    debateMode: 'decision',
+    debateModeLabel: 'Decision',
+    topic: 'Ship it or not',
+    count: 4,
+  }
+
+  it('writes for one participant only, in the second person', () => {
+    const prompt = buildParticipantConstraintPrompt(base)
+    expect(prompt).toContain('behaviour rules for Ada (A), and for nobody else at the table')
+    expect(prompt).toContain('Address each one to the participant directly, in the second person')
+    // No English exemplar of that form: a model shown one copies it, and the
+    // rule comes back in English however the debate reads.
+    expect(prompt).not.toContain('("You ...")')
+    expect(prompt).toContain('never assign the position it must defend')
+    expect(prompt).toContain('Return exactly 4 strings in a JSON array.')
+  })
+
+  it('treats the configuration as ground to build on, not to paraphrase', () => {
+    const prompt = buildParticipantConstraintPrompt({
+      ...base,
+      profile: ['Character type: historical figure', 'Debating attitude: Socratic (Strong intensity)'],
+    })
+    expect(prompt).toContain('- Character type: historical figure')
+    expect(prompt).toContain('- Debating attitude: Socratic (Strong intensity)')
+    expect(prompt).toContain('The application already applies all of it. Do not restate it')
+  })
+
+  it('says the rules must do the defining when nothing is configured', () => {
+    const prompt = buildParticipantConstraintPrompt(base)
+    expect(prompt).toContain('Nothing has been configured for Ada (A) yet')
+  })
+
+  it('lists the rules the row already carries so the new ones differ', () => {
+    const prompt = buildParticipantConstraintPrompt({ ...base, existing: ['You demand a measurement.'] })
+    expect(prompt).toContain('Rules Ada (A) already carries:\n- You demand a measurement.')
+    expect(prompt).toContain('Never restate one, never contradict one.')
+  })
+
+  it('keeps the others at the table as context that must not be written for', () => {
+    const prompt = buildParticipantConstraintPrompt({
+      ...base,
+      others: [{ name: 'Bob', tag: 'B' }, { name: 'Mod', tag: 'C', isModerator: true }],
+    })
+    expect(prompt).toContain('- Bob')
+    expect(prompt).toContain('- Mod (moderator)')
+    expect(prompt).toContain('never write a rule for them')
+  })
+
+  it('aims a moderator at facilitation rather than at a position', () => {
+    const prompt = buildParticipantConstraintPrompt({ ...base, isModerator: true, moderatorMode: 'active' })
+    expect(prompt).toContain('running the active style')
+    expect(prompt).toContain('never turn it into an advocate for a substantive position')
+  })
+})
+
+describe('the output language is named in the user prompt too', () => {
+  // The system prompt already names it, but every instruction the wand sends
+  // is written in English, and a model reading a wall of English answers in
+  // English. Each builder has to say it again, at the end.
+  const named = 'Español (language code: es)'
+
+  it('names it for topic and conclusion suggestions', () => {
+    const prompt = buildSuggestionPrompt({ mode: SUGGESTION_MODE.STEER, topic: 'x', languageNamed: named })
+    expect(prompt).toContain(`Write every suggestion in ${named}`)
+    expect(prompt).toContain('These instructions are in English for convenience')
+  })
+
+  it('names it for shared ground rules', () => {
+    expect(buildGlobalRulesPrompt({ purpose: 'x', languageNamed: named })).toContain(`Write every rule in ${named}`)
+  })
+
+  it('names it for participant rules', () => {
+    expect(buildParticipantConstraintPrompt({ name: 'Ada', tag: 'A', languageNamed: named }))
+      .toContain(`Write every rule in ${named}`)
+  })
+
+  it('names it for personas without touching the keys or the language codes', () => {
+    const prompt = buildParticipantPrompt({ characterTypeLabel: 'person', languageNamed: named })
+    expect(prompt).toContain(`Write every human-readable value in ${named}`)
+    expect(prompt).toContain('leaving the JSON keys and any language code untouched')
+  })
+
+  it('keeps the JSON contract as the last word in every prompt', () => {
+    const tail = /Return exactly \d+ (?:strings|objects) in a JSON array\.$/
+    expect(buildSuggestionPrompt({ mode: SUGGESTION_MODE.STEER, languageNamed: named })).toMatch(tail)
+    expect(buildGlobalRulesPrompt({ purpose: 'x', languageNamed: named })).toMatch(tail)
+    expect(buildParticipantConstraintPrompt({ tag: 'A', languageNamed: named })).toMatch(tail)
+    expect(buildParticipantPrompt({ characterTypeLabel: 'person', languageNamed: named })).toMatch(tail)
+  })
+
+  it('says nothing when no language was resolved', () => {
+    for (const prompt of [
+      buildSuggestionPrompt({ mode: SUGGESTION_MODE.STEER }),
+      buildGlobalRulesPrompt({ purpose: 'x' }),
+      buildParticipantConstraintPrompt({ tag: 'A' }),
+      buildParticipantPrompt({ characterTypeLabel: 'person' }),
+    ]) {
+      expect(prompt).not.toContain('These instructions are in English')
+      expect(prompt).not.toMatch(/Write every \w+ in \.\s/)
+    }
   })
 })

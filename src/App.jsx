@@ -45,6 +45,7 @@ import { useMagicWand } from './hooks/useMagicWand'
 import { useDebateWizard } from './hooks/useDebateWizard'
 import { useConclusions } from './hooks/useConclusions'
 import { SUMMARY_ENDPOINT_ID, useEndpointStatuses } from './hooks/useEndpointStatuses'
+import { useModelCapabilities } from './hooks/useModelCapabilities'
 import { useAppLayout } from './hooks/useAppLayout'
 import { useSplashScreen } from './hooks/useSplashScreen'
 import { useTopicComposer } from './hooks/useTopicComposer'
@@ -260,6 +261,8 @@ function AppInner({ settings }) {
     summaryRef,
     uiLang,
     debateMode,
+    globalConstraints,
+    enabledTools,
     timeoutSec,
     setLastPromptEstimate,
     setLastRequest,
@@ -312,6 +315,7 @@ function AppInner({ settings }) {
     [effectiveSummaryEndpointOverride],
   )
   const endpointStatuses = useEndpointStatuses(participants, summaryEndpointTargets)
+  const modelCapabilities = useModelCapabilities(participants, baseUrl)
   const {
     bottomRef,
     chatRef,
@@ -896,6 +900,7 @@ function AppInner({ settings }) {
           onConfigureEndpoint={handleConfigureParticipantEndpoint}
           onConfigureCustomLang={handleConfigureCustomLang}
           endpointStatuses={endpointStatuses}
+          modelCapabilities={modelCapabilities}
           wand={wand}
           defaultModel={defaultModel}
         />
@@ -1073,6 +1078,7 @@ function AppInner({ settings }) {
         onConfirmConstraint={handleConstraintConfirm}
         globalConstraintHistory={globalConstraintHistory}
         onDeleteGlobalSuggestion={handleDeleteGlobalSuggestion}
+        wand={wand}
         endpointModal={activeEndpointModal}
         onCloseEndpointModal={handleCloseEndpointModal}
         onConfirmEndpoint={handleSaveEndpoint}

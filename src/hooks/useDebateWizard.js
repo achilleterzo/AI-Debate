@@ -120,6 +120,7 @@ export function useDebateWizard({
       const raw = await ask(
         buildParticipantSystemPrompt({ languageNamed }),
         buildParticipantPrompt({
+          languageNamed,
           characterType,
           characterTypeLabel: CHARACTER_TYPES.find(entry => entry.value === characterType)?.labelEn ?? 'person',
           isModerator,
@@ -161,7 +162,7 @@ export function useDebateWizard({
       setStep('rules')
       const rulesRaw = await ask(
         buildSuggestionSystemPrompt({ languageNamed }),
-        buildGlobalRulesPrompt({ ...modeContext, purpose, count: GLOBAL_RULES_COUNT }),
+        buildGlobalRulesPrompt({ ...modeContext, purpose, languageNamed, count: GLOBAL_RULES_COUNT }),
       )
       if (controller.signal.aborted) return null
       const globalConstraints = parseSuggestions(rulesRaw, { max: GLOBAL_RULES_COUNT })
