@@ -135,13 +135,25 @@ export function buildMessageGroup({ items, itemIndex, participants, isLocalUser 
   }
 
   // A citation that resolved is shown as its card, so the pill for the same
-  // call would say the same thing twice. One that did not resolve keeps its
-  // pill: the turn argues against a message the reader cannot open, and that
-  // is worth seeing.
-  const renderedToolEvents = toolEvents.filter(event => (
-    event.invocation?.name !== 'quote_message'
-    || !quotes.some(quote => String(quote.messageId) === String(event.invocation?.arguments?.messageId))
-  ))
+  // call would say the same thing twice. The card takes the pill's place
+  // instead of being lifted to the top of the turn: a reader follows a turn as
+  // the sequence of things its author did, and a citation made after two
+  // searches belongs after them. One that did not resolve keeps its pill: the
+  // turn argues against a message the reader cannot open, and that is worth
+  // seeing.
+  const citedByInvocation = new Set()
+  const orderedEvents = toolEvents.map(event => {
+    if (event.type !== 'invocation' || event.invocation?.name !== 'quote_message') return event
+    const cited = quotes.find(quote => String(quote.messageId) === String(event.invocation?.arguments?.messageId))
+    if (!cited) return event
+    citedByInvocation.add(cited.messageId)
+    return { type: 'quote', quote: cited, beforeContent: event.beforeContent }
+  })
+
+  // A citation with no invocation to sit next to — a turn restored from an
+  // older snapshot, or one whose tool events were never recorded — has no
+  // place in the sequence, so it stays at the head of the turn as before.
+  const unplacedQuotes = quotes.filter(quote => !citedByInvocation.has(quote.messageId))
 
   return {
     msg,
@@ -151,9 +163,10 @@ export function buildMessageGroup({ items, itemIndex, participants, isLocalUser 
     continuationItems,
     continuationText,
     primaryContent,
-    quotes,
-    leadingToolEvents: renderedToolEvents.filter(event => event.type === 'invocation' && event.beforeContent),
-    trailingToolEvents: renderedToolEvents.filter(event => !(event.type === 'invocation' && event.beforeContent)),
+    quotes: unplacedQuotes,
+    allQuotes: quotes,
+    leadingEvents: orderedEvents.filter(event => event.beforeContent),
+    trailingEvents: orderedEvents.filter(event => !event.beforeContent),
     leadingDiceResults: continuationItems.filter(candidate => candidate.role === 'dice' && candidate.beforeContent),
     primaryIsLastBalloon: !continuationItems.some(candidate => candidate.role !== 'dice'),
   }

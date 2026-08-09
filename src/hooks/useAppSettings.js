@@ -17,8 +17,10 @@ import {
   DEFAULT_PAGE_BLOCK_KB,
   DEFAULT_SEARCH_API_KEY,
   DEFAULT_TIMEOUT_SEC,
+  DEFAULT_DEBUG_PAYLOAD_TURNS,
   DEFAULT_URL,
   DEFAULT_USE_SUMMARY,
+  normalizeDebugPayloadTurns,
   normalizeModerationCooling,
   normalizePageBlockKb,
 } from '../settings/Settings'
@@ -50,6 +52,7 @@ export function useAppSettings() {
   const [summaryAccumulateThreshold, setSummaryAccumulateThreshold] = useState(saved?.summaryAccumulateThreshold ?? DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD)
   const [summarizeAttachments, setSummarizeAttachments] = useState(saved?.summarizeAttachments ?? DEFAULT_SUMMARIZE_ATTACHMENTS)
   const [debugMode, setDebugMode] = useState(() => localStorage.getItem(DEBUG_MODE_STORAGE_KEY) === 'true')
+  const [debugPayloadTurns, setDebugPayloadTurns] = useState(() => normalizeDebugPayloadTurns(saved?.debugPayloadTurns ?? DEFAULT_DEBUG_PAYLOAD_TURNS))
   const [uiLang, setUiLang] = useState(saved?.uiLang ?? Debate.detectBrowserLang())
   const [interfaceLang, setInterfaceLang] = useState(saved?.interfaceLang ?? Debate.detectBrowserLang())
   const [timeoutSec, setTimeoutSec] = useState(saved?.timeoutSec ?? DEFAULT_TIMEOUT_SEC)
@@ -72,7 +75,8 @@ export function useAppSettings() {
     summaryModelOverride, setSummaryModelOverride,
     summaryEndpointOverride, setSummaryEndpointOverride,
     summaryAccumulateThreshold, setSummaryAccumulateThreshold,
-    summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode, uiLang, setUiLang,
+    summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode,
+    debugPayloadTurns, setDebugPayloadTurns, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     debateMode, setDebateMode, enabledTools, setEnabledTools,
@@ -86,6 +90,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride,
     summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, globalConstraints,
     generalPersonalityInstructions, defaultModel,
+    debugPayloadTurns,
     debateMode,
     enabledTools,
     searchApiKey,
@@ -114,6 +119,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       enabledTools,
       searchApiKey: searchApiKey ?? DEFAULT_SEARCH_API_KEY,
       pageBlockKb: normalizePageBlockKb(pageBlockKb),
+      debugPayloadTurns: normalizeDebugPayloadTurns(debugPayloadTurns),
     })
-  }, [participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
+  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
 }

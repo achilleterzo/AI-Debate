@@ -165,6 +165,22 @@ describe('Debate participant lifecycle messages', () => {
     expect(first).toMatchObject([{ role: 'participant_left', turn: 4, participantSnapshot: beta }])
     expect(second).toEqual([])
   })
+
+  // Retuning a participant is not a change of cast: the same voice keeps
+  // speaking, so the chat gets no departure and no return.
+  it('stays silent when a participant changes anything but the name', () => {
+    const before = { id: 0, tag: 'alpha', model: 'model-a', name: 'Alpha', endpointOverride: '' }
+    const after = { ...before, model: 'model-b', endpointOverride: 'http://elsewhere', isModerator: true }
+    let sequence = 30
+
+    expect(Debate.buildParticipantLifecycleMessages({
+      history: [{ role: 'participant_joined', participantSnapshot: before }],
+      participants: [after],
+      actor: after,
+      turn: 5,
+      nextSeq: () => ++sequence,
+    })).toEqual([])
+  })
 })
 
 describe('Debate participant ordering', () => {
@@ -316,5 +332,32 @@ describe('participantFromDraft', () => {
     expect(participant.mood).toBe(base.mood)
     expect(participant.ageGroup).toBe(base.ageGroup)
     expect(participant.model).toBe('')
+  })
+})
+
+// With debug on, a turn stores the whole request and response of every call it
+// made. Kept for the whole debate they are the heaviest thing in the session.
+describe('Debate.pruneDebugPayloads', () => {
+  const withPayload = seq => ({ role: 'A', seq, content: `Turn ${seq}`, payload: { big: 'x' }, debugPayloads: [{ request: {} }] })
+  const plain = seq => ({ role: 'A', seq, content: `Turn ${seq}` })
+
+  it('keeps the payloads of the most recent turns only', () => {
+    const history = [plain(1), withPayload(2), withPayload(3), withPayload(4)]
+    const pruned = Debate.pruneDebugPayloads(history, 2)
+
+    expect(pruned[1]).toEqual({ role: 'A', seq: 2, content: 'Turn 2' })
+    expect(pruned[2].debugPayloads).toHaveLength(1)
+    expect(pruned[3].debugPayloads).toHaveLength(1)
+  })
+
+  it('leaves the messages themselves alone', () => {
+    const history = [withPayload(1), withPayload(2)]
+    expect(Debate.pruneDebugPayloads(history, 1).map(message => message.content)).toEqual(['Turn 1', 'Turn 2'])
+  })
+
+  it('does nothing when there is less than the limit to keep', () => {
+    const history = [withPayload(1), withPayload(2)]
+    expect(Debate.pruneDebugPayloads(history, 5)).toBe(history)
+    expect(Debate.pruneDebugPayloads(history, 'nonsense')).toBe(history)
   })
 })

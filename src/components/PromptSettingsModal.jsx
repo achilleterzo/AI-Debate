@@ -5,7 +5,7 @@ import { useUiStrings } from '../i18n/UiStringsContext'
 import { TRANSLATED_LANGUAGE_CODES } from '../i18n/locales'
 import { UPDATE_ERROR, UPDATE_STATUS } from '../services/Updates'
 import { TOOL_SETTINGS } from '../tools/ToolSettings'
-import { PAGE_BLOCK_STEPS } from '../settings/Settings'
+import { MAX_DEBUG_PAYLOAD_TURNS, MIN_DEBUG_PAYLOAD_TURNS, PAGE_BLOCK_STEPS, normalizeDebugPayloadTurns } from '../settings/Settings'
 
 const TABS = ['main', 'promptRules', 'advanced']
 
@@ -30,6 +30,8 @@ export default function PromptSettingsModal({
   onSearchApiKeyChange,
   pageBlockKb,
   onPageBlockKbChange,
+  debugPayloadTurns,
+  onDebugPayloadTurnsChange,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.promptSettingsModal
@@ -230,6 +232,23 @@ export default function PromptSettingsModal({
                     <span style={{ fontSize: 11, color: '#666' }}>{appUi.seconds}</span>
                   </div>
                 </div>
+                {debugMode && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                    <span style={{ fontSize: 12, color: '#888' }}>{appUi.debugPayloadTurns}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="number"
+                        min={MIN_DEBUG_PAYLOAD_TURNS}
+                        max={MAX_DEBUG_PAYLOAD_TURNS}
+                        value={debugPayloadTurns}
+                        onChange={e => onDebugPayloadTurnsChange?.(normalizeDebugPayloadTurns(e.target.value))}
+                        style={{ width: 80, background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 13, textAlign: 'center' }}
+                      />
+                      <span style={{ fontSize: 11, color: '#666' }}>{appUi.debugPayloadTurnsUnit}</span>
+                    </div>
+                    <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{appUi.debugPayloadTurnsHint}</span>
+                  </div>
+                )}
                 <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid #2e2e2e', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <button onClick={onClearSettings} style={{ background: 'transparent', border: '1px solid #5a2e2e', color: '#f87171', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{topMenuUi.clearSavedSettings}</button>
                   <div

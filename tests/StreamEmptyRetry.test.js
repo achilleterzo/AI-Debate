@@ -229,6 +229,241 @@ describe('streamChat content assembly through the provider seam', () => {
     expect(result).toBe('visible')
   })
 
+  // A model with no thinking channel answers "deliberate in Russian, reply in
+  // Italian" by writing the deliberation into the message, in Russian, above
+  // the contribution. It is thinking wearing a tag of its own invention.
+  it('keeps a leaked <reasoning> monologue out of the answer and reports it as thinking', async () => {
+    vi.stubGlobal('fetch', mockStreamedFetch([
+      JSON.stringify({ message: { content: '<reasoning>\nЯ анализирую предложение.\n</reasoning>' } }) + '\n',
+      JSON.stringify({ message: { content: 'Ludwig, la tua analisi sposta il problema.' } }) + '\n',
+      JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+    ]))
+
+    const thinkingUpdates = []
+    let completion
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      systemPrompt: 'sys',
+      useTools: false,
+      onToken: () => {},
+      onThinking: value => thinkingUpdates.push(value),
+      onComplete: value => { completion = value },
+    })
+
+    expect(result).toBe('Ludwig, la tua analisi sposta il problema.')
+    expect(thinkingUpdates.at(-1)).toBe('Я анализирую предложение.')
+    expect(completion.thinking).toBe('Я анализирую предложение.')
+  })
+
+  // While the block is still open the balloon would show the monologue itself,
+  // so the opener hides everything after it until its closer arrives.
+  it('hides a reasoning block that is still streaming', async () => {
+    vi.stubGlobal('fetch', mockStreamedFetch([
+      JSON.stringify({ message: { content: '<thinking>step one' } }) + '\n',
+      JSON.stringify({ message: { content: ' and step two</thinking>Ecco il contributo.' } }) + '\n',
+      JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+    ]))
+
+    const tokens = []
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      systemPrompt: 'sys',
+      useTools: false,
+      onToken: token => tokens.push(token),
+    })
+
+    expect(tokens[0]).toBe('')
+    expect(result).toBe('Ecco il contributo.')
+  })
+
+  // A model improvising the markup closes `<reasoning>` with `</think>` often
+  // enough that requiring a matching pair swallowed the whole answer.
+  it('answers normally when the block is closed with a different tag', async () => {
+    vi.stubGlobal('fetch', mockStreamedFetch([
+      JSON.stringify({ message: { content: '<reasoning>deliberazione</think>Ecco il contributo.' } }) + '\n',
+      JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+    ]))
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      systemPrompt: 'sys',
+      useTools: false,
+      onToken: () => {},
+    })
+
+    expect(result).toBe('Ecco il contributo.')
+  })
+
+  // The turn is worth more than the tidiness: with the retry already spent, a
+  // block the model never closed is published without its markup.
+  it('publishes a never-closed block rather than losing the turn', async () => {
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const content = '<think>deliberazione\n\nEcco il contributo.'
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content } }) + '\n'))
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, message: { content: '' } }) + '\n'))
+            controller.close()
+          },
+        }),
+      }
+    }))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const tokens = []
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      systemPrompt: 'sys',
+      useTools: false,
+      onToken: token => tokens.push(token),
+    })
+
+    // One retry, told what actually went wrong, then the text rather than nothing.
+    expect(call).toBe(2)
+    expect(result).toBe('deliberazione\n\nEcco il contributo.')
+    expect(tokens.at(-1)).toBe('deliberazione\n\nEcco il contributo.')
+  })
+
+  it('tells the model its answer was all deliberation before retrying', async () => {
+    let call = 0
+    const bodies = []
+    vi.stubGlobal('fetch', vi.fn(async (url, options) => {
+      call += 1
+      bodies.push(JSON.parse(options.body))
+      const content = call === 1 ? '<think>solo deliberazione' : 'Ecco il contributo.'
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content } }) + '\n'))
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, message: { content: '' } }) + '\n'))
+            controller.close()
+          },
+        }),
+      }
+    }))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'hi' }],
+      systemPrompt: 'sys',
+      useTools: false,
+      onToken: () => {},
+    })
+
+    expect(result).toBe('Ecco il contributo.')
+    expect(bodies[1].messages.at(-1).content).toContain('only internal deliberation')
+  })
+
+  // Observed with glm-5.2:cloud: the tool rounds run out, the model keeps
+  // emitting calls nobody executes, and the retry used to resend the very same
+  // request — same input, same non-answer, turn lost.
+  it('tells the model its tool call was dropped instead of repeating the request', async () => {
+    const bodies = []
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async (url, options) => {
+      call += 1
+      bodies.push(JSON.parse(options.body))
+      const lines = call === 1
+        ? [
+            JSON.stringify({ message: { content: '', tool_calls: [{ function: { name: 'get_recent_messages', arguments: { limit: 5 } } }] } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+          ]
+        : call === 2
+          ? [
+              JSON.stringify({ message: { content: '', tool_calls: [{ function: { name: 'get_recent_messages', arguments: { limit: 6 } } }] } }) + '\n',
+              JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+            ]
+          : call === 3
+            ? [
+                // Rounds are spent: this call is never executed.
+                JSON.stringify({ message: { content: '', tool_calls: [{ function: { name: 'quote_message', arguments: { messageId: 99 } } }] } }) + '\n',
+                JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+              ]
+            : [
+                JSON.stringify({ message: { content: 'Ecco finalmente il contributo.' } }) + '\n',
+                JSON.stringify({ done: true, message: { content: '' } }) + '\n',
+              ]
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            for (const line of lines) controller.enqueue(new TextEncoder().encode(line))
+            controller.close()
+          },
+        }),
+      }
+    }))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'go' }],
+      systemPrompt: 'sys',
+      useTools: true,
+      tools: [{ type: 'function', function: { name: 'get_recent_messages' } }, { type: 'function', function: { name: 'quote_message' } }],
+      executeTool: async () => 'tool result',
+      onToken: () => {},
+    })
+
+    expect(result).toBe('Ecco finalmente il contributo.')
+    // The retry request carries something the previous one did not.
+    const lastUserMessages = bodies.map(body => body.messages.at(-1).content)
+    expect(lastUserMessages.at(-1)).toContain('was NOT executed')
+    expect(lastUserMessages.at(-1)).not.toBe(lastUserMessages.at(-2))
+  })
+
+  // The same model answered a dropped call with "No, tool protocol — I need to
+  // use the quote_message tool properly." That is a plan, not a contribution,
+  // but losing it entirely would leave a blank turn.
+  it('keeps the earlier text when the retry adds nothing', async () => {
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const message = call === 1
+        ? { content: 'No, tool protocol — let me cite the message.', tool_calls: [{ function: { name: 'quote_message', arguments: {} } }] }
+        : { content: '' }
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ message }) + '\n'))
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, message: { content: '' } }) + '\n'))
+            controller.close()
+          },
+        }),
+      }
+    }))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'go' }],
+      systemPrompt: 'sys',
+      useTools: false,
+      onToken: () => {},
+    })
+
+    expect(call).toBe(2)
+    expect(result).toBe('No, tool protocol — let me cite the message.')
+  })
+
   it('preserves text emitted before a tool call when continuing the stream', async () => {
     let call = 0
     const fetchMock = vi.fn(async () => {

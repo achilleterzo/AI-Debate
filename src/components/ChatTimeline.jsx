@@ -69,6 +69,16 @@ function toolInvocationPill(invocation, key, alignment) {
   )
 }
 
+/**
+ * One entry of a turn's tool sequence, in the order the model produced it: the
+ * card of a citation that resolved, or the pill of any other call.
+ */
+function turnEvent(event, key, alignment, participants, ui) {
+  return event.type === 'quote'
+    ? quoteCard(event.quote, key, alignment, participants, ui)
+    : toolInvocationPill(event.invocation, key, alignment)
+}
+
 function diceNote(result, owner, key, extraStyle, fallbackActor) {
   const ownerName = owner?.name || owner?.tag || 'Shared dice result'
   const border = owner?.border || fallbackActor?.border || '#514a78'
@@ -285,8 +295,8 @@ export default function ChatTimeline({
       continuationText,
       primaryContent,
       quotes,
-      leadingToolEvents,
-      trailingToolEvents,
+      leadingEvents,
+      trailingEvents,
       leadingDiceResults,
       primaryIsLastBalloon,
     } = group
@@ -349,7 +359,7 @@ export default function ChatTimeline({
             </div>
           )}
           {quotes.map((quote, quoteIndex) => quoteCard(quote, `quote-${i}-${quoteIndex}`, contentAlignment, participants, ui))}
-          {leadingToolEvents.map((event, eventIndex) => toolInvocationPill(event.invocation, `tool-before-${i}-${eventIndex}`, contentAlignment))}
+          {leadingEvents.map((event, eventIndex) => turnEvent(event, `tool-before-${i}-${eventIndex}`, contentAlignment, participants, ui))}
           {leadingDiceResults.map((result, resultIndex) => diceNote(
             result,
             resolveDiceOwner(result, participants),
@@ -399,7 +409,7 @@ export default function ChatTimeline({
               )}
             </div>
           )}
-          {trailingToolEvents.map((event, eventIndex) => toolInvocationPill(event.invocation, `tool-after-${i}-${eventIndex}`, contentAlignment))}
+          {trailingEvents.map((event, eventIndex) => turnEvent(event, `tool-after-${i}-${eventIndex}`, contentAlignment, participants, ui))}
           {continuationItems.map((continuation, continuationIndex) => {
             if (continuation.role === 'dice' && continuation.beforeContent) return null
             if (continuation.role === 'dice') {
@@ -413,6 +423,10 @@ export default function ChatTimeline({
             }
             // Already folded into the moderation balloon above.
             if (isModerationIntervention) return null
+            // A segment left empty by a tool-only round has nothing to show:
+            // its tool pills are rendered with the group, and an empty balloon
+            // reads as a participant who spoke and said nothing.
+            if (!String(continuation.content || '').trim()) return null
             const isLastBalloon = isLastContinuationBalloon(continuationItems, continuationIndex)
             return (
               <div

@@ -65,6 +65,25 @@ export function normalizePageBlockKb(raw) {
   return Math.min(MAX_PAGE_BLOCK_KB, Math.max(MIN_PAGE_BLOCK_KB, Math.round(value)))
 }
 
+/**
+ * How many turns keep their debug exchanges.
+ *
+ * With debug on, every turn stores the full request and response of each call
+ * it made — the entire system prompt and conversation, once per exchange. Over
+ * a long debate that is by far the heaviest thing the session holds, and only
+ * the last few are ever inspected. Older turns keep their message and lose the
+ * payloads.
+ */
+export const DEFAULT_DEBUG_PAYLOAD_TURNS = 5
+export const MIN_DEBUG_PAYLOAD_TURNS = 1
+export const MAX_DEBUG_PAYLOAD_TURNS = 100
+
+export function normalizeDebugPayloadTurns(raw) {
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value <= 0) return DEFAULT_DEBUG_PAYLOAD_TURNS
+  return Math.min(MAX_DEBUG_PAYLOAD_TURNS, Math.max(MIN_DEBUG_PAYLOAD_TURNS, Math.round(value)))
+}
+
 // The search key is optional. Without one the reader still answers, at 20
 // requests a minute shared per IP; with one that ceiling rises and the keyed
 // search backend — which refuses anonymous callers — becomes available.

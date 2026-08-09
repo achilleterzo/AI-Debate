@@ -121,3 +121,34 @@ describe('buildRoundOrder across the round boundary', () => {
     expect(Debate.buildRoundOrder(roster, { randomize: true, lastSpeakerId: 1 })).toEqual([0, 1])
   })
 })
+
+// A reload lands mid-round. The stored step is an index into an order that no
+// longer exists once the round is planned again, so who is left comes from the
+// transcript instead.
+describe('Debate.speakersInRound', () => {
+  const history = [
+    { role: 'topic', turn: 0, content: 'The topic' },
+    { role: 'A', turn: 1, content: 'Said in the previous round' },
+    { role: 'B', turn: 1, content: 'Also previous' },
+    { role: 'A', turn: 2, content: 'Already spoke in this round' },
+    { role: 'M', turn: 2, content: '', toolInvocations: [{ name: 'apply_moderation' }] },
+    { role: 'B', turn: 2, content: '   ' },
+    { role: 'interjection', turn: 2, content: 'Consider costs' },
+    { role: 'error', turn: 2, content: '⚠ boom' },
+  ]
+
+  it('names who was actually heard in the round', () => {
+    expect([...Debate.speakersInRound(history, 2)].sort()).toEqual(['A', 'M'])
+  })
+
+  it('leaves an interrupted turn owing its contribution', () => {
+    // B has a placeholder with neither text nor a tool call: the reload cut it
+    // off mid-generation, so B still speaks when the debate resumes.
+    expect(Debate.speakersInRound(history, 2).has('B')).toBe(false)
+  })
+
+  it('counts nothing for a round that has not started', () => {
+    expect(Debate.speakersInRound(history, 3).size).toBe(0)
+    expect(Debate.speakersInRound(history, null).size).toBe(0)
+  })
+})

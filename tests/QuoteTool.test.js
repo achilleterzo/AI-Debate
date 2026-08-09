@@ -102,8 +102,40 @@ describe('quotes on the rendered turn', () => {
       },
     }]
     const rendered = buildMessageGroup({ items, itemIndex: 0, participants })
-    expect(rendered.trailingToolEvents.map(event => event.invocation.arguments.messageId)).toEqual([77])
+    expect(rendered.trailingEvents.map(event => event.type)).toEqual(['quote', 'invocation'])
+    expect(rendered.trailingEvents[1].invocation.arguments.messageId).toBe(77)
     expect(describeToolInvocation({ name: 'quote_message', arguments: { messageId: 77 } })).toBe('#77')
+  })
+
+  // A reader follows a turn as the sequence of what its author did: a citation
+  // made after two searches has to appear after them, not above them.
+  it('places a citation where its call was made, not at the head of the turn', () => {
+    const items = [{
+      msg: {
+        role: 'B',
+        content: 'Answer',
+        turn: 2,
+        seq: 10,
+        quotes: [quote],
+        toolInvocations: [
+          { name: 'get_recent_messages', arguments: { limit: 5 } },
+          { name: 'memory', arguments: { action: 'read' } },
+          { name: 'quote_message', arguments: { messageId: 2 } },
+        ],
+      },
+    }]
+    const rendered = buildMessageGroup({ items, itemIndex: 0, participants })
+
+    expect(rendered.trailingEvents.map(event => event.type === 'quote' ? 'quote' : event.invocation.name))
+      .toEqual(['get_recent_messages', 'memory', 'quote'])
+    // Nothing is left over to render above the turn.
+    expect(rendered.quotes).toEqual([])
+    expect(rendered.allQuotes).toEqual([quote])
+  })
+
+  it('keeps a citation with no call of its own at the head of the turn', () => {
+    // A turn restored from a snapshot that never recorded the tool events.
+    expect(group([quote]).quotes).toEqual([quote])
   })
 })
 

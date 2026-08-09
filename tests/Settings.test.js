@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_DEBUG_PAYLOAD_TURNS,
+  MAX_DEBUG_PAYLOAD_TURNS,
+  normalizeDebugPayloadTurns,
   DEFAULT_MODERATION_COOLING,
   MAX_MODERATION_COOLING,
   MIN_MODERATION_COOLING,
@@ -29,5 +32,18 @@ describe('normalizeModeratorPermissiveness', () => {
     expect(normalizeModeratorPermissiveness(-1)).toBe(0)
     expect(normalizeModeratorPermissiveness(2.6)).toBe(3)
     expect(normalizeModeratorPermissiveness(99)).toBe(4)
+  })
+})
+
+describe('debug payload retention', () => {
+  it('clamps to a usable range and falls back to the default', () => {
+    expect(normalizeDebugPayloadTurns(12)).toBe(12)
+    expect(normalizeDebugPayloadTurns('3')).toBe(3)
+    expect(normalizeDebugPayloadTurns(2.6)).toBe(3)
+    expect(normalizeDebugPayloadTurns(0)).toBe(DEFAULT_DEBUG_PAYLOAD_TURNS)
+    expect(normalizeDebugPayloadTurns(-4)).toBe(DEFAULT_DEBUG_PAYLOAD_TURNS)
+    expect(normalizeDebugPayloadTurns('nonsense')).toBe(DEFAULT_DEBUG_PAYLOAD_TURNS)
+    expect(normalizeDebugPayloadTurns(undefined)).toBe(DEFAULT_DEBUG_PAYLOAD_TURNS)
+    expect(normalizeDebugPayloadTurns(9999)).toBe(MAX_DEBUG_PAYLOAD_TURNS)
   })
 })

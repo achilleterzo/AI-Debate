@@ -52,6 +52,8 @@ export default function AppModals({
   onSearchApiKeyChange,
   pageBlockKb,
   onPageBlockKbChange,
+  debugPayloadTurns,
+  onDebugPayloadTurnsChange,
 }) {
   return (
     <>
@@ -113,6 +115,8 @@ export default function AppModals({
           onSearchApiKeyChange={onSearchApiKeyChange}
           pageBlockKb={pageBlockKb}
           onPageBlockKbChange={onPageBlockKbChange}
+          debugPayloadTurns={debugPayloadTurns}
+          onDebugPayloadTurnsChange={onDebugPayloadTurnsChange}
         />
       )}
       {customLangModal && (

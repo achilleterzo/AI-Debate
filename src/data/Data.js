@@ -143,6 +143,9 @@ export class Data {
       const authorName = quoteRoleLabels[quote.role] || quote.authorName || author?.name || author?.tag || quote.authorTag || '?'
       return `<a class="quote-card" href="#${anchor(quote.messageId)}" style="--quote-color:${author?.label || '#8b5cf6'}"><span class="quote-card-mark">❝</span><span class="quote-card-author">${esc(authorName)}</span><span class="quote-card-text">${esc(quote.excerpt)}</span></a>`
     }
+    // One entry of a turn's tool sequence, in the order the model produced it —
+    // the same rule the chat follows, so a saved page reads identically.
+    const turnEvent = event => (event.type === 'quote' ? quoteCard(event.quote) : toolPill(event.invocation))
     const balloon = ({ content, actor, radius, tail, moderation, seq = null }) => {
       const vars = `--balloon-bg:${actor.bg};--balloon-border:${actor.border};--balloon-radius:${radius};`
       const badge = moderation ? '<div class="moderation-badge">Moderation</div>' : ''
@@ -215,8 +218,8 @@ export class Data {
         continuationItems,
         primaryContent,
         quotes,
-        leadingToolEvents,
-        trailingToolEvents,
+        leadingEvents,
+        trailingEvents,
         leadingDiceResults,
         primaryIsLastBalloon,
       } = group
@@ -233,7 +236,7 @@ export class Data {
 
       const parts = []
       parts.push(...quotes.map(quoteCard))
-      parts.push(...leadingToolEvents.map(event => toolPill(event.invocation)))
+      parts.push(...leadingEvents.map(turnEvent))
       parts.push(...leadingDiceResults.map(result => diceNote(result, resolveDiceOwner(result, participants), actor)))
       if (primaryContent) {
         parts.push(balloon({
@@ -244,7 +247,7 @@ export class Data {
           moderation: isModerationIntervention,
         }))
       }
-      parts.push(...trailingToolEvents.map(event => toolPill(event.invocation)))
+      parts.push(...trailingEvents.map(turnEvent))
       continuationItems.forEach((continuation, continuationIndex) => {
         if (continuation.role === 'dice') {
           if (continuation.beforeContent) return
@@ -253,6 +256,9 @@ export class Data {
         }
         // Already folded into the moderation balloon above.
         if (isModerationIntervention) return
+        // Same rule as the chat: a segment a tool-only round left empty has
+        // nothing to show, and the export must not invent a blank balloon.
+        if (!String(continuation.content || '').trim()) return
         const isLastBalloon = isLastContinuationBalloon(continuationItems, continuationIndex)
         parts.push(balloon({
           content: continuation.content,

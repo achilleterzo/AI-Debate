@@ -1,3 +1,5 @@
+import { visibleContribution } from './ReasoningLeak'
+
 function moderatorModeOf(actor) {
   if (['containment', 'facilitator', 'active'].includes(actor?.moderatorMode)) return actor.moderatorMode
   return actor?.moderatorAlwaysIntervene ? 'active' : 'containment'
@@ -15,11 +17,14 @@ export function buildModeratorPromptBlocks({ actor, allParticipants, history, mo
     ? "Moderator authority boundary:\nThe moderator's procedural decisions are binding. Their substantive claims are arguments like those of any other participant and may be challenged."
     : ''
 
+  // The directive is quoted into everyone's system prompt, so it is taken from
+  // what the moderator said, never from a deliberation left in the message.
   const latestModeratorDirective = [...history]
     .reverse()
     .map(message => {
       const moderator = allParticipants.find(participant => participant.tag === message.role && participant.isModerator)
-      return moderator && message.content?.trim() ? { moderator, content: message.content.trim() } : null
+      const content = visibleContribution(message.content)
+      return moderator && content ? { moderator, content } : null
     })
     .find(Boolean)
 

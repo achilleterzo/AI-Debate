@@ -1,3 +1,5 @@
+import { visibleContribution } from '../prompts/ReasoningLeak'
+
 export const GET_RECENT_MESSAGES_TOOL = {
   type: 'function',
   function: {
@@ -65,17 +67,21 @@ export function formatRecentMessages(messages = [], { limit = 10, participantTag
     .filter(Boolean))
   const normalizedSearchTerm = String(searchTerm || '').trim().toLowerCase()
   const eligible = messages
-    .filter(message => message?.content?.trim() && !['participant_joined', 'participant_left', 'error'].includes(message.role))
+    .filter(message => !['participant_joined', 'participant_left', 'error'].includes(message.role))
     .filter(message => tags.size === 0 || tags.has(String(message.role || '').toLowerCase()))
-    .filter(message => !normalizedSearchTerm || String(message.content).toLowerCase().includes(normalizedSearchTerm))
+    // What a participant deliberated is not what it said to the table, so it is
+    // neither returned nor searchable: this tool answers with contributions.
+    .map(message => ({ message, content: visibleContribution(message.content) }))
+    .filter(({ content }) => content)
+    .filter(({ content }) => !normalizedSearchTerm || content.toLowerCase().includes(normalizedSearchTerm))
     .slice(-requestedLimit)
-    .map(message => ({
+    .map(({ message, content }) => ({
       // The id travels with the message so a result pulled from outside the
       // visible window can still be cited with quote_message.
       ...(message.seq != null ? { id: message.seq } : {}),
       role: message.role,
       turn: message.turn ?? null,
-      content: String(message.content).trim(),
+      content,
     }))
 
   return JSON.stringify({ messages: eligible })

@@ -51,12 +51,7 @@ export function useSnapshots({
 
         if (data.topic) setTopicValue(data.topic)
         if (data.messages?.length) {
-          const loaded = data.messages
-            .filter(message => message.role === 'topic' || message.role === 'user' || message.role === 'interjection' || message.role === 'error' || (message.content && message.content.trim()))
-            .map(({ ollamaRole, ...message }) => {
-              void ollamaRole
-              return message
-            })
+          const loaded = Session.restorableMessages(data.messages)
           let sequence = 0
           const messages = loaded.map(message => message.seq != null ? (sequence = Math.max(sequence, message.seq), message) : { ...message, seq: ++sequence })
           refs.sequence.current = sequence

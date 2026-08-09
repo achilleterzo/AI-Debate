@@ -22,6 +22,7 @@ export function useDebateController({
   summaryAccumulateThreshold,
   uiLang,
   debugMode,
+  debugPayloadTurns,
   dynamicAffinity,
   randomTurnOrder,
   moderationCooling,
@@ -102,6 +103,7 @@ export function useDebateController({
     summaryRef,
       summaryAccumulateThreshold,
     debugMode,
+    debugPayloadTurns,
     setSummaryInProgress,
     setSummary,
     dynamicAffinity,
@@ -126,6 +128,7 @@ export function useDebateController({
   }), [
     attachedDocs,
     debugMode,
+    debugPayloadTurns,
     conclusionsRef,
     memoryRef,
     defaultModel,

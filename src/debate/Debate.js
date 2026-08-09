@@ -15,6 +15,7 @@ import { EDUCATION_LEVELS } from '../prompts/EducationLevels'
 import { AGE_GROUPS } from '../prompts/AgeGroups'
 import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePrompt'
+import { visibleContribution } from '../prompts/ReasoningLeak'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorFacilitationInterval, normalizeModeratorPermissiveness } from '../settings/Settings'
 import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
@@ -146,6 +147,9 @@ export class Debate {
   static DEFAULT_MOOD = 'diplomatic'
 
   static USER_MODEL = '__user__'
+
+  // Roles a message can carry that are not a participant taking their turn.
+  static NON_PARTICIPANT_ROLES = ['topic', 'user', 'interjection', 'error', 'dice', 'pending', 'participant_joined', 'participant_left']
 
   // Floor for the recent context window, so a two-participant debate still
   // carries enough back-and-forth to answer coherently.
@@ -598,6 +602,57 @@ export class Debate {
     return participants.map(participant => participant.isModerator ? participant.id : movable[cursor++])
   }
 
+  /**
+   * Who has already taken their turn in a round, read from the transcript.
+   *
+   * The step index cannot answer this after a restart. It is stored as a
+   * position in the round order, and that order is rebuilt when the debate
+   * resumes: with a random turn order the same index then points at a different
+   * participant, so one who already spoke would speak twice while another lost
+   * their turn. The transcript is the record that survives a reload intact, and
+   * it says who was actually heard.
+   *
+   * A turn that produced neither text nor a tool call is one that never
+   * happened — interrupted mid-generation by the reload — and its participant
+   * still owes the round a contribution.
+   */
+  static speakersInRound(history = [], turnLabel) {
+    const spoken = new Set()
+    if (turnLabel == null) return spoken
+    for (const message of history) {
+      if (message.turn !== turnLabel) continue
+      if (Debate.NON_PARTICIPANT_ROLES.includes(message.role)) continue
+      const wasHeard = String(message.content ?? '').trim() || message.toolInvocations?.length > 0
+      if (wasHeard) spoken.add(message.role)
+    }
+    return spoken
+  }
+
+  /**
+   * Drops the debug exchanges of every turn but the most recent ones.
+   *
+   * A stored exchange is the whole request — system prompt, conversation, tool
+   * results — plus the response, and a turn can hold several. Kept for the
+   * whole debate they dominate the session's memory, while the inspector is
+   * only ever opened on what just happened. The messages themselves are
+   * untouched: a pruned turn simply has nothing left to inspect.
+   */
+  static pruneDebugPayloads(history = [], turnsKept) {
+    const limit = Number(turnsKept)
+    if (!Number.isFinite(limit) || limit < 0) return history
+    const carriers = history.filter(message => message.payload || message.debugPayloads?.length > 0)
+    if (carriers.length <= limit) return history
+
+    const stripped = new Set(carriers.slice(0, carriers.length - limit).map(message => message.seq))
+    return history.map(message => {
+      if (!stripped.has(message.seq)) return message
+      const { payload, debugPayloads, ...rest } = message
+      void payload
+      void debugPayloads
+      return rest
+    })
+  }
+
   static reorderParticipants(participants = [], fromIndex, toIndex) {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= participants.length || toIndex >= participants.length) {
       return participants
@@ -620,11 +675,15 @@ export class Debate {
 
   static buildConclusionConversation(history = [], participants = [], { limit = Debate.CONCLUSION_CONVERSATION_LIMIT, messageLimit = Debate.CONCLUSION_MESSAGE_LIMIT } = {}) {
     const lines = history
-      .filter(message => !['error', 'topic', 'interjection', 'pending'].includes(message.role) && message.content?.trim())
-      .map(message => {
-        if (message.role === 'user') return `Moderator: ${message.content.slice(0, messageLimit)}`
+      .filter(message => !['error', 'topic', 'interjection', 'pending'].includes(message.role))
+      // A conclusion is drawn from what was said, so a leaked deliberation is
+      // not part of the material — the same rule the turn payload follows.
+      .map(message => ({ message, text: visibleContribution(message.content) }))
+      .filter(({ text }) => text)
+      .map(({ message, text }) => {
+        if (message.role === 'user') return `Moderator: ${text.slice(0, messageLimit)}`
         const participant = participants.find(entry => entry.tag === message.role)
-        return `${participant?.name || participant?.tag || message.role}: ${message.content.slice(0, messageLimit)}`
+        return `${participant?.name || participant?.tag || message.role}: ${text.slice(0, messageLimit)}`
       })
 
     let full = lines.join('\n\n')
@@ -1026,14 +1085,14 @@ export class Debate {
 
     if (actor.localUser || actor.model === Debate.USER_MODEL) return messages
 
+    // Only the name. Every other parameter — model, endpoint, moderator role —
+    // can be retuned mid-debate on the same voice, and announcing a departure
+    // and a return for each of those put a break in the chat that nothing in
+    // the debate corresponds to. The name is what a reader identifies a
+    // participant by, so a different name is a different presence.
     const previous = latestEvents.get(actor.id)
-    const hasChanged = previous?.role === 'participant_joined' && (
-      previous.participantSnapshot.model !== actor.model ||
-      previous.participantSnapshot.name !== actor.name ||
-      !!previous.participantSnapshot.localUser !== !!actor.localUser ||
-      !!previous.participantSnapshot.isModerator !== !!actor.isModerator ||
-      (previous.participantSnapshot.endpointOverride ?? '') !== (actor.endpointOverride ?? '')
-    )
+    const hasChanged = previous?.role === 'participant_joined'
+      && previous.participantSnapshot.name !== actor.name
 
     if (hasChanged) {
       messages.push({
@@ -1097,6 +1156,7 @@ export class Debate {
       summaryRef,
       summaryAccumulateThreshold,
       debugMode,
+      debugPayloadTurns,
       setSummaryInProgress,
       setSummary,
       dynamicAffinity,
@@ -1156,12 +1216,25 @@ export class Debate {
       setMessages(history)
     }
 
+    // A round left half spoken by a reload, a crash, or a restored snapshot.
+    // Whoever was already heard in it keeps their turn: the loop below skips
+    // them instead of trusting the stored step, which no longer identifies the
+    // same participant once the order is rebuilt.
+    let resumedRoundSpeakers = resumeMessages ? Debate.speakersInRound(history, round + 1) : new Set()
+    if (resumedRoundSpeakers.size === 0) resumedRoundSpeakers = null
+    // The summary of a round runs when that round opens, so a round already
+    // under way has had its own: recomputing it on resume spends a model call
+    // to summarize material the restored summary already covers.
+    if (resumedRoundSpeakers) skipSummaryOnce = true
+
     // Publish the first actor's presence before attachment preparation. This
     // lets the UI show the topic and the participant while the first model is
     // still being prepared, without creating a duplicate presence event in
     // the normal turn loop.
     const firstActorIndex = resumeMessages ? (resumeRound?.step ?? 0) : 0
-    const firstRawActor = parts[firstActorIndex] || parts[0]
+    const firstRawActor = (resumedRoundSpeakers
+      ? parts.find(participant => !resumedRoundSpeakers.has(participant.tag))
+      : parts[firstActorIndex]) || parts[firstActorIndex] || parts[0]
     const firstActor = firstRawActor?.model
       ? firstRawActor
       : firstRawActor ? { ...firstRawActor, model: defaultModel || firstRawActor.model } : null
@@ -1236,7 +1309,16 @@ export class Debate {
     // with them. Recorded when a turn produces visible text, not from the
     // planned order: a skipped turn, an extra moderator turn, or a roster
     // change all make the tail of the plan the wrong participant to avoid.
-    let lastRoundSpeakerId = null
+    // A resumed debate has heard nothing yet, so it reads the last voice off
+    // the transcript instead of letting the guard start blind.
+    const lastVoiceInTranscript = () => {
+      const spoken = [...history].reverse().find(message => (
+        !Debate.NON_PARTICIPANT_ROLES.includes(message.role)
+        && String(message.content ?? '').trim()
+      ))
+      return parts.find(participant => participant.tag === spoken?.role)?.id ?? null
+    }
+    let lastRoundSpeakerId = resumeMessages ? lastVoiceInTranscript() : null
 
     const queuedInterjections = () => {
       const queued = interjectRef.current
@@ -1275,6 +1357,13 @@ export class Debate {
       if (stopRef.current) break
       if (roundLimit > 0 && round >= roundLimit && step === 0) break
 
+      // The transcript already says who is left, so the resumed round is walked
+      // from the top and the stored step stops being consulted: it was only
+      // ever an index into an order this rebuild has just replaced. The
+      // round-limit guard above still reads the original step, which is what
+      // tells it whether the round was left unfinished.
+      if (resumedRoundSpeakers) step = 0
+
       const roundOrder = Debate.buildRoundOrder(parts, { randomize: !!randomTurnOrder, lastSpeakerId: lastRoundSpeakerId })
 
        let roundModerationSignal = { needed: false, reason: '', targets: [] }
@@ -1287,12 +1376,15 @@ export class Debate {
           const nonTopicMsgs = history.filter(message => message.role !== 'topic')
           const forSummary = nonTopicMsgs.slice(-participantCount)
            const moderatorInterventionThisRound = lastModerationTargets.length > 0
+          // The summary travels in everyone's payload, so a leaked
+          // deliberation left in here reaches the table the long way round.
           const toSummarize = forSummary.map(message => {
-            if (message.role === 'user') return `[Moderator intervention]: ${message.content}`
-            if (message.role === 'interjection') return `[Topic variation]: ${message.content}`
+            const text = visibleContribution(message.content)
+            if (message.role === 'user') return `[Moderator intervention]: ${text}`
+            if (message.role === 'interjection') return `[Topic variation]: ${text}`
             const participant = parts.find(entry => entry.tag === message.role)
             const label = participant ? (participant.name || participant.tag) : message.role
-            return `${label}: ${message.content}`
+            return `${label}: ${text}`
           }).join('\n\n')
 
           const topicDrift = Debate.detectTopicDrift({ history, messages: forSummary })
@@ -1400,6 +1492,9 @@ export class Debate {
           ? parts.find(participant => participant.isModerator)
           : (parts.find(participant => participant.id === scheduledId) ?? parts[cursorIndex])
         if (!rawActor) break
+        // Already heard in this round before the reload interrupted it. Their
+        // message is in the transcript and speaking again would double it.
+        if (resumedRoundSpeakers && !extraModeratorTurn && resumedRoundSpeakers.has(rawActor.tag)) continue
         const actor = rawActor.model ? rawActor : { ...rawActor, model: defaultModel || rawActor.model }
         const actorBaseUrl = actor.endpointOverride?.trim() || baseUrl
         const turnLabel = round + 1
@@ -1769,20 +1864,18 @@ export class Debate {
               // already received and let the continuation render in its own
               // balloon, so tool rounds cannot overwrite the first response.
               hasToolContinuation = true
-              previousToolMessageSeq = activeMessageSeq
               // Ollama commonly emits a tool-only assistant message first.
               // It is not an empty answer: it is the transport half of the
               // same assistant turn. Keep the active sequence unchanged so
-              // the following visible response fills this message directly.
-              if (!content?.trim()) {
-                previousToolMessageSeq = null
-                return
-              }
-              if (content?.trim()) {
-                history = history.map(message => message.seq === activeMessageSeq
-                  ? { ...message, content: content.trim(), rawContent: rawResponseContent || content.trim(), completionReason }
-                  : message)
-              }
+              // the following visible response fills this message directly —
+              // and keep whichever earlier segment does carry text, because
+              // that link is what lets the reconciliation below fold a
+              // repeated continuation back in instead of showing it twice.
+              if (!content?.trim()) return
+              previousToolMessageSeq = activeMessageSeq
+              history = history.map(message => message.seq === activeMessageSeq
+                ? { ...message, content: content.trim(), rawContent: rawResponseContent || content.trim(), completionReason }
+                : message)
               activeMessageSeq = nextSeq()
               history = [...history, {
                 role: actor.tag,
@@ -1983,6 +2076,9 @@ export class Debate {
               ...(completionReason ? { completionReason } : {}),
               ...(debugMode && debugPayloads.length > 0 ? { payload: debugPayloads.at(-1), debugPayloads } : {}),
             } : message)
+            // The turn that just landed is the one worth inspecting; the ones
+            // before it keep their text and give back the memory.
+            if (debugMode) history = Debate.pruneDebugPayloads(history, debugPayloadTurns)
           } else if (actor.isModerator) {
             history = history.filter(message => message.seq !== activeMessageSeq)
           } else {
@@ -2020,6 +2116,9 @@ export class Debate {
       }
 
       Debate.updateConclusionConv(history, parts, conclusionConvRef)
+      // The interrupted round is over; every round after it is planned from
+      // scratch and nobody is owed a skip.
+      resumedRoundSpeakers = null
       round += 1
       step = 0
       turnRef.current = { round, step: 0 }

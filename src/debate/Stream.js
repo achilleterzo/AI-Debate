@@ -1,6 +1,7 @@
 import { Web } from '../services/Web'
 import { getProvider } from '../providers/index.js'
 import { stripPromptScaffolding } from '../prompts/PromptTags'
+import { extractLeakedReasoning, stripLeakedReasoning } from '../prompts/ReasoningLeak'
 import { LLM_TOOLS, executeFetchUrl } from '../tools'
 
 /**
@@ -8,6 +9,26 @@ import { LLM_TOOLS, executeFetchUrl } from '../tools'
  * silence. Withdrawing the tools from the request is not a message the model
  * can read: this is.
  */
+/**
+ * Sent when the whole answer was deliberation.
+ *
+ * The plain nudge asks for an answer, which the model believes it already gave:
+ * it wrote one, inside a reasoning block, and the block does not reach the
+ * table. Naming what happened is what makes the second attempt different.
+ */
+const REASONING_ONLY_NUDGE = 'Your previous message contained only internal deliberation — a <think>/<reasoning> block — so the other participants received nothing at all. That deliberation is not delivered to anyone, whatever it contains. Deliberate silently instead and write the contribution itself now: plain prose, in your response language, with no reasoning section and no <think>, <reasoning> or similar tags anywhere in it.'
+
+/**
+ * Sent when the model answered with a tool call nobody will run.
+ *
+ * Withdrawing the tools from the request does not stop every model from
+ * emitting one, and a call that is not executed produces no tool result: the
+ * model is left waiting for an answer that will never arrive and announces the
+ * same call again. It is told plainly that the call was dropped — the turn is
+ * unblocked by the fact, not by asking for the answer a second time.
+ */
+const IGNORED_TOOL_CALL_NUDGE = 'The tool call in your last message was NOT executed and no tool result will follow it: tool use for this turn is finished. Anything you wrote alongside it — announcing a call, planning one, correcting yourself about the protocol — is not a contribution and the other participants never see it. Write your actual contribution now, in prose, using the tool results already above. Do not emit another tool call and do not describe one.'
+
 const FINAL_ANSWER_NUDGE = 'Tool use for this turn is over — no further tool call will be executed, and asking for one will produce nothing. Using the tool results already in this conversation, write your full contribution now, following your system instructions. If a tool returned nothing useful, say what you could not verify instead of assuming it is absent. Do not announce further searches, and do not reply with an empty message.'
 
 /**
@@ -98,8 +119,8 @@ function stripPseudoToolCalls(text) {
     .trim()
 }
 
-function cleanVisibleText(text) {
-  let visible = String(text || '').replace(/<think>[\s\S]*?<\/think>/g, '').trimStart()
+function cleanVisibleText(text, options) {
+  let visible = stripLeakedReasoning(text, options).trimStart()
   // Some Ollama/Gemma responses leak internal channel markers as visible
   // content after a tool round. They are transport control tokens, not prose.
   visible = visible
@@ -126,8 +147,8 @@ function cleanVisibleText(text) {
   return stripPseudoToolCalls(visible)
 }
 
-function cleanToolContinuationText(text, previousSegment = '') {
-  let visible = cleanVisibleText(text)
+function cleanToolContinuationText(text, previousSegment = '', options) {
+  let visible = cleanVisibleText(text, options)
   const previous = cleanVisibleText(previousSegment)
   if (previous && visible === previous) return ''
   if (previous && visible.startsWith(previous)) visible = visible.slice(previous.length).trimStart()
@@ -251,6 +272,9 @@ export async function streamChat({
   const deliveredToolResults = new Set()
   let nudgedForAnswer = false
   let retried = false
+  // What the attempt before the retry had to show. A retry that produces
+  // nothing must not cost the turn the text it already had.
+  let fallbackContent = ''
   let retriedTooLong = false
   let retriedServerError = false
   let visiblePrefix = ''
@@ -349,9 +373,15 @@ export async function streamChat({
     const parser = provider.createStreamParser()
   let full = ''
   let thinking = ''
+  let leakedReasoning = ''
   let tokenCount = 0
   let toolCalls = []
   let doneReason = null
+
+    // The channel and the leak are the same material and belong in the same
+    // place, so a turn that reasoned in prose still shows its reasoning.
+    const combinedThinking = () => [thinking, leakedReasoning].filter(Boolean).join('\n\n')
+    const reportThinking = () => onThinking?.(combinedThinking())
 
     const handleEvent = event => {
       switch (event.type) {
@@ -367,7 +397,7 @@ export async function streamChat({
           thinking += event.text
           // Thinking is deliberately kept out of visible content. Consumers
           // may use it for diagnostics or a private progress indicator.
-          onThinking?.(thinking)
+          reportThinking()
           break
         case 'toolCalls':
           // Ollama may emit tool calls across multiple streaming chunks.
@@ -378,6 +408,11 @@ export async function streamChat({
         case 'delta': {
           full += event.text
           tokenCount++
+          const leaked = extractLeakedReasoning(full)
+          if (leaked !== leakedReasoning) {
+            leakedReasoning = leaked
+            reportThinking()
+          }
           const visible = separateToolRounds
             ? cleanToolContinuationText(full, previousToolSegment)
             : cleanVisibleText(full)
@@ -388,6 +423,8 @@ export async function streamChat({
           doneReason = event.doneReason ?? doneReason
           if (event.content && !full) {
             full = event.content
+            leakedReasoning = extractLeakedReasoning(full)
+            if (leakedReasoning) reportThinking()
             const visible = separateToolRounds
               ? cleanToolContinuationText(full, previousToolSegment)
               : cleanVisibleText(full)
@@ -425,12 +462,13 @@ export async function streamChat({
       ? cleanToolContinuationText(full, previousToolSegment)
       : cleanVisibleText(full)
 
+    const reasoningTrace = combinedThinking()
     const debugResponse = {
       message: {
         role: 'assistant',
         content: full,
         contentLength: full.length,
-        ...(thinking ? { thinking, thinkingLength: thinking.length } : {}),
+        ...(reasoningTrace ? { thinking: reasoningTrace, thinkingLength: reasoningTrace.length } : {}),
         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
       },
       ...(doneReason ? { done_reason: doneReason } : {}),
@@ -440,13 +478,18 @@ export async function streamChat({
       rawContent: rawStreamContent,
       visibleContent: rawVisibleContent,
       content: full,
-      thinking,
+      thinking: reasoningTrace,
       doneReason,
       toolCalls,
     })
     console.log('← response', { model, ...debugResponse })
 
-    if (toolCalls.length > 0 && toolRound < MAX_TOOL_ROUNDS) {
+    // Only a request that actually carried tools can have solicited a call.
+    // Some models emit one anyway; running the round for it spent a request on
+    // a call nothing could execute and split the turn into two segments for
+    // nothing. Unsolicited calls fall through to the dropped-call path below,
+    // which at least tells the model what happened.
+    if (toolCalls.length > 0 && wantsTools) {
       toolRound++
       if (full) visiblePrefix = [visiblePrefix, full].filter(Boolean).join('\n\n')
       apiMessages = [...apiMessages, { role: 'assistant', content: full || '', tool_calls: toolCalls }]
@@ -511,22 +554,63 @@ export async function streamChat({
       continue
     }
 
+    // The model wrote something and the cleaning left nothing: worth saying so,
+    // because from the outside it is indistinguishable from a silent model.
+    const emptiedByCleaning = !full.trim() && rawStreamContent.trim()
+    if (emptiedByCleaning) {
+      console.warn(`${label} risposta di ${rawStreamContent.length} caratteri ripulita fino a vuota${leakedReasoning ? ' — era tutta dentro un blocco di ragionamento' : ''}`)
+    }
+
+    // Reaching here with tool calls means the turn had no round left to run
+    // them: nothing was executed and no result will follow. The model is still
+    // mid-plan — whatever it wrote next to that call announces an action that
+    // never happened — so this is not the contribution either.
+    const droppedToolCalls = toolCalls.length > 0
+    const emptyAnswer = !full.trim()
+
     // A provider may acknowledge the tool result with an empty assistant
     // message. A previous segment must not suppress the retry: after a tool
     // round the continuation is a new response and still needs visible text.
-    if (!full.trim() && !retried && (!previousToolSegment || toolRound > 0)) {
+    const worthRetrying = emptyAnswer ? (!previousToolSegment || toolRound > 0) : droppedToolCalls
+    if (worthRetrying && !retried) {
       retried = true
-      console.warn(`${label} risposta vuota — retry${toolRound > 0 ? ' senza tools' : ''}`)
-      // The plain retry repeats the same request, so a model that answered with
-      // silence once tends to do it again. Asking for the answer explicitly is
-      // the only thing that changed between the two attempts.
-      if (!nudgedForAnswer) {
-        nudgedForAnswer = true
-        apiMessages = [...apiMessages, { role: 'user', content: FINAL_ANSWER_NUDGE }]
-      }
+      console.warn(`${label} ${emptyAnswer ? 'risposta vuota' : 'risposta con tool call non eseguibile'} — retry`)
+      fallbackContent = full
+      // The retry used to repeat the request unchanged whenever a nudge had
+      // already been sent when the tool rounds ran out — same input, same
+      // non-answer. Every retry now says something the previous request did
+      // not, and says the thing that actually applies: a monologue that never
+      // reached the table, a tool call nobody ran, or plain silence.
+      nudgedForAnswer = true
+      apiMessages = [...apiMessages, {
+        role: 'user',
+        content: leakedReasoning ? REASONING_ONLY_NUDGE : droppedToolCalls ? IGNORED_TOOL_CALL_NUDGE : FINAL_ANSWER_NUDGE,
+      }]
       full = ''
       onToken(visiblePrefix)
       continue
+    }
+
+    // The retry answered with nothing usable. Whatever the attempt before it
+    // wrote is still better than an empty balloon.
+    if (!full.trim() && fallbackContent.trim()) {
+      console.warn(`${label} retry senza risposta — pubblicato il testo del tentativo precedente`)
+      full = fallbackContent
+      onToken(separateToolRounds ? full : [visiblePrefix, full].filter(Boolean).join('\n\n'))
+    }
+
+    // The retry has been spent and the turn is still empty because everything
+    // the model wrote sits inside a reasoning block it never closed. Publishing
+    // it without the markup is worse than a clean answer and better than the
+    // blank balloon that is the only other option left.
+    if (!full.trim() && leakedReasoning && rawStreamContent.trim()) {
+      full = separateToolRounds
+        ? cleanToolContinuationText(rawStreamContent, previousToolSegment, { keepUnclosedTail: true })
+        : cleanVisibleText(rawStreamContent, { keepUnclosedTail: true })
+      if (full.trim()) {
+        console.warn(`${label} blocco di ragionamento mai chiuso — turno pubblicato senza i tag invece di perderlo`)
+        onToken(separateToolRounds ? full : [visiblePrefix, full].filter(Boolean).join('\n\n'))
+      }
     }
 
     console.groupEnd()

@@ -1,7 +1,17 @@
 import { topicToSlug } from '../utils/Slug'
 import { DEFAULT_RESPONSE_LENGTH } from '../prompts/ResponseLengths'
+import { extractLeakedReasoning, stripLeakedReasoning, visibleContribution } from '../prompts/ReasoningLeak'
 
 export class Session {
+  static KEPT_WITHOUT_CONTENT = new Set([
+    'topic',
+    'user',
+    'interjection',
+    'error',
+    'participant_joined',
+    'participant_left',
+  ])
+
   static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevel }) {
     return {
       id: p.id,
@@ -71,6 +81,39 @@ export class Session {
       void ollamaRole
       return rest
     })
+  }
+
+  /**
+   * The messages of a snapshot that are worth restoring.
+   *
+   * A message with no text is normally a turn that produced nothing, and
+   * loading it back would restore an empty balloon. The listed roles are not
+   * that: a presence event carries its whole meaning in `participantSnapshot`,
+   * and a topic or an interjection can legitimately be blank. Dropping the
+   * presence events left a restored session with no record of who had already
+   * entered, so the first resumed turn announced every participant again.
+   */
+  static restorableMessages(messages = []) {
+    return messages
+      .map(({ ollamaRole, ...message }) => {
+        void ollamaRole
+        // A transcript written before the stream learned to strip them still
+        // carries reasoning blocks inside `content`. Restoring one as it stands
+        // puts that monologue back into the chat and into every payload built
+        // from it, so it is moved where it belongs on the way in.
+        const content = visibleContribution(message.content)
+        if (content === String(message.content ?? '')) return message
+        // Only a block the model actually closed is filed away as thinking:
+        // when the fallback had to keep an unclosed tail, that text is the
+        // message, and copying it into `thinking` would duplicate the turn.
+        const leaked = stripLeakedReasoning(message.content).trim() ? extractLeakedReasoning(message.content) : ''
+        return {
+          ...message,
+          content,
+          ...(leaked && !String(message.thinking ?? '').trim() ? { thinking: leaked } : {}),
+        }
+      })
+      .filter(message => Session.KEPT_WITHOUT_CONTENT.has(message.role) || String(message.content ?? '').trim())
   }
 
   static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, debateMode, customConclusionPrompt, standardConclusionPrompt, maxTurns, timeoutSec, baseUrl, moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, memory, constants }) {

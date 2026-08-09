@@ -47,6 +47,19 @@ function resolveReasoningLanguage({ actor, uiLang, languages, reasoningLangCusto
   return { label: languages.find(language => language.code === code)?.label ?? code, code }
 }
 
+/**
+ * Where the deliberation goes, said out loud.
+ *
+ * A model told to reason in one language and answer in another has no channel
+ * to reason in unless thinking is on, and it resolves that by writing the
+ * deliberation down: a `<reasoning>` block of internal monologue, in the
+ * reasoning language, sitting on top of the contribution. Naming the visible
+ * message as the wrong place for it is what keeps the turn readable; the
+ * cleaning side removes such a block anyway, so a model that writes one loses
+ * the work instead of publishing it.
+ */
+const UNWRITTEN_REASONING_RULE = 'Keep that deliberation out of the visible message: it must contain only your finished contribution — no reasoning section, no recap of your deliberation, and no <think>, <reasoning>, <analysis> or similar tags anywhere in it.'
+
 export function buildLanguagePrompt({ actor, uiLang, languages, reasoningLangCustom }) {
   const languageLabel = outputLanguageLabel(uiLang, languages)
   const languageNamed = outputLanguagePhrase(uiLang, languages)
@@ -59,6 +72,6 @@ export function buildLanguagePrompt({ actor, uiLang, languages, reasoningLangCus
   }
 
   return skipTranslation
-    ? `You are ${actor.name || actor.tag}. Do all internal reasoning and deliberation in ${named}, and write your final visible response in ${reasoning.label} as well — do not translate it into ${languageLabel}.`
-    : `You are ${actor.name || actor.tag}. Do all internal reasoning and deliberation in ${named}. Your final visible response, however, must be written only in ${languageNamed}, as a faithful translation of that reasoning — never leave any part of the visible response in ${reasoning.label} unless it is identical to ${languageLabel}.`
+    ? `You are ${actor.name || actor.tag}. Do all internal reasoning and deliberation in ${named}, and write your final visible response in ${reasoning.label} as well — do not translate it into ${languageLabel}. ${UNWRITTEN_REASONING_RULE}`
+    : `You are ${actor.name || actor.tag}. Do all internal reasoning and deliberation in ${named}. Your final visible response, however, must be written only in ${languageNamed}, as a faithful translation of that reasoning — never leave any part of the visible response in ${reasoning.label} unless it is identical to ${languageLabel}. ${UNWRITTEN_REASONING_RULE}`
 }

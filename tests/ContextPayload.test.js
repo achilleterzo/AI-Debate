@@ -41,6 +41,31 @@ describe('message ids in the payload', () => {
   })
 })
 
+// A transcript recorded before the stream stripped them still carries the
+// block, and this function is what every participant reads.
+describe('leaked reasoning in the payload', () => {
+  it('never ships one participant deliberation to the others', () => {
+    expect(format({ role: 'A', content: '<reasoning>Я думаю по-русски.</reasoning>Reactors are safe.', seq: 12 }).content)
+      .toBe('[#12] Alice said: Reactors are safe.')
+  })
+
+  it('keeps the actor own deliberation out of its own turns too', () => {
+    expect(format({ role: 'B', content: '<think>hidden</think>My own turn', seq: 13 }))
+      .toEqual({ role: 'assistant', content: 'My own turn' })
+  })
+
+  it('treats a turn that was nothing but deliberation as no contribution', () => {
+    expect(format({ role: 'A', content: '<reasoning>only thinking</reasoning>', seq: 14 })).toBeNull()
+  })
+
+  // A block the model never closed would otherwise take the whole message with
+  // it, and the turn would vanish from the payload while staying in the chat.
+  it('still carries a turn whose block was never closed', () => {
+    expect(format({ role: 'A', content: '<think>deliberazione\n\nEcco il contributo.', seq: 15 }).content)
+      .toBe('[#15] Alice said: deliberazione\n\nEcco il contributo.')
+  })
+})
+
 describe('citations in the payload', () => {
   const quote = { messageId: 4, authorTag: 'A', authorName: 'Alice', excerpt: 'Reactors are safe.' }
 

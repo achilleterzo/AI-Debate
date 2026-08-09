@@ -9,6 +9,8 @@
  * so the other participants know exactly which message was answered.
  */
 
+import { visibleContribution } from '../prompts/ReasoningLeak'
+
 /** Roles that exist in the transcript but are not something one can quote. */
 const NON_QUOTABLE_ROLES = ['error', 'participant_joined', 'participant_left', 'pending']
 
@@ -54,6 +56,17 @@ export function abbreviateQuote(text, maxChars = QUOTE_MAX_EXCERPT_CHARS) {
   return `${(lastSpace > maxChars * 0.6 ? hardCut.slice(0, lastSpace) : hardCut).trimEnd()}…`
 }
 
+/**
+ * What of a message can be cited.
+ *
+ * A leaked reasoning block is not something its author said to the table, so it
+ * is not quotable material either: a message that is nothing but deliberation
+ * has nothing to quote at all.
+ */
+function quotableText(message) {
+  return visibleContribution(message?.content)
+}
+
 /** The message carrying `messageId`, or null when nothing quotable matches. */
 export function resolveQuotableMessage(messages = [], messageId) {
   const id = Number(messageId)
@@ -61,7 +74,7 @@ export function resolveQuotableMessage(messages = [], messageId) {
   return messages.find(message => (
     message?.seq === id
     && !NON_QUOTABLE_ROLES.includes(message.role)
-    && String(message.content ?? '').trim()
+    && quotableText(message)
   )) || null
 }
 
@@ -71,7 +84,7 @@ export function quotableMessageIds(messages = [], limit = 12) {
     .filter(message => (
       message?.seq != null
       && !NON_QUOTABLE_ROLES.includes(message.role)
-      && String(message.content ?? '').trim()
+      && quotableText(message)
     ))
     .slice(-limit)
     .map(message => message.seq)
@@ -98,7 +111,7 @@ export function buildQuote({ messages = [], participants = [], messageId, excerp
   const author = target.participantSnapshot
     || participants.find(participant => participant.tag === target.role)
     || null
-  const fullText = String(target.content).trim()
+  const fullText = quotableText(target)
   const requested = String(excerpt || '').trim()
   const verbatim = !!requested && normalizeForMatch(fullText).includes(normalizeForMatch(requested))
 

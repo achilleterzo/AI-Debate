@@ -48,6 +48,7 @@ import { SUMMARY_ENDPOINT_ID, useEndpointStatuses } from './hooks/useEndpointSta
 import { useModelCapabilities } from './hooks/useModelCapabilities'
 import { useAppLayout } from './hooks/useAppLayout'
 import { useSplashScreen } from './hooks/useSplashScreen'
+import { useChatPersistence } from './hooks/useChatPersistence'
 import { useTopicComposer } from './hooks/useTopicComposer'
 import { useAppSettings, usePersistedAppSettings } from './hooks/useAppSettings'
 import { useAttachments } from './hooks/useAttachments'
@@ -99,7 +100,8 @@ function AppInner({ settings }) {
     summaryModelOverride, setSummaryModelOverride,
     summaryEndpointOverride, setSummaryEndpointOverride,
     summaryAccumulateThreshold, setSummaryAccumulateThreshold,
-    summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode, uiLang, setUiLang,
+    summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode,
+    debugPayloadTurns, setDebugPayloadTurns, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     enabledTools, setEnabledTools,
@@ -109,6 +111,10 @@ function AppInner({ settings }) {
   // restores the previous choice; what the operations see is the gated value.
   const effectiveSummaryModelOverride = summaryModelEnabled ? summaryModelOverride : ''
   const effectiveSummaryEndpointOverride = summaryModelEnabled ? summaryEndpointOverride : ''
+  // Read once, at the first render: the splash screen has to know there is a
+  // conversation to come back to before it decides whether to show itself, and
+  // the effect that puts the chat back on screen runs after that.
+  const [restoredChat] = useState(Storage.loadChat)
   const [messages, setMessages] = useState([])
   const [running, setRunning] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -169,6 +175,7 @@ function AppInner({ settings }) {
     summaryEndpointOverride: effectiveSummaryEndpointOverride,
     uiLang,
     debugMode,
+    debugPayloadTurns,
     dynamicAffinity,
     randomTurnOrder,
     moderationCooling,
@@ -293,7 +300,21 @@ function AppInner({ settings }) {
 
   usePersistedAppSettings({ settings, conclusions: conclusionsState })
 
-  const splash = useSplashScreen()
+  // A restored chat is what the user wants to look at, so the app opens on it
+  // rather than on the settings panel they had left expanded.
+  const handleChatRestored = useCallback(() => setHeaderOpen(false), [])
+
+  useChatPersistence({
+    restoredChat,
+    messages, setMessages,
+    summary, setSummary, summaryRef,
+    conclusions, setConclusions,
+    memory, setMemory, memoryRef,
+    seqRef, turnRef, roundLimitRef,
+    onRestored: handleChatRestored,
+  })
+
+  const splash = useSplashScreen({ suppressed: (restoredChat?.messages?.length ?? 0) > 0 })
   // Nothing in the app works without a reachable endpoint, so an unreachable
   // one puts the connection modal on screen by itself instead of leaving a red
   // badge as the only clue. Derived rather than opened by an effect, and it
@@ -1116,6 +1137,8 @@ function AppInner({ settings }) {
         onTimeoutSecChange={setTimeoutSec}
         debugMode={debugMode}
         onDebugModeChange={next => { localStorage.setItem('debugMode', next); setDebugMode(next) }}
+        debugPayloadTurns={debugPayloadTurns}
+        onDebugPayloadTurnsChange={setDebugPayloadTurns}
         running={running}
         enabledTools={enabledTools}
         onEnabledToolsChange={setEnabledTools}
