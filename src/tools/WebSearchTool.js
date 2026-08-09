@@ -17,6 +17,6 @@ export const WEB_SEARCH_TOOL = {
     },
   },
   constraints: [
-	""
+    'MANDATORY: When current external information is required, invoke web_search through the structured tool interface before making the claim. Never simulate a search or invent its result.',
   ],
 }

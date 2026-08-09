@@ -5,7 +5,7 @@ import { buildAffinityBlock } from '../prompts/AffinityPrompt'
 import { buildLanguagePrompt } from '../prompts/LanguagePrompt'
 import { DEFAULT_DELIVERY_STYLE } from '../prompts/DeliveryStyle'
 import { buildModeratorPromptBlocks } from '../prompts/ModeratorPrompt'
-import { NO_TOOL_CALL_PROTOCOL, STRUCTURED_TOOL_CALL_PROTOCOL } from '../prompts/ToolProtocol'
+import { buildAvailableToolProtocol, NO_TOOL_CALL_PROTOCOL, STRUCTURED_TOOL_CALL_PROTOCOL } from '../prompts/ToolProtocol'
 import { buildMessageReferenceBlock } from '../prompts/MessageReference'
 import { buildTopicPromptBlocks } from '../prompts/TopicPrompt'
 import { CONTEXT_DISCIPLINE_BLOCK, REASONING_FOCUS_BLOCK, hasNativeReasoning } from '../prompts/ReasoningContext'
@@ -15,7 +15,7 @@ function taggedSection(tag, content) {
   return normalized ? `<${tag}>\n${normalized}\n</${tag}>` : ''
 }
 
-export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, toolsAvailable = true, quoteToolAvailable = false, constants }) {
+export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, toolsAvailable = true, availableTools = [], quoteToolAvailable = false, constants }) {
   const {
     MOODS,
     DEFAULT_MOOD,
@@ -90,7 +90,9 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
       mood?.instruction ? `Mood: ${mood.instruction}` : '',
       mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
     ].filter(Boolean).join('\n\n')),
-    taggedSection('tool_protocol', toolsAvailable ? STRUCTURED_TOOL_CALL_PROTOCOL : NO_TOOL_CALL_PROTOCOL),
+    taggedSection('tool_protocol', toolsAvailable
+      ? [STRUCTURED_TOOL_CALL_PROTOCOL, buildAvailableToolProtocol(availableTools)].filter(Boolean).join('\n\n')
+      : NO_TOOL_CALL_PROTOCOL),
     taggedSection('message_references', buildMessageReferenceBlock({ quoteToolAvailable: toolsAvailable && quoteToolAvailable })),
     taggedSection('debate_mode', modeBlock),
     taggedSection('role_play', [rolePlayBlock, rolePlayParticipantRule].filter(Boolean).join('\n\n')),

@@ -37,7 +37,8 @@ export const QUOTE_MESSAGE_TOOL = {
     },
   },
   constraints: [
-    ""
+    'MANDATORY: When citing a specific earlier message, invoke quote_message through the structured tool interface. Never write the invocation, its JSON arguments, or XML markup in visible text.',
+    'Use the message id shown in the conversation and do not invent a quote or excerpt before the tool returns.',
   ],
 }
 

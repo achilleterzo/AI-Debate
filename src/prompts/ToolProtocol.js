@@ -20,3 +20,19 @@ This request carries no tools array. There is no function you can call, nothing 
 Therefore: never write a tool call in any form. No XML call markup of any dialect (tool_calls, function_calls, invoke, parameter blocks and the like), no JSON call envelope, no function name with arguments, no announcement that you are about to search, fetch, open, or read anything. Such text is not an invocation — it is just text, and it will be discarded before anyone reads your turn.
 
 Argue from what is already in this conversation. When something would require material you do not have, say plainly that you have not seen it and reason without it. Never describe the content of a page, document, or source that is not already quoted in this conversation, and never present an assumption about it as an observation.`
+
+export function buildAvailableToolProtocol(tools = []) {
+  const rules = (tools || []).flatMap(tool => {
+    const name = tool?.function?.name
+    const parameters = tool?.function?.parameters || {}
+    const properties = Object.keys(parameters.properties || {})
+    const required = Array.isArray(parameters.required) ? parameters.required : []
+    const signature = `Native function: ${name}; argument object fields: ${properties.length > 0 ? properties.join(', ') : 'none'}${required.length > 0 ? `; required: ${required.join(', ')}` : ''}.`
+    return (tool?.constraints || [])
+      .map(constraint => String(constraint || '').trim())
+      .filter(Boolean)
+      .map(constraint => `- ${signature} ${constraint}`)
+  })
+  if (rules.length === 0) return ''
+  return `MANDATORY RULES FOR THE TOOLS IN THIS REQUEST:\n${rules.join('\n')}\n\nWhen a rule requires a tool, select the native function by the exact name shown above and send its arguments as the structured object defined in the current tools array. This is an assistant API event, not visible content: never print the function name, argument object, XML, Markdown, or any textual imitation of the call. If you cannot emit the native function event, do not simulate it; write the contribution without that action and state the limitation plainly.`
+}

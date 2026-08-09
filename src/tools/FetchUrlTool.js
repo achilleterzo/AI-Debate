@@ -30,7 +30,7 @@ export const FETCH_URL_TOOL = {
     },
   },
   constraints: [
-	""
+    'MANDATORY: When page contents must be inspected, invoke fetch_url through the structured tool interface before describing the page. Never simulate a fetch or invent its result.',
   ],
 }
 

@@ -30,6 +30,7 @@ const INLINE_CALL_OPEN_TAIL_RE = /<\s*call\s*:\s*[\w.]+\s*\{[^}]*$/i
 // for tools that are present in this request; everything else remains text
 // to be removed, never an executable instruction.
 const XML_CALL_RE = /<\s*call\s*:\s*([\w.]+)(?=[\s/>])([^>]*?)\/?>/gi
+const XML_TOOL_BLOCK_RE = /<\s*(?:web_search|fetch_url|get_recent_messages|quote_message|request_moderator_intervention|apply_moderation|roll_dice|memory)\s*>[\s\S]*?<\s*\/\s*(?:web_search|fetch_url|get_recent_messages|quote_message|request_moderator_intervention|apply_moderation|roll_dice|memory)\s*>/gi
 
 function parseXmlCallValue(value) {
   const unquoted = String(value).trim().replace(/^(["'])([\s\S]*)\1$/, '$2')
@@ -50,6 +51,16 @@ function parseXmlCallArguments(raw) {
   return args
 }
 
+function parseXmlToolBlockArguments(raw) {
+  const source = String(raw ?? '').trim()
+  try {
+    const parsed = JSON.parse(source)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : { value: parsed }
+  } catch {
+    return null
+  }
+}
+
 export function extractPseudoToolCalls(text, tools = []) {
   const names = new Set((tools || []).map(tool => tool?.function?.name).filter(Boolean))
   const calls = []
@@ -62,6 +73,19 @@ export function extractPseudoToolCalls(text, tools = []) {
       type: 'function',
       function: { name, arguments: parseXmlCallArguments(match[2]) },
     })
+  }
+  if (names.size > 0) {
+    const escapedNames = [...names].map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+    const blockRe = new RegExp(`<\\s*(${escapedNames})\\s*>([\\s\\S]*?)<\\s*\\/\\1\\s*>`, 'gi')
+    for (const match of source.matchAll(blockRe)) {
+      const args = parseXmlToolBlockArguments(match[2])
+      if (!args) continue
+      calls.push({
+        id: `pseudo-${calls.length + 1}`,
+        type: 'function',
+        function: { name: match[1], arguments: args },
+      })
+    }
   }
   return calls
 }
@@ -77,6 +101,7 @@ export function stripPseudoToolCalls(text) {
   return visible
     .replace(PSEUDO_TOOL_OPEN_TAIL_RE, '')
     .replace(PSEUDO_TOOL_LOOSE_RE, '')
+    .replace(XML_TOOL_BLOCK_RE, '')
     .replace(XML_CALL_RE, '')
     .replace(INLINE_CALL_RE, '')
     .replace(INLINE_CALL_OPEN_TAIL_RE, '')

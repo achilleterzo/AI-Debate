@@ -20,7 +20,7 @@ export const GET_RECENT_MESSAGES_TOOL = {
     },
   },
   constraints: [
-    ""
+    'MANDATORY: When the required earlier exchanges are not in the supplied context, invoke get_recent_messages through the structured tool interface. Never simulate retrieved messages or write a pseudo-call.',
   ],
 }
 
@@ -38,7 +38,7 @@ export const REQUEST_MODERATOR_INTERVENTION_TOOL = {
     },
   },
   constraints: [
-    ""
+    'MANDATORY: If an explicit moderator intervention is needed, invoke request_moderator_intervention through the structured tool interface. Never write or quote a pseudo-call.',
   ],
 }
 
@@ -56,7 +56,7 @@ export const APPLY_MODERATION_TOOL = {
     },
   },
   constraints: [
-    ""
+    'MANDATORY: When procedural moderation is required, invoke apply_moderation through the structured tool interface. Put the reason in the function arguments; never emit XML, free JSON, or call-shaped visible text.',
   ],
 }
 

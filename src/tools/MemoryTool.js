@@ -16,7 +16,7 @@ export const MEMORY_TOOL = {
     },
   },
   constraints: [
-	""
+    'MANDATORY: Read or write durable memory only through the structured memory tool interface. Never emit memory instructions as XML, free JSON, or function-like visible text.',
   ],
 }
 

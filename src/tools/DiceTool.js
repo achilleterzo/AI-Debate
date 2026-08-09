@@ -13,7 +13,8 @@ export const ROLL_DICE_TOOL = {
     },
   },
   constraints: [
-	""
+    'MANDATORY: When the role-play action requires a random result, invoke roll_dice through the structured tool interface before describing the result. Never invent, estimate, or write a dice-call syntax in visible text.',
+    'After the tool result, use the returned numbers exactly; do not replace them with a narrated or self-generated outcome.',
   ],
 }
 

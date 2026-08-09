@@ -483,7 +483,12 @@ export async function streamChat({
     if (toolCalls.length > 0 && wantsTools) {
       toolRound++
       if (full) visiblePrefix = [visiblePrefix, full].filter(Boolean).join('\n\n')
-      apiMessages = [...apiMessages, { role: 'assistant', content: full || '', tool_calls: toolCalls }]
+      apiMessages = [...apiMessages, {
+        role: 'assistant',
+        ...(thinking ? { thinking } : {}),
+        content: full || '',
+        tool_calls: toolCalls,
+      }]
       const appendToolResult = (name, args, content) => {
         const key = toolResultKey(name, args)
         const repeated = deliveredToolResults.has(key)
@@ -558,6 +563,11 @@ export async function streamChat({
     // never happened — so this is not the contribution either.
     const droppedToolCalls = toolCalls.length > 0
     const emptyAnswer = !full.trim()
+    // A few models stop after opening a markup/tool delimiter. It is not an
+    // empty string, but it is not a usable contribution either; publishing
+    // it creates a balloon that looks blank except for a stray `<` or similar
+    // transport character.
+    const danglingMarkupAnswer = /^[<>{}\[\]`]+$/.test(full.trim())
     // A line announcing a call is not a turn; a finished turn that happens to
     // carry a stray call still is. Length is the only thing that separates them
     // from outside, and getting it wrong in the generous direction costs one
@@ -568,13 +578,17 @@ export async function streamChat({
     // A provider may acknowledge the tool result with an empty assistant
     // message. A previous segment must not suppress the retry: after a tool
     // round the continuation is a new response and still needs visible text.
-    const worthRetrying = emptyAnswer ? (!previousToolSegment || toolRound > 0) : (droppedToolCalls && !answeredAnyway)
+    const worthRetrying = emptyAnswer
+      ? (!previousToolSegment || toolRound > 0)
+      : danglingMarkupAnswer
+        ? true
+        : (droppedToolCalls && !answeredAnyway)
     if (droppedToolCalls && answeredAnyway) {
       console.warn(`${label} tool call scartata accanto a una risposta completa — pubblicata la risposta`)
     }
     if (worthRetrying && !retried) {
       retried = true
-      console.warn(`${label} ${emptyAnswer ? 'risposta vuota' : 'risposta con tool call non eseguibile'} — retry`)
+      console.warn(`${label} ${emptyAnswer ? 'risposta vuota' : danglingMarkupAnswer ? 'risposta troncata su markup' : 'risposta con tool call non eseguibile'} — retry`)
       fallbackContent = full
       // The retry used to repeat the request unchanged whenever a nudge had
       // already been sent when the tool rounds ran out — same input, same

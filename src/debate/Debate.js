@@ -1698,6 +1698,7 @@ export class Debate {
           generalPersonalityInstructions,
           debateMode: normalizeDebateMode(debateMode),
           toolsAvailable,
+          availableTools: toolsAvailable ? availableTools : [],
           quoteToolAvailable,
           constants: Debate.buildPromptConstants(),
         })
