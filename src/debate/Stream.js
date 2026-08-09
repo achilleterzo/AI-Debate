@@ -2,6 +2,7 @@ import { Web } from '../services/Web'
 import { getProvider } from '../providers/index.js'
 import { stripPromptScaffolding } from '../prompts/PromptTags'
 import { extractLeakedReasoning, stripLeakedReasoning } from '../prompts/ReasoningLeak'
+import { extractPseudoToolCalls, stripPseudoToolCalls } from '../prompts/PseudoToolCalls'
 import { LLM_TOOLS, executeFetchUrl } from '../tools'
 
 /**
@@ -28,6 +29,16 @@ const REASONING_ONLY_NUDGE = 'Your previous message contained only internal deli
  * unblocked by the fact, not by asking for the answer a second time.
  */
 const IGNORED_TOOL_CALL_NUDGE = 'The tool call in your last message was NOT executed and no tool result will follow it: tool use for this turn is finished. Anything you wrote alongside it — announcing a call, planning one, correcting yourself about the protocol — is not a contribution and the other participants never see it. Write your actual contribution now, in prose, using the tool results already above. Do not emit another tool call and do not describe one.'
+
+/**
+ * Above this, visible text next to a dropped tool call is the turn itself.
+ *
+ * The models that keep calling after the rounds are spent write two very
+ * different things beside that call: a line of self-talk about the protocol, or
+ * the entire contribution. The first is a few dozen characters, the second
+ * thousands, and nothing else in the response tells them apart.
+ */
+const PREAMBLE_MAX_CHARS = 400
 
 const FINAL_ANSWER_NUDGE = 'Tool use for this turn is over — no further tool call will be executed, and asking for one will produce nothing. Using the tool results already in this conversation, write your full contribution now, following your system instructions. If a tool returned nothing useful, say what you could not verify instead of assuming it is absent. Do not announce further searches, and do not reply with an empty message.'
 
@@ -90,33 +101,6 @@ function compactMessages(arr, { keepLast = Infinity, maxPerMsg = 12000 } = {}) {
   const selected = summary && !recent.includes(summary) ? [summary, ...recent] : recent
   const tail = selected.map(message => ({ ...message, content: trimText(message.content, messageBudget(message, maxPerMsg)) }))
   return [...out, ...tail]
-}
-
-// Markup a model uses when it types a tool call instead of emitting one. The
-// tags come from the training data of the model, not from this app, and they
-// appear in whatever combination the model remembers — a closer with no opener,
-// an opener still streaming, a block nested in another. All of it is transport,
-// none of it ran, and leaving it in the balloon shows the user a call that did
-// not happen. Stripping it can empty the message, which the empty-answer retry
-// downstream then treats as the non-answer it is.
-const PSEUDO_TOOL_TAGS = 'function_calls|tool_calls|tool_call|invoke|antml:invoke'
-const PSEUDO_TOOL_BLOCK_RE = new RegExp(`<(${PSEUDO_TOOL_TAGS})(?:\\s[^>]*)?>[\\s\\S]*?<\\/\\1>`, 'gi')
-const PSEUDO_TOOL_OPEN_TAIL_RE = new RegExp(`<(?:${PSEUDO_TOOL_TAGS})(?:\\s[^>]*)?>[\\s\\S]*$`, 'i')
-const PSEUDO_TOOL_LOOSE_RE = new RegExp(`<\\/?(?:${PSEUDO_TOOL_TAGS})(?:\\s[^>]*)?>|<\\/?(?:antml:)?parameter(?:\\s[^>]*)?>`, 'gi')
-
-function stripPseudoToolCalls(text) {
-  let visible = String(text ?? '')
-  let previous
-  // Nesting means one pass can expose another complete block.
-  do {
-    previous = visible
-    visible = visible.replace(PSEUDO_TOOL_BLOCK_RE, '')
-  } while (visible !== previous)
-  return visible
-    .replace(PSEUDO_TOOL_OPEN_TAIL_RE, '')
-    .replace(PSEUDO_TOOL_LOOSE_RE, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
 }
 
 function cleanVisibleText(text, options) {
@@ -457,6 +441,13 @@ export async function streamChat({
     clearTimeout(timer)
 
     const rawStreamContent = full
+    const pseudoToolCalls = wantsTools
+      ? extractPseudoToolCalls(rawStreamContent, tools)
+      : []
+    if (pseudoToolCalls.length > 0) {
+      console.warn(`${label} pseudo-call XML normalizzate in tool_calls:`, pseudoToolCalls)
+      toolCalls = [...toolCalls, ...pseudoToolCalls]
+    }
     const rawVisibleContent = cleanVisibleText(rawStreamContent)
     full = separateToolRounds
       ? cleanToolContinuationText(full, previousToolSegment)
@@ -567,11 +558,20 @@ export async function streamChat({
     // never happened — so this is not the contribution either.
     const droppedToolCalls = toolCalls.length > 0
     const emptyAnswer = !full.trim()
+    // A line announcing a call is not a turn; a finished turn that happens to
+    // carry a stray call still is. Length is the only thing that separates them
+    // from outside, and getting it wrong in the generous direction costs one
+    // request while getting it wrong in the other throws away a whole
+    // contribution the user already watched arrive.
+    const answeredAnyway = droppedToolCalls && full.trim().length > PREAMBLE_MAX_CHARS
 
     // A provider may acknowledge the tool result with an empty assistant
     // message. A previous segment must not suppress the retry: after a tool
     // round the continuation is a new response and still needs visible text.
-    const worthRetrying = emptyAnswer ? (!previousToolSegment || toolRound > 0) : droppedToolCalls
+    const worthRetrying = emptyAnswer ? (!previousToolSegment || toolRound > 0) : (droppedToolCalls && !answeredAnyway)
+    if (droppedToolCalls && answeredAnyway) {
+      console.warn(`${label} tool call scartata accanto a una risposta completa — pubblicata la risposta`)
+    }
     if (worthRetrying && !retried) {
       retried = true
       console.warn(`${label} ${emptyAnswer ? 'risposta vuota' : 'risposta con tool call non eseguibile'} — retry`)
@@ -587,7 +587,10 @@ export async function streamChat({
         content: leakedReasoning ? REASONING_ONLY_NUDGE : droppedToolCalls ? IGNORED_TOOL_CALL_NUDGE : FINAL_ANSWER_NUDGE,
       }]
       full = ''
-      onToken(visiblePrefix)
+      // The balloon keeps whatever the attempt had written. Blanking it made
+      // the user watch a finished answer vanish and the turn sit empty for the
+      // length of another request, which reads as the app losing the response.
+      onToken(separateToolRounds ? fallbackContent : [visiblePrefix, fallbackContent].filter(Boolean).join('\n\n'))
       continue
     }
 

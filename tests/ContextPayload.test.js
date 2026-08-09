@@ -88,3 +88,24 @@ describe('citations in the payload', () => {
     expect(formatQuoteAnnotation()).toBe('')
   })
 })
+
+// gemma4 and others write `<call:roll_dice{count:1,sides:20}/>` in prose. The
+// call never ran, and a transcript that keeps it hands the syntax to everyone
+// who reads the turn — which is how a whole table ends up typing calls.
+describe('typed tool calls in the payload', () => {
+  it('removes the compact inline form, keeping the prose around it', () => {
+    const content = 'Tutto questo parlare è stancante.\n\n<call:roll_dice{count:1,sides:20}/>\n\nTengo un pugno normale.'
+    expect(format({ role: 'A', content, seq: 20 }).content)
+      .toBe('[#20] Alice said: Tutto questo parlare è stancante.\n\nTengo un pugno normale.')
+  })
+
+  it('removes a citation call written with the quoting some models use inside it', () => {
+    const content = '<call:quote_message{excerpt:<|"|>una mano tremante<|"|>,messageId:544}/>\n\nÈ esattamente questo il punto.'
+    expect(format({ role: 'A', content, seq: 21 }).content)
+      .toBe('[#21] Alice said: È esattamente questo il punto.')
+  })
+
+  it('treats a turn that was nothing but a typed call as no contribution', () => {
+    expect(format({ role: 'A', content: '<call:roll_dice{count:1,sides:20}/>', seq: 22 })).toBeNull()
+  })
+})

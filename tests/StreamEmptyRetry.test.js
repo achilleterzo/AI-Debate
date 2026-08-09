@@ -428,6 +428,44 @@ describe('streamChat content assembly through the provider seam', () => {
     expect(lastUserMessages.at(-1)).not.toBe(lastUserMessages.at(-2))
   })
 
+  // Observed with glm-5.2:cloud: the model wrote its entire 15k contribution
+  // and, beside it, a malformed call to save the turn to memory. Retrying threw
+  // the contribution away and the user watched it vanish from the balloon.
+  it('publishes a finished answer that carries a stray tool call, without retrying', async () => {
+    const answer = `Noam, la tua obiezione è la più severa di questo dibattito. ${'Dispiego le vie prima di giudicare. '.repeat(20)}`
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      return {
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({
+              message: { content: answer, tool_calls: [{ function: { name: 'memory_tool_write><tool_call>', arguments: {} } }] },
+            }) + '\n'))
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ done: true, message: { content: '' } }) + '\n'))
+            controller.close()
+          },
+        }),
+      }
+    }))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const tokens = []
+    const result = await streamChat({
+      baseUrl: 'http://fake',
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'go' }],
+      systemPrompt: 'sys',
+      useTools: false,
+      onToken: token => tokens.push(token),
+    })
+
+    expect(call).toBe(1)
+    expect(result).toBe(answer.trim())
+    expect(tokens.at(-1)).toBe(answer.trim())
+  })
+
   // The same model answered a dropped call with "No, tool protocol — I need to
   // use the quote_message tool properly." That is a plan, not a contribution,
   // but losing it entirely would leave a blank turn.
@@ -451,17 +489,21 @@ describe('streamChat content assembly through the provider seam', () => {
     }))
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
+    const tokens = []
     const result = await streamChat({
       baseUrl: 'http://fake',
       model: 'test-model',
       messages: [{ role: 'user', content: 'go' }],
       systemPrompt: 'sys',
       useTools: false,
-      onToken: () => {},
+      onToken: token => tokens.push(token),
     })
 
     expect(call).toBe(2)
     expect(result).toBe('No, tool protocol — let me cite the message.')
+    // The balloon never goes blank while the retry runs: the text of the first
+    // attempt stays on screen until something better replaces it.
+    expect(tokens.filter(token => token === '')).toHaveLength(0)
   })
 
   it('preserves text emitted before a tool call when continuing the stream', async () => {

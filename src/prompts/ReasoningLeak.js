@@ -14,6 +14,8 @@
  * otherwise ship one participant's private monologue to all the others as if it
  * were something they had said out loud.
  */
+import { stripPseudoToolCalls } from './PseudoToolCalls'
+
 const REASONING_TAGS = 'think|thinking|thought|thoughts|reasoning|reflection|deliberation|scratchpad|inner_monologue'
 // A model improvising this markup does not always close what it opened with the
 // same name — `<reasoning>` answered by `</think>` is common enough that
@@ -50,6 +52,13 @@ export function stripLeakedReasoning(text, { keepUnclosedTail = false } = {}) {
 /**
  * What a stored message says, for anyone reading it after the fact.
  *
+ * Two kinds of transport are removed, because neither is something the author
+ * said to the table: the deliberation they wrote instead of thinking silently,
+ * and the tool calls they typed instead of emitting. The second matters most
+ * here — a transcript that keeps a typed call hands every other participant a
+ * worked example of the syntax, and the table converges on writing calls nobody
+ * executes.
+ *
  * The text is complete here — nothing is still arriving — so the unclosed-opener
  * rule has no streaming to protect and only one consequence left: a turn that
  * disappears from the context, from the citations and from the summary while
@@ -58,7 +67,7 @@ export function stripLeakedReasoning(text, { keepUnclosedTail = false } = {}) {
  */
 export function visibleContribution(text) {
   const strict = stripLeakedReasoning(text).trim()
-  return strict || stripLeakedReasoning(text, { keepUnclosedTail: true }).trim()
+  return stripPseudoToolCalls(strict || stripLeakedReasoning(text, { keepUnclosedTail: true }))
 }
 
 /**
