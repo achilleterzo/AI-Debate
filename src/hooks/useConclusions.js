@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Debate } from '../debate/Debate'
 import { streamChat } from '../debate/Stream'
 import { CONCLUSION_TYPES } from '../prompts/ConclusionTypes'
@@ -30,20 +30,37 @@ export function useConclusions({
   const [customConclusionPrompt, setCustomConclusionPrompt] = useState(initialCustomPrompt)
   const [standardConclusionPrompt, setStandardConclusionPrompt] = useState(initialStandardPrompt)
   const [conclusionRunning, setConclusionRunning] = useState(false)
+  const customPromptRef = useRef(initialCustomPrompt || '')
+  const standardPromptRef = useRef(initialStandardPrompt || '')
+  const customInputRef = useRef(null)
+  const standardInputRef = useRef(null)
+
+  const commitCustomPrompt = useCallback(value => {
+    const next = String(value ?? '')
+    customPromptRef.current = next
+    if (customInputRef.current && customInputRef.current.value !== next) customInputRef.current.value = next
+    setCustomConclusionPrompt(previous => previous === next ? previous : next)
+  }, [])
+  const commitStandardPrompt = useCallback(value => {
+    const next = String(value ?? '')
+    standardPromptRef.current = next
+    if (standardInputRef.current && standardInputRef.current.value !== next) standardInputRef.current.value = next
+    setStandardConclusionPrompt(previous => previous === next ? previous : next)
+  }, [])
 
   const fallbackModel = defaultModel || Debate.pickOperationalModel(participants, summaryModelOverride, defaultModel)
   const effectiveConclusionModel = conclusionModel && models.includes(conclusionModel)
     ? conclusionModel
     : fallbackModel
 
-  const generateConclusion = useCallback(async () => {
-    const model = effectiveConclusionModel
+  const generateConclusion = useCallback(async (overrides = {}) => {
+    const model = overrides.model || effectiveConclusionModel
     if (!model || conclusionRunning) return
 
-    const type = conclusionType
+    const type = overrides.type || conclusionType
     const conclusionTypeDefinition = CONCLUSION_TYPES.find(entry => entry.id === type)
-    const customPrompt = customConclusionPrompt.trim()
-    const standardPrompt = standardConclusionPrompt.trim()
+    const customPrompt = String(overrides.customPrompt ?? customPromptRef.current).trim()
+    const standardPrompt = String(overrides.standardPrompt ?? standardPromptRef.current).trim()
     if (!conclusionTypeDefinition || (type === 'custom' && !customPrompt)) return
 
     setConclusionRunning(true)
@@ -121,7 +138,7 @@ export function useConclusions({
     } finally {
       setConclusionRunning(false)
     }
-  }, [attachedDocs, baseUrl, conclusionRunning, conclusionType, conclusions, conversationRef, customConclusionPrompt, debateMode, effectiveConclusionModel, messages, nextSeq, participants, setLastPromptEstimate, setLastRequest, standardConclusionPrompt, summaryRef, timeoutSec, uiLang])
+  }, [attachedDocs, baseUrl, conclusionRunning, conclusionType, conclusions, conversationRef, debateMode, effectiveConclusionModel, messages, nextSeq, participants, setLastPromptEstimate, setLastRequest, summaryRef, timeoutSec, uiLang])
 
   return {
     conclusions,
@@ -133,6 +150,11 @@ export function useConclusions({
     customConclusionPrompt,
     setCustomConclusionPrompt,
     standardConclusionPrompt,
+    promptRefs: { custom: customInputRef, standard: standardInputRef },
+    customPromptRef,
+    standardPromptRef,
+    commitCustomPrompt,
+    commitStandardPrompt,
     setStandardConclusionPrompt,
     conclusionRunning,
     effectiveConclusionModel,

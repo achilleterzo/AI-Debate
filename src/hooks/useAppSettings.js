@@ -105,6 +105,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
   }, [searchApiKey, pageBlockKb])
 
   useEffect(() => {
+    const timer = setTimeout(() => {
     Storage.saveSettings({
       participants: Debate.serializeParticipantsForSession(participants),
       maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling,
@@ -121,5 +122,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       pageBlockKb: normalizePageBlockKb(pageBlockKb),
       debugPayloadTurns: normalizeDebugPayloadTurns(debugPayloadTurns),
     })
+    }, 350)
+    return () => clearTimeout(timer)
   }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
 }

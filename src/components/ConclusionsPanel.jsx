@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import ReactSelect from 'react-select'
 import { CONCLUSION_TYPES } from '../prompts/ConclusionTypes'
 import { useUiStrings } from '../i18n/UiStringsContext'
@@ -12,18 +13,21 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
   const {
     setConclusionModel,
     conclusionType,
-    setConclusionType,
     customConclusionPrompt,
-    setCustomConclusionPrompt,
     standardConclusionPrompt,
-    setStandardConclusionPrompt,
+    promptRefs,
+    commitCustomPrompt,
+    commitStandardPrompt,
     conclusionRunning,
     effectiveConclusionModel,
     generateConclusion,
   } = conclusions
-  const conclusionTypeDefinition = CONCLUSION_TYPES.find(entry => entry.id === conclusionType) || { label: ui.conclusionFallbackLabel, color: '#888' }
+  const [hasCustomPrompt, setHasCustomPrompt] = useState(() => !!customConclusionPrompt.trim())
+  const [draftConclusionType, setDraftConclusionType] = useState(conclusionType)
+  const [draftConclusionModel, setDraftConclusionModel] = useState(effectiveConclusionModel)
+  const conclusionTypeDefinition = CONCLUSION_TYPES.find(entry => entry.id === draftConclusionType) || { label: ui.conclusionFallbackLabel, color: '#888' }
   const hasConversation = messages.some(message => !['topic', 'interjection', 'error'].includes(message.role) && message.content?.trim())
-  const isCustomPromptMissing = conclusionType === 'custom' && !customConclusionPrompt.trim()
+  const isCustomPromptMissing = draftConclusionType === 'custom' && !hasCustomPrompt
   const isDisabled = !effectiveConclusionModel || conclusionRunning || isCustomPromptMissing
   const cloudModels = models.filter(model => model.endsWith('cloud')).sort()
   const localModels = models.filter(model => !model.endsWith('cloud')).sort()
@@ -40,7 +44,7 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={conclusionTypeDefinition.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, animation: 'spin 1s linear infinite' }}>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
             </svg>
-            <span>{ui.generatingConclusion(conclusionType === 'custom' ? (customConclusionPrompt.trim() || conclusionTypeDefinition.label) : conclusionTypeDefinition.label)}</span>
+            <span>{ui.generatingConclusion(draftConclusionType === 'custom' ? (customConclusionPrompt.trim() || conclusionTypeDefinition.label) : conclusionTypeDefinition.label)}</span>
           </div>
         </div>
       )}
@@ -50,14 +54,14 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
             <span style={{ color: '#666', fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>{ui.conclusions}</span>
             <div style={{ display: 'flex', gap: 6 }}>
               {CONCLUSION_TYPES.map(type => {
-                const active = conclusionType === type.id
-                return <button key={type.id} onClick={() => setConclusionType(type.id)} style={{ flex: 1, fontSize: 11, padding: '4px 0', borderRadius: 6, border: '1px solid', cursor: 'pointer', background: active ? `${type.color}22` : 'transparent', borderColor: active ? type.color : '#2a2a2a', color: active ? type.color : '#555', fontWeight: active ? 700 : 400, transition: 'all 0.15s' }}>{type.label}</button>
+                const active = draftConclusionType === type.id
+                return <button key={type.id} onClick={() => setDraftConclusionType(type.id)} style={{ flex: 1, fontSize: 11, padding: '4px 0', borderRadius: 6, border: '1px solid', cursor: 'pointer', background: active ? `${type.color}22` : 'transparent', borderColor: active ? type.color : '#2a2a2a', color: active ? type.color : '#555', fontWeight: active ? 700 : 400, transition: 'all 0.15s' }}>{type.label}</button>
               })}
             </div>
-            {conclusionType === 'custom' ? (
-              <textarea value={customConclusionPrompt} onChange={event => setCustomConclusionPrompt(event.target.value)} placeholder={ui.customConclusionPlaceholder} rows={3} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.5, padding: '8px 10px', resize: 'vertical' }} />
+            {draftConclusionType === 'custom' ? (
+              <textarea defaultValue={customConclusionPrompt} ref={promptRefs.custom} onInput={event => { const present = !!event.currentTarget.value.trim(); setHasCustomPrompt(previous => previous === present ? previous : present) }} placeholder={ui.customConclusionPlaceholder} rows={3} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.5, padding: '8px 10px', resize: 'vertical' }} />
             ) : (
-              <textarea value={standardConclusionPrompt} onChange={event => setStandardConclusionPrompt(event.target.value)} placeholder={ui.standardConclusionPlaceholder} rows={2} title={ui.standardConclusionTitle} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.45, padding: '8px 10px', resize: 'vertical' }} />
+              <textarea defaultValue={standardConclusionPrompt} ref={promptRefs.standard} onBlur={event => commitStandardPrompt(event.target.value)} placeholder={ui.standardConclusionPlaceholder} rows={2} title={ui.standardConclusionTitle} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.45, padding: '8px 10px', resize: 'vertical' }} />
             )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {wand && (
@@ -66,17 +70,17 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
                   mode={SUGGESTION_MODE.CONCLUSION}
                   placement="top"
                   onPick={suggestion => {
-                    const apply = conclusionType === 'custom' ? setCustomConclusionPrompt : setStandardConclusionPrompt
-                    const current = (conclusionType === 'custom' ? customConclusionPrompt : standardConclusionPrompt).trim()
+                    const apply = draftConclusionType === 'custom' ? commitCustomPrompt : commitStandardPrompt
+                    const current = (draftConclusionType === 'custom' ? customConclusionPrompt : standardConclusionPrompt).trim()
                     // Guidance accumulates: keep what the user already wrote.
                     apply(current ? `${current}\n${suggestion}` : suggestion)
                   }}
                 />
               )}
               <div style={{ flex: 1 }}>
-                <ReactSelect styles={modelSelectStyles} options={options} value={effectiveConclusionModel ? { value: effectiveConclusionModel, label: effectiveConclusionModel } : null} onChange={option => setConclusionModel(option?.value ?? '')} placeholder={common.chooseModel} isClearable menuPlacement="top" noOptionsMessage={() => common.noModels} />
+                <ReactSelect styles={modelSelectStyles} options={options} value={draftConclusionModel ? { value: draftConclusionModel, label: draftConclusionModel } : null} onChange={option => setDraftConclusionModel(option?.value ?? '')} placeholder={common.chooseModel} isClearable menuPlacement="top" noOptionsMessage={() => common.noModels} />
               </div>
-              <button disabled={isDisabled} onClick={generateConclusion} style={{ ...styles.connectBtn(isDisabled), padding: '6px 18px', fontSize: 12, flexShrink: 0, background: conclusionRunning ? '#222' : `${conclusionTypeDefinition.color}22`, borderColor: `${conclusionTypeDefinition.color}66`, color: conclusionRunning ? '#555' : conclusionTypeDefinition.color }}>{conclusionRunning ? '…' : ui.generate}</button>
+              <button disabled={isDisabled} onClick={() => { const custom = promptRefs.custom.current?.value ?? ''; const standard = promptRefs.standard.current?.value ?? ''; setConclusionModel(draftConclusionModel); commitCustomPrompt(custom); commitStandardPrompt(standard); generateConclusion({ type: draftConclusionType, model: draftConclusionModel, customPrompt: custom, standardPrompt: standard }) }} style={{ ...styles.connectBtn(isDisabled), padding: '6px 18px', fontSize: 12, flexShrink: 0, background: conclusionRunning ? '#222' : `${conclusionTypeDefinition.color}22`, borderColor: `${conclusionTypeDefinition.color}66`, color: conclusionRunning ? '#555' : conclusionTypeDefinition.color }}>{conclusionRunning ? '…' : ui.generate}</button>
             </div>
           </div>
         </div>

@@ -16,6 +16,11 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
 
   const scheduleAutoScroll = useCallback(() => {
     if (!autoScrollRef.current || scrollFrameRef.current != null) return
+    // Editing controls live inside the chat timeline (notably the conclusion
+    // prompt). Their DOM updates must not fight the user's caret and scroll
+    // position by forcing the whole timeline to the bottom.
+    const active = document.activeElement
+    if (active && chatRef.current?.contains(active) && active.matches('input, textarea, select, [contenteditable="true"]')) return
     scrollFrameRef.current = window.requestAnimationFrame(() => {
       scrollFrameRef.current = null
       if (!autoScrollRef.current) return
@@ -75,7 +80,9 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
       Array.from(chat.children).forEach(child => resizeObserver?.observe(child))
       scheduleAutoScroll()
     })
-    mutationObserver?.observe(chat, { childList: true, subtree: true, characterData: true })
+    // Text changes inside controls are not new chat content. Observing
+    // characterData made every typed character schedule a full chat scroll.
+    mutationObserver?.observe(chat, { childList: true, subtree: true })
 
     const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
       scheduleAutoScroll()

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { styles } from './Style'
 import { buildOrderedItems } from '../utils/Sorting'
 import {
@@ -101,7 +102,7 @@ function diceNote(result, owner, key, extraStyle, fallbackActor) {
   )
 }
 
-export default function ChatTimeline({
+function ChatTimeline({
   messages,
   running,
   conclusions,
@@ -446,3 +447,8 @@ export default function ChatTimeline({
 
   return elems
 }
+
+// Conclusion prompt edits update state in App, but do not change the
+// transcript. Preventing the whole timeline (including every Markdown bubble)
+// from rendering on each keystroke removes the main source of input lag.
+export default memo(ChatTimeline)
