@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import ReactSelect from 'react-select'
 import { useUiStrings } from '../i18n/UiStringsContext'
+import { Debate } from '../debate/Debate'
 import { modelSelectStyles, styles } from './Style'
+import { thinkingLevelOptions } from './ThinkingLevels'
 
 // The modal body clips its content, so the menu is portalled to the body and
 // lifted above the 1100 overlay instead of being cut off inside the card.
@@ -27,6 +29,8 @@ export default function EndpointModal({
   models = [],
   defaultModel = '',
   onDefaultModelChange,
+  defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL,
+  onDefaultThinkingLevelChange,
   connecting = false,
   connectError = null,
   ollamaOk = null,
@@ -36,11 +40,15 @@ export default function EndpointModal({
   const ui = UI_STRINGS.endpointModal
   const appUi = UI_STRINGS.app
   const common = UI_STRINGS.common
+  const participantsUi = UI_STRINGS.participants
   const [value, setValue] = useState(state?.initialValue ?? '')
 
   const isMain = state?.target === 'main'
   const unreachable = ollamaOk === false
   const suggestions = history.filter(entry => entry !== value.trim())
+
+  const thinkingOptions = thinkingLevelOptions(participantsUi)
+  const selectedThinkingLevel = Debate.normalizeThinkingLevel(defaultThinkingLevel)
 
   const cloud = models.filter(entry => entry.endsWith('cloud')).sort()
   const local = models.filter(entry => !entry.endsWith('cloud')).sort()
@@ -152,6 +160,18 @@ export default function EndpointModal({
                   isDisabled={disabled}
                   menuPlacement="auto"
                   noOptionsMessage={() => common.noModels}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <span style={{ fontSize: 11, color: '#777' }} title={appUi.defaultThinkingLevelTitle}>{appUi.defaultThinkingLevel}</span>
+                <ReactSelect
+                  styles={portalledModelSelectStyles}
+                  menuPortalTarget={document.body}
+                  options={thinkingOptions}
+                  value={thinkingOptions.find(option => option.value === selectedThinkingLevel)}
+                  onChange={opt => onDefaultThinkingLevelChange?.(opt?.value ?? Debate.DEFAULT_THINKING_LEVEL)}
+                  isDisabled={disabled}
+                  menuPlacement="auto"
                 />
               </div>
             </>

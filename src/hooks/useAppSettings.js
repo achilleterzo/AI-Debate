@@ -57,6 +57,8 @@ export function useAppSettings() {
   const [interfaceLang, setInterfaceLang] = useState(saved?.interfaceLang ?? Debate.detectBrowserLang())
   const [timeoutSec, setTimeoutSec] = useState(saved?.timeoutSec ?? DEFAULT_TIMEOUT_SEC)
   const [defaultModel, setDefaultModel] = useState(saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL)
+  // The level participants follow unless they picked one of their own.
+  const [defaultThinkingLevel, setDefaultThinkingLevel] = useState(() => Debate.normalizeThinkingLevel(saved?.defaultThinkingLevel ?? Debate.DEFAULT_THINKING_LEVEL))
   const [debateMode, setDebateMode] = useState(() => normalizeDebateMode(saved?.debateMode ?? DEFAULT_DEBATE_MODE))
   const [enabledTools, setEnabledTools] = useState(() => normalizeEnabledTools(saved?.enabledTools ?? DEFAULT_ENABLED_TOOLS))
   const [searchApiKey, setSearchApiKey] = useState(saved?.searchApiKey ?? DEFAULT_SEARCH_API_KEY)
@@ -79,6 +81,7 @@ export function useAppSettings() {
     debugPayloadTurns, setDebugPayloadTurns, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
+    defaultThinkingLevel, setDefaultThinkingLevel,
     debateMode, setDebateMode, enabledTools, setEnabledTools,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
   }
@@ -89,7 +92,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder,
     moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride,
     summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, globalConstraints,
-    generalPersonalityInstructions, defaultModel,
+    generalPersonalityInstructions, defaultModel, defaultThinkingLevel,
     debugPayloadTurns,
     debateMode,
     enabledTools,
@@ -110,6 +113,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling,
       summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold,
       summarizeAttachments, uiLang, interfaceLang, defaultModel,
+      defaultThinkingLevel: Debate.normalizeThinkingLevel(defaultThinkingLevel),
       conclusionModel,
       customConclusionPrompt: customConclusionPrompt ?? '',
       standardConclusionPrompt: standardConclusionPrompt ?? '',
@@ -121,5 +125,5 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       pageBlockKb: normalizePageBlockKb(pageBlockKb),
       debugPayloadTurns: normalizeDebugPayloadTurns(debugPayloadTurns),
     })
-  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
+  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, defaultThinkingLevel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
 }

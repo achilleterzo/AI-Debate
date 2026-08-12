@@ -26,6 +26,8 @@ export default function AppModals({
   models = [],
   defaultModel,
   onDefaultModelChange,
+  defaultThinkingLevel,
+  onDefaultThinkingLevelChange,
   connecting,
   connectError,
   ollamaOk,
@@ -87,6 +89,8 @@ export default function AppModals({
           models={models}
           defaultModel={defaultModel}
           onDefaultModelChange={onDefaultModelChange}
+          defaultThinkingLevel={defaultThinkingLevel}
+          onDefaultThinkingLevelChange={onDefaultThinkingLevelChange}
           connecting={connecting}
           connectError={connectError}
           ollamaOk={ollamaOk}

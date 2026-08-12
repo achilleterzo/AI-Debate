@@ -103,6 +103,7 @@ function AppInner({ settings }) {
     debugPayloadTurns, setDebugPayloadTurns, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
+    defaultThinkingLevel, setDefaultThinkingLevel,
     enabledTools, setEnabledTools,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
   } = settings
@@ -163,6 +164,7 @@ function AppInner({ settings }) {
     timeoutSec,
     baseUrl,
     defaultModel,
+    defaultThinkingLevel,
     useSummary,
     attachedDocs,
     summarizeAttachments,
@@ -923,6 +925,7 @@ function AppInner({ settings }) {
           modelCapabilities={modelCapabilities}
           wand={wand}
           defaultModel={defaultModel}
+          defaultThinkingLevel={defaultThinkingLevel}
         />
 </div> {/* end accordion */}
 </div>
@@ -1110,6 +1113,8 @@ function AppInner({ settings }) {
         models={models}
         defaultModel={defaultModel}
         onDefaultModelChange={setDefaultModel}
+        defaultThinkingLevel={defaultThinkingLevel}
+        onDefaultThinkingLevelChange={setDefaultThinkingLevel}
         connecting={connecting}
         connectError={connectError}
         ollamaOk={ollamaOk}

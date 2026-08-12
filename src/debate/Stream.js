@@ -142,84 +142,19 @@ function cleanToolContinuationText(text, previousSegment = '', options) {
 }
 
 /*
- * Tools are intentionally not parsed from assistant prose. The provider must
- * return a structured tool_calls event; visible function-like text is not an
- * invocation and must remain ordinary model output.
+ * A call typed into the visible message is not an invocation, and it does not
+ * stay in the turn either: `prompts/PseudoToolCalls` removes every dialect of
+ * it — markup, JSON envelope, bare argument object, or the plain
+ * `name{...}` / `name(...)` a model writes when it wants the scene to move on.
+ * Leaving it in was worse than noise: the next participant read that turn and
+ * copied the syntax, until a whole table was typing calls nobody ran.
+ *
+ * What can be reconstructed is reconstructed. When the arguments fit the schema
+ * of the tool named, the call is normalized into a real tool_calls entry below
+ * and actually runs, which is what the model was reaching for. When they do not
+ * — `roll_dice(1d20)` names no arguments at all — the text is cleaned and
+ * nothing is invented on the model's behalf.
  */
-/*
-function parseInlineToolArguments(raw) {
-  const diceMatch = String(raw || '').trim().match(/^(\d+)\s*d\s*(\d+)$/i)
-  if (diceMatch) return { count: Number(diceMatch[1]), sides: Number(diceMatch[2]) }
-
-  const args = {}
-  for (const part of String(raw || '').split(',')) {
-    const separator = part.indexOf('=')
-    if (separator < 1) continue
-    const key = part.slice(0, separator).trim()
-    const value = part.slice(separator + 1).trim()
-    if (!key || !value) continue
-    try {
-      args[key] = JSON.parse(value)
-    } catch {
-      args[key] = value.replace(/^['"]|['"]$/g, '')
-    }
-  }
-  return args
-}
-
-function parseInlineObjectArguments(raw) {
-  const source = String(raw || '').trim().replace(/^\{/, '').replace(/\}$/, '')
-  const args = {}
-  let token = ''
-  let quote = null
-  let escaped = false
-  const parts = []
-  for (const char of `${source},`) {
-    if (escaped) { token += char; escaped = false; continue }
-    if (char === '\\' && quote) { token += char; escaped = true; continue }
-    if (quote) {
-      token += char
-      if (char === quote) quote = null
-      continue
-    }
-    if (char === '"' || char === "'") { quote = char; token += char; continue }
-    if (char === ',') { if (token.trim()) parts.push(token.trim()); token = ''; continue }
-    token += char
-  }
-  for (const part of parts) {
-    let separator = -1
-    quote = null
-    for (let index = 0; index < part.length; index += 1) {
-      const char = part[index]
-      if (char === '"' || char === "'") quote = quote === char ? null : (quote || char)
-      if (char === ':' && !quote) { separator = index; break }
-    }
-    if (separator < 1) continue
-    const key = part.slice(0, separator).trim().replace(/^['"]|['"]$/g, '')
-    const value = part.slice(separator + 1).trim()
-    if (!key || !value) continue
-    if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
-      args[key] = value.slice(1, -1).replace(/\\(['"])/g, '$1')
-    } else if (/^-?\d+(?:\.\d+)?$/.test(value)) {
-      args[key] = Number(value)
-    } else if (value === 'true' || value === 'false') {
-      args[key] = value === 'true'
-    } else {
-      try { args[key] = JSON.parse(value) } catch { args[key] = value }
-    }
-  }
-  return args
-}
-
-function stripInlineToolSyntax(text, tools = []) {
-  const names = new Set((tools || []).map(tool => tool?.function?.name).filter(Boolean))
-  if (names.size === 0) return text
-  return String(text || '')
-    .replace(/`?\b([A-Za-z_]\w*)`?\s*\([^()\n]*\)/g, (match, fnName) => names.has(fnName) ? '' : match)
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-}
-*/
 
 export async function streamChat({
   baseUrl,
@@ -445,7 +380,7 @@ export async function streamChat({
       ? extractPseudoToolCalls(rawStreamContent, tools)
       : []
     if (pseudoToolCalls.length > 0) {
-      console.warn(`${label} pseudo-call XML normalizzate in tool_calls:`, pseudoToolCalls)
+      console.warn(`${label} pseudo-call scritte nel testo normalizzate in tool_calls:`, pseudoToolCalls)
       toolCalls = [...toolCalls, ...pseudoToolCalls]
     }
     const rawVisibleContent = cleanVisibleText(rawStreamContent)

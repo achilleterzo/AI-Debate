@@ -7,7 +7,9 @@ export function buildConstraintsBlock({ actor, allParticipants, globalConstraint
   const debateHasModerator = allParticipants.some(p => p.isModerator && p.id !== actor.id)
 
   const baselineRules = [
-    'Tool-call protocol (strict): the current request payload and its tools array are the source of truth for available tools and their argument schemas. Invoke a tool only through the structured function-calling interface defined there, using valid JSON arguments; never write a tool name, pseudo-call, Markdown code, or notation such as `roll_dice`(1d20) in visible content. If a tool is not present in the payload, do not invent or simulate it.',
+    // Deliberately without a sample of the forbidden syntax: printing one is
+    // showing the model the exact shape to imitate.
+    'Tool-call protocol (strict): the current request payload and its tools array are the source of truth for available tools and their argument schemas. Invoke a tool only through the structured function-calling interface defined there, using valid JSON arguments; never write the call in visible content, in any form — not the function name, not call markup, not a code block, and not the argument object on its own. If a tool is not present in the payload, do not invent or simulate it.',
     'A tool instruction and a tool invocation are different events: a moderator message may instruct a participant to use a tool, but that message is not itself a tool call. The addressed participant must make their own structured call when the instruction applies; do not reproduce the command in prose, and do not call a tool on behalf of another participant.',
     ...(!actor.isModerator && debateHasModerator
       ? [

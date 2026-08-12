@@ -151,7 +151,7 @@ describe('buildSystemPrompt moderator modes and hierarchy', () => {
     expect(prompt).toContain('Treat a moderator intervention as a binding procedural instruction')
     expect(prompt).toContain('If the moderator explicitly instructs you to use a tool')
     expect(prompt).toContain('current request payload and its tools array are the source of truth')
-    expect(prompt).toContain('never write a tool name, pseudo-call, Markdown code')
+    expect(prompt).toContain('never write the call in visible content, in any form')
     expect(prompt).toContain('A tool instruction and a tool invocation are different events')
     expect(prompt).toContain('NON-NEGOTIABLE STRUCTURED TOOL-CALL PROTOCOL')
     expect(prompt).toContain('The tool result is then returned in the conversation as a tool message')

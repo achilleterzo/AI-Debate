@@ -680,7 +680,7 @@ describe('streamChat content assembly through the provider seam', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('does not execute textual inline tool calls', async () => {
+  it('strips a textual inline tool call rather than leaving it in the turn', async () => {
     let call = 0
     vi.stubGlobal('fetch', vi.fn(async () => {
       call += 1
@@ -719,12 +719,15 @@ describe('streamChat content assembly through the provider seam', () => {
       onToken: token => tokens.push(token),
     })
 
+    // The stub tool carries no schema, so its arguments cannot be checked and
+    // nothing is run from them — but the call still leaves the visible turn,
+    // where it was the example the next participant copied.
     expect(invocations).toEqual([])
-    expect(result).toContain('roll_dice(count=2, sides=10)')
-    expect(tokens.some(token => token.includes('roll_dice(count=2'))).toBe(true)
+    expect(result).toBe('I will roll now.')
+    expect(tokens.some(token => token.includes('roll_dice'))).toBe(false)
   })
 
-  it('recognizes backticked dice notation emitted as text', async () => {
+  it('strips backticked dice notation emitted as text', async () => {
     let call = 0
     let receivedArgs = null
     vi.stubGlobal('fetch', vi.fn(async () => {
@@ -764,11 +767,11 @@ describe('streamChat content assembly through the provider seam', () => {
     })
 
     expect(receivedArgs).toBeNull()
-    expect(result).toContain('`roll_dice`(1d20)')
+    expect(result).toBe('I act now.')
     expect(result).not.toContain('The roll decides the outcome.')
   })
 
-  it('recognizes inline tool calls written with an object argument', async () => {
+  it('strips an inline call written with an object argument', async () => {
     let call = 0
     let receivedArgs = null
     vi.stubGlobal('fetch', vi.fn(async () => {
@@ -803,7 +806,7 @@ describe('streamChat content assembly through the provider seam', () => {
     })
 
     expect(receivedArgs).toBeNull()
-    expect(result).toContain("memory {action: 'write', content: 'A durable note'}")
+    expect(result).toBe('I record this.')
     expect(result).not.toContain('The note is stored.')
   })
 })

@@ -66,6 +66,24 @@ describe('leaked reasoning in the payload', () => {
   })
 })
 
+// One participant types a call instead of emitting it, the next reads that
+// turn as an example, and within a round the whole table is writing the same
+// string. Cleaning on the way in is what breaks the chain — including for the
+// turns already recorded, which are cleaned again every time they are sent.
+describe('a typed tool call in the payload', () => {
+  it('never travels to the other participants as an example to copy', () => {
+    expect(format({ role: 'A', content: '**Attacco Madara**: <roll_dice count="1" sides="20"/> Gli do un pugno.', seq: 20 }).content)
+      .toBe('[#20] Alice said: **Attacco Madara**:  Gli do un pugno.')
+    expect(format({ role: 'M', content: 'Risolvo.\n\n<quote_message messageId="50" />\n\nFallimento totale.', seq: 21 }).content)
+      .toContain('Risolvo.\n\nFallimento totale.')
+  })
+
+  it('does not come back to the actor in its own turns either', () => {
+    expect(format({ role: 'B', content: 'Colpisco.\n\n{ "count": 1, "sides": 20 }', seq: 22 }))
+      .toEqual({ role: 'assistant', content: 'Colpisco.' })
+  })
+})
+
 describe('citations in the payload', () => {
   const quote = { messageId: 4, authorTag: 'A', authorName: 'Alice', excerpt: 'Reactors are safe.' }
 

@@ -12,6 +12,7 @@ import {
 import { participantMode } from '../services/Suggestions'
 import EndpointModelGroup from './EndpointModelGroup'
 import MagicWand from './MagicWand'
+import { thinkingLevelLabel, thinkingLevelOptions } from './ThinkingLevels'
 
 export default function ParticipantsPanel({
   participants,
@@ -43,6 +44,7 @@ export default function ParticipantsPanel({
   modelCapabilities = {},
   wand = null,
   defaultModel = '',
+  defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.participants
@@ -52,13 +54,13 @@ export default function ParticipantsPanel({
     { value: Debate.REASONING_LANG_CUSTOM, label: ui.reasoningLangCustom },
     ...UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code })),
   ]
-  const thinkingLevelOptions = [
-    { value: 'none', label: ui.thinkingNone },
-    { value: 'low', label: ui.thinkingLow },
-    { value: 'medium', label: ui.thinkingMedium },
-    { value: 'high', label: ui.thinkingHigh },
-    { value: 'max', label: ui.thinkingMax },
-  ]
+  // Same shape as the model picker: the first entry is the general default,
+  // so following it is a choice on the list rather than the absence of one.
+  const useDefaultThinkingOption = {
+    value: Debate.INHERIT_THINKING_LEVEL,
+    label: `${ui.useDefaultThinking} · ${thinkingLevelLabel(ui, defaultThinkingLevel)}`,
+  }
+  const thinkingLevelChoices = [useDefaultThinkingOption, ...thinkingLevelOptions(ui)]
   const describeDraft = draft => [
     draft.mood ? moods.find(mood => mood.id === draft.mood)?.label : null,
     draft.ageGroup != null ? ageGroups[draft.ageGroup]?.label : null,
@@ -374,13 +376,13 @@ export default function ParticipantsPanel({
                       <div style={{ minWidth: 130 }} title={canThink ? undefined : ui.thinkingUnsupported}>
                         <ReactSelect
                           styles={moodSelectStyles}
-                          options={thinkingLevelOptions}
+                          options={thinkingLevelChoices}
                           isDisabled={!canThink}
                           placeholder={ui.thinkingUnsupportedShort}
                           value={canThink
-                            ? (thinkingLevelOptions.find(o => o.value === Debate.normalizeThinkingLevel(p.thinkingLevel)) ?? thinkingLevelOptions[0])
+                            ? (thinkingLevelChoices.find(o => o.value === Debate.normalizeThinkingLevelChoice(p.thinkingLevel)) ?? useDefaultThinkingOption)
                             : null}
-                          onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, thinkingLevel: opt?.value ?? Debate.DEFAULT_THINKING_LEVEL } : x))}
+                          onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, thinkingLevel: opt?.value ?? Debate.INHERIT_THINKING_LEVEL } : x))}
                           menuPlacement="auto"
                         />
                       </div>

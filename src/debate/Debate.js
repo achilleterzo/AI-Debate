@@ -766,9 +766,11 @@ export class Debate {
    * allowed to say "whatever the default is" and follow it as it changes.
    */
   static normalizeThinkingLevelChoice(value) {
-    return value === Debate.INHERIT_THINKING_LEVEL || Debate.THINKING_LEVELS.includes(value)
-      ? value
-      : Debate.DEFAULT_THINKING_LEVEL
+    // A missing field is a participant written before the choice existed, or
+    // one built without it: no choice, so the default applies. A value that is
+    // present but unrecognised is corrupt, and falls back to the safe level.
+    if (value == null || value === Debate.INHERIT_THINKING_LEVEL) return Debate.INHERIT_THINKING_LEVEL
+    return Debate.THINKING_LEVELS.includes(value) ? value : Debate.DEFAULT_THINKING_LEVEL
   }
 
   static resolveThinkingLevel(participant, defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL) {
