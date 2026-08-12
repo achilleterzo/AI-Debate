@@ -1,16 +1,10 @@
 import { DEFAULT_SHOW_SPLASH, SPLASH_STORAGE_KEY } from '../settings/Settings'
-import { Session } from './Session'
 
 export class Storage {
   static LS_KEY = 'pap_settings'
 
-  static LS_CHAT_KEY = 'pap_chat'
-
-  /** Bumped when the stored shape changes; an older record is ignored, not guessed at. */
-  static CHAT_VERSION = 1
-
-  /** How many of the most recent messages survive a chat too large for the quota. */
-  static CHAT_QUOTA_FALLBACK_MESSAGES = 100
+  /** Written by the versions that kept the chat in progress; only ever removed now. */
+  static LEGACY_CHAT_KEY = 'pap_chat'
 
   static LS_TOPICS_KEY = 'pap_topics'
 
@@ -108,62 +102,14 @@ export class Storage {
   }
 
   /**
-   * The chat in progress, kept across a refresh and across closing the app.
-   *
-   * Only what cannot be recomputed travels: the transcript, the summary, the
-   * conclusions, the memory, and the counters that decide where the next turn
-   * goes. Debug payloads are stripped — they are the largest thing a message
-   * carries and they exist for the run that produced them.
-   *
-   * A transcript can outgrow the storage quota. Losing the recent turns to keep
-   * the opening ones would be the wrong half, so the retry keeps the tail; if
-   * even that fails the record is removed rather than left half written.
+   * The chat in progress is no longer stored: rewriting the whole transcript on
+   * every streamed token was the largest cost the app paid, and a session worth
+   * keeping is kept as a snapshot. Records left by earlier versions are dropped
+   * so they stop occupying the quota.
    */
-  static saveChat(chat) {
-    const messages = Session.stripDebugFields(chat?.messages ?? [])
-    const write = list => localStorage.setItem(Storage.LS_CHAT_KEY, JSON.stringify({
-      ...chat,
-      version: Storage.CHAT_VERSION,
-      savedAt: new Date().toISOString(),
-      messages: list,
-    }))
-
+  static purgeStoredChat() {
     try {
-      write(messages)
-      return true
-    } catch {
-      try {
-        console.warn('[chat] transcript too large for local storage — keeping the most recent messages')
-        write(messages.slice(-Storage.CHAT_QUOTA_FALLBACK_MESSAGES))
-        return true
-      } catch {
-        Storage.clearChat()
-        return false
-      }
-    }
-  }
-
-  static loadChat() {
-    try {
-      const raw = localStorage.getItem(Storage.LS_CHAT_KEY)
-      if (!raw) return null
-      const data = JSON.parse(raw)
-      if (!data || data.version !== Storage.CHAT_VERSION) return null
-      return {
-        ...data,
-        messages: Session.restorableMessages(Array.isArray(data.messages) ? data.messages : []),
-        conclusions: Array.isArray(data.conclusions) ? data.conclusions : [],
-        memory: Array.isArray(data.memory) ? data.memory : [],
-        summary: typeof data.summary === 'string' ? data.summary : '',
-      }
-    } catch {
-      return null
-    }
-  }
-
-  static clearChat() {
-    try {
-      localStorage.removeItem(Storage.LS_CHAT_KEY)
+      localStorage.removeItem(Storage.LEGACY_CHAT_KEY)
     } catch {
       return
     }

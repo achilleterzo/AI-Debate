@@ -161,6 +161,13 @@ export class Debate {
 
   static DEFAULT_THINKING_LEVEL = 'none'
 
+  /**
+   * A participant with this level has not chosen one: the turn runs at the
+   * general default instead, the same way an empty model falls back to the
+   * default model.
+   */
+  static INHERIT_THINKING_LEVEL = ''
+
   static MODERATOR_MODES = ['containment', 'facilitator', 'active']
 
   static DEFAULT_MODERATOR_MODE = 'containment'
@@ -212,7 +219,7 @@ export class Debate {
       reasoningLang: '',
       reasoningLangCustom: '',
       reasoningLangSkipTranslation: false,
-      thinkingLevel: Debate.DEFAULT_THINKING_LEVEL,
+      thinkingLevel: Debate.INHERIT_THINKING_LEVEL,
       affinity: {},
       affinityLocks: {},
       characterType: null,
@@ -488,14 +495,14 @@ export class Debate {
       DEFAULT_MOOD_INTENSITY: Debate.DEFAULT_MOOD_INTENSITY,
       DEFAULT_EDUCATION_LEVEL: Debate.DEFAULT_EDUCATION_LEVEL,
       DEFAULT_AGE_GROUP: Debate.DEFAULT_AGE_GROUP,
-      DEFAULT_THINKING_LEVEL: Debate.DEFAULT_THINKING_LEVEL,
+      INHERIT_THINKING_LEVEL: Debate.INHERIT_THINKING_LEVEL,
       normalizeAffinity: Debate.normalizeAffinity,
       normalizeAffinityLocks: Debate.normalizeAffinityLocks,
       normalizeConstraints: Debate.normalizeParticipantConstraints,
       normalizeModeratorMode: Debate.normalizeModeratorMode,
       normalizeModeratorPermissiveness,
       normalizeModeratorFacilitationInterval,
-      normalizeThinkingLevel: Debate.normalizeThinkingLevel,
+      normalizeThinkingLevelChoice: Debate.normalizeThinkingLevelChoice,
     }
   }
 
@@ -549,7 +556,7 @@ export class Debate {
       reasoningLang: participant.reasoningLang ?? '',
       reasoningLangCustom: participant.reasoningLangCustom ?? '',
       reasoningLangSkipTranslation: !!participant.reasoningLangSkipTranslation,
-      thinkingLevel: Debate.normalizeThinkingLevel(participant.thinkingLevel),
+      thinkingLevel: Debate.normalizeThinkingLevelChoice(participant.thinkingLevel),
       localUser: !!participant.localUser || participant.model === Debate.USER_MODEL,
       characterType: participant.characterType ?? null,
       responseLength: participant.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : participant.responseLength,
@@ -749,6 +756,43 @@ export class Debate {
 
   static normalizeThinkingLevel(value) {
     return Debate.THINKING_LEVELS.includes(value) ? value : Debate.DEFAULT_THINKING_LEVEL
+  }
+
+  /**
+   * What the participant picked, which includes picking nothing.
+   *
+   * Kept apart from `normalizeThinkingLevel`: that one answers "how does this
+   * turn run" and must always name a level, while a stored participant is
+   * allowed to say "whatever the default is" and follow it as it changes.
+   */
+  static normalizeThinkingLevelChoice(value) {
+    return value === Debate.INHERIT_THINKING_LEVEL || Debate.THINKING_LEVELS.includes(value)
+      ? value
+      : Debate.DEFAULT_THINKING_LEVEL
+  }
+
+  static resolveThinkingLevel(participant, defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL) {
+    const choice = Debate.normalizeThinkingLevelChoice(participant?.thinkingLevel)
+    return choice === Debate.INHERIT_THINKING_LEVEL
+      ? Debate.normalizeThinkingLevel(defaultThinkingLevel)
+      : choice
+  }
+
+  /**
+   * The participant as the turn actually runs them.
+   *
+   * Model and thinking level are stored as choices, and "no choice" means the
+   * general default. Resolving both here keeps that fallback out of the many
+   * places downstream that read the actor — the prompt builder, the request,
+   * the capability checks — which would otherwise each need to know about it.
+   */
+  static withRunDefaults(participant, { defaultModel = '', defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL } = {}) {
+    if (!participant) return participant
+    return {
+      ...participant,
+      model: participant.model || defaultModel || '',
+      thinkingLevel: Debate.resolveThinkingLevel(participant, defaultThinkingLevel),
+    }
   }
 
   static shouldRewriteConclusionResult(result, uiLang) {
@@ -1139,6 +1183,7 @@ export class Debate {
       timeoutSecRef,
       baseUrlRef,
       defaultModel,
+      defaultThinkingLevel,
       useSummaryRef,
       attachedDocs,
       summarizeAttachments,
@@ -1235,9 +1280,9 @@ export class Debate {
     const firstRawActor = (resumedRoundSpeakers
       ? parts.find(participant => !resumedRoundSpeakers.has(participant.tag))
       : parts[firstActorIndex]) || parts[firstActorIndex] || parts[0]
-    const firstActor = firstRawActor?.model
-      ? firstRawActor
-      : firstRawActor ? { ...firstRawActor, model: defaultModel || firstRawActor.model } : null
+    const firstActor = firstRawActor
+      ? Debate.withRunDefaults(firstRawActor, { defaultModel, defaultThinkingLevel })
+      : null
     if (firstActor) {
       const lifecycleMessages = Debate.buildParticipantLifecycleMessages({
         history,
@@ -1495,7 +1540,7 @@ export class Debate {
         // Already heard in this round before the reload interrupted it. Their
         // message is in the transcript and speaking again would double it.
         if (resumedRoundSpeakers && !extraModeratorTurn && resumedRoundSpeakers.has(rawActor.tag)) continue
-        const actor = rawActor.model ? rawActor : { ...rawActor, model: defaultModel || rawActor.model }
+        const actor = Debate.withRunDefaults(rawActor, { defaultModel, defaultThinkingLevel })
         const actorBaseUrl = actor.endpointOverride?.trim() || baseUrl
         const turnLabel = round + 1
 

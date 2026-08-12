@@ -12,7 +12,7 @@ export class Session {
     'participant_left',
   ])
 
-  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevel }) {
+  static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, INHERIT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevelChoice }) {
     return {
       id: p.id,
       model: p.model === '__user__' ? '' : p.model,
@@ -31,7 +31,8 @@ export class Session {
       reasoningLang: p.reasoningLang ?? '',
       reasoningLangCustom: p.reasoningLangCustom ?? '',
       reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
-      thinkingLevel: normalizeThinkingLevel(p.thinkingLevel ?? DEFAULT_THINKING_LEVEL),
+      // No level of their own means the participant follows the general default.
+      thinkingLevel: normalizeThinkingLevelChoice(p.thinkingLevel ?? INHERIT_THINKING_LEVEL),
       characterType: p.characterType ?? null,
       responseLength: p.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : p.responseLength,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,
@@ -43,7 +44,7 @@ export class Session {
     }
   }
 
-  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, DEFAULT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevel }) {
+  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, INHERIT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevelChoice }) {
     return {
       ...mkParticipant(i, p.model === '__user__' ? '' : p.model),
       model: p.model === '__user__' ? '' : (p.model ?? ''),
@@ -62,7 +63,8 @@ export class Session {
       reasoningLang: p.reasoningLang ?? '',
       reasoningLangCustom: p.reasoningLangCustom ?? '',
       reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
-      thinkingLevel: normalizeThinkingLevel(p.thinkingLevel ?? DEFAULT_THINKING_LEVEL),
+      // No level of their own means the participant follows the general default.
+      thinkingLevel: normalizeThinkingLevelChoice(p.thinkingLevel ?? INHERIT_THINKING_LEVEL),
       characterType: p.characterType ?? null,
       responseLength: p.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : p.responseLength,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,

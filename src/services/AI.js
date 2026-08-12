@@ -21,6 +21,7 @@ export function useAIModels({
   setBaseUrl,
   setOllamaOk,
 }) {
+  /** Resolves to the model list once it is on screen, or to null if the endpoint did not answer. */
   const fetchModels = useCallback(async (url) => {
     setConnecting(true)
     setConnectError(null)
@@ -30,10 +31,12 @@ export function useAIModels({
       setBaseUrl(url)
       setOllamaOk(true)
       setConnectError(list.length === 0 ? noLocalModelsMessage : null)
+      return list
     } catch (err) {
       setOllamaOk(false)
       setModels([])
       setConnectError(err.message)
+      return null
     } finally {
       setConnecting(false)
     }

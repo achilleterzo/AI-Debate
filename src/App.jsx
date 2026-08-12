@@ -48,7 +48,6 @@ import { SUMMARY_ENDPOINT_ID, useEndpointStatuses } from './hooks/useEndpointSta
 import { useModelCapabilities } from './hooks/useModelCapabilities'
 import { useAppLayout } from './hooks/useAppLayout'
 import { useSplashScreen } from './hooks/useSplashScreen'
-import { useChatPersistence } from './hooks/useChatPersistence'
 import { useTopicComposer } from './hooks/useTopicComposer'
 import { useAppSettings, usePersistedAppSettings } from './hooks/useAppSettings'
 import { useAttachments } from './hooks/useAttachments'
@@ -111,10 +110,6 @@ function AppInner({ settings }) {
   // restores the previous choice; what the operations see is the gated value.
   const effectiveSummaryModelOverride = summaryModelEnabled ? summaryModelOverride : ''
   const effectiveSummaryEndpointOverride = summaryModelEnabled ? summaryEndpointOverride : ''
-  // Read once, at the first render: the splash screen has to know there is a
-  // conversation to come back to before it decides whether to show itself, and
-  // the effect that puts the chat back on screen runs after that.
-  const [restoredChat] = useState(Storage.loadChat)
   const [messages, setMessages] = useState([])
   const [running, setRunning] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -300,21 +295,15 @@ function AppInner({ settings }) {
 
   usePersistedAppSettings({ settings, conclusions: conclusionsState })
 
-  // A restored chat is what the user wants to look at, so the app opens on it
-  // rather than on the settings panel they had left expanded.
-  const handleChatRestored = useCallback(() => setHeaderOpen(false), [])
+  // Earlier versions kept the chat in progress in local storage. Serializing the
+  // whole transcript while it streamed cost more than returning to it was worth,
+  // so the chat lives only in memory now and the stale record is cleared out
+  // instead of sitting in the quota forever. Snapshots are how a session is kept.
+  useEffect(() => {
+    Storage.purgeStoredChat()
+  }, [])
 
-  useChatPersistence({
-    restoredChat,
-    messages, setMessages,
-    summary, setSummary, summaryRef,
-    conclusions, setConclusions,
-    memory, setMemory, memoryRef,
-    seqRef, turnRef, roundLimitRef,
-    onRestored: handleChatRestored,
-  })
-
-  const splash = useSplashScreen({ suppressed: (restoredChat?.messages?.length ?? 0) > 0 })
+  const splash = useSplashScreen()
   // Nothing in the app works without a reachable endpoint, so an unreachable
   // one puts the connection modal on screen by itself instead of leaving a red
   // badge as the only clue. Derived rather than opened by an effect, and it
@@ -482,19 +471,22 @@ function AppInner({ settings }) {
     fetchModels(normalized)
   }
 
-  const handleSaveEndpoint = (rawValue) => {
+  const handleSaveEndpoint = async (rawValue) => {
     if (!activeEndpointModal) return
     const normalized = (rawValue ?? '').trim().replace(/\/$/, '')
     if (normalized) setEndpointHistory(Storage.saveEndpointToHistory(normalized))
     if (activeEndpointModal.target === 'main') {
-      // Connecting is the save here: the modal stays open so the refreshed
-      // model list is what the default model gets picked from. Pinning it open
-      // matters most for the auto-opened one, which would otherwise vanish the
-      // moment the connection it exists to fix starts working.
+      // Connecting is the save here. The modal is pinned open across the
+      // request — the auto-opened one would otherwise vanish the moment the
+      // connection it exists to fix starts working — and it closes once there
+      // is nothing left to do in it: the endpoint answered and the default
+      // model is one it serves. Anything else keeps it open on the refreshed
+      // list, which is what the model gets picked from.
       if (!normalized) return
       setEndpointInput(normalized)
       setEndpointModal({ target: 'main', initialValue: normalized })
-      fetchModels(normalized)
+      const list = await fetchModels(normalized)
+      if (defaultModel && list?.includes(defaultModel)) setEndpointModal(null)
       return
     }
     if (activeEndpointModal.target === 'summary') {
