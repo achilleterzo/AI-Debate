@@ -748,7 +748,7 @@ export class Debate {
     const docsForConclusion = Debate.buildConclusionAttachments(attachedDocs)
     return {
       debate_mode: selectedMode.id,
-      debate_mode_label: selectedMode.labelEn,
+      debate_mode_label: selectedMode.id,
       debate_mode_instruction: selectedMode.instruction || '',
       debate_mode_conclusion_instruction: DEBATE_MODE_CONCLUSION_INSTRUCTIONS[selectedMode.id] || DEBATE_MODE_CONCLUSION_INSTRUCTIONS[DEFAULT_DEBATE_MODE],
       conversation,
@@ -922,7 +922,7 @@ export class Debate {
     const characterType = CHARACTER_TYPES.find(entry => entry.value === actor.characterType)
     if (!characterType || !actor.name) return null
     const systemPrompt = 'You are a knowledge assistant. When asked about a person, provide a concise factual profile useful for roleplay and debate simulation.'
-    const userMsg = `Provide a concise personality and background profile of the ${characterType.labelEn} known as "${actor.name}". Include: their known values, beliefs, communication style, notable positions or works, and any distinctive speech patterns or rhetorical habits. Be factual and specific. Keep it under 300 words.`
+    const userMsg = `Provide a concise personality and background profile of the ${characterType.value ?? characterType.id} known as "${actor.name}". Include: their known values, beliefs, communication style, notable positions or works, and any distinctive speech patterns or rhetorical habits. Be factual and specific. Keep it under 300 words.`
     try {
       let result = ''
       await streamChat({

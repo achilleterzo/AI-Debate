@@ -1,4 +1,10 @@
 export default {
+  moods: { none: 'Neutral', cooperative: 'Cooperativo', socratic: 'Socrático', diplomatic: 'Diplomático', devil: 'Abogado del diablo', antagonist: 'Antagonista', frivolous: 'Frívolo', flirt: 'Coqueto', liar: 'Mentiroso', denialist: 'Negacionista', analytical: 'Analítico', factchecker: 'Verificador de hechos', therapist: 'Terapeuta', curious: 'Curioso', skeptical: 'Escéptico', pragmatic: 'Pragmático', creative: 'Creativo', cautious: 'Cauteloso', competitive: 'Competitivo' },
+  educationLevels: { default: 'Predeterminado del modelo', street: 'De la calle', primary: 'Educación primaria', proficient: 'Competente', academic: 'Académico', expert: 'Experto' },
+  ageGroups: ['Niño', 'Adolescente', 'Adulto', 'Maduro', 'Anciano'],
+  characterTypes: { default: 'Persona', historical: 'Figura histórica', public: 'Figura pública', fictional: 'Personaje ficticio' },
+  responseLengths: { short: 'Breve', medium: 'Media', detailed: 'Detallada', default: 'Libre' },
+  moodIntensity: ['Baja', 'Ligera', 'Equilibrada', 'Fuerte', 'Extrema'],
   modes: { free: 'Libre', brainstorm: 'Lluvia de ideas', fact_check: 'Verificación de hechos', design_review: 'Revisión de diseño', decision: 'Decisión', negotiation: 'Negociación', red_team: 'Red Team', socratic: 'Socrático', peer_review: 'Revisión por pares', consensus: 'Consenso', role_play: 'Juego de rol' },
   common: {
     debateMode: 'Modo de debate',

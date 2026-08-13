@@ -1,4 +1,10 @@
 export default {
+  moods: { none: 'Neutre', cooperative: 'Coopératif', socratic: 'Socratique', diplomatic: 'Diplomatique', devil: 'Avocat du diable', antagonist: 'Antagoniste', frivolous: 'Frivole', flirt: 'Flirt', liar: 'Menteur', denialist: 'Négationniste', analytical: 'Analytique', factchecker: 'Vérificateur de faits', therapist: 'Thérapeute', curious: 'Curieux', skeptical: 'Sceptique', pragmatic: 'Pragmatique', creative: 'Créatif', cautious: 'Prudent', competitive: 'Compétitif' },
+  educationLevels: { default: 'Par défaut du modèle', street: 'Expérience de la rue', primary: 'École primaire', proficient: 'Bon niveau', academic: 'Académique', expert: 'Expert' },
+  ageGroups: ['Enfant', 'Adolescent', 'Adulte', 'Mature', 'Personne âgée'],
+  characterTypes: { default: 'Personne', historical: 'Figure historique', public: 'Personnalité publique', fictional: 'Personnage fictif' },
+  responseLengths: { short: 'Courte', medium: 'Moyenne', detailed: 'Détaillée', default: 'Libre' },
+  moodIntensity: ['Faible', 'Légère', 'Équilibrée', 'Forte', 'Extrême'],
   modes: { free: 'Libre', brainstorm: 'Brainstorming', fact_check: 'Vérification des faits', design_review: 'Revue de conception', decision: 'Décision', negotiation: 'Négociation', red_team: 'Red Team', socratic: 'Socratique', peer_review: 'Évaluation par les pairs', consensus: 'Consensus', role_play: 'Jeu de rôle' },
   common: {
     debateMode: 'Mode de débat',

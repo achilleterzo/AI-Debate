@@ -346,7 +346,7 @@ export default function ParticipantsPanel({
                 menuPlacement="auto"
                 title={ui.participantMood}
               />
-              {moods.find(m => m.id === p.mood)?.instruction && (
+              {moods.find(m => m.id === p.mood)?.constraints?.default && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }} title={moodIntensity[p.moodIntensity ?? defaultMoodIntensity].label}>
                   <span style={{ fontSize: 10, color: '#555', whiteSpace: 'nowrap' }}>
                     {moodIntensity[p.moodIntensity ?? defaultMoodIntensity].label}

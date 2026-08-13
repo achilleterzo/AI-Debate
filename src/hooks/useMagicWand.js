@@ -66,10 +66,10 @@ function describeParticipantConfig(participant) {
   const age = AGE_GROUPS[participant.ageGroup]
 
   return [
-    participant.characterType && characterType ? `Character type: ${characterType.labelEn}` : '',
-    mood?.instruction ? `Debating attitude: ${mood.labelEn}${intensity?.labelEn ? ` (${intensity.labelEn} intensity)` : ''}` : '',
-    age?.instruction ? `Age group: ${age.labelEn}` : '',
-    education?.instruction ? `Education: ${education.labelEn}` : '',
+    participant.characterType && characterType ? `Character type: ${characterType.value ?? characterType.id}` : '',
+    mood?.constraints?.default ? `Debating attitude: ${mood.id}${intensity ? ` (${intensity.value} intensity)` : ''}` : '',
+    age?.constraints?.default ? `Age group: ${age.value ?? age.id}` : '',
+    education?.constraints?.default ? `Education: ${education.value ?? education.id}` : '',
     participant.responseLength ? `Response length: ${participant.responseLength}` : '',
     participant.reasoningLang ? `Reasons in: ${participant.reasoningLang}` : '',
   ].filter(Boolean)
@@ -137,7 +137,7 @@ export function useMagicWand({
     const selectedDebateMode = DEBATE_MODES.find(entry => entry.id === debateMode) ?? DEBATE_MODES[0]
     const debateModeContext = {
       debateMode: selectedDebateMode.id,
-      debateModeLabel: selectedDebateMode.labelEn,
+      debateModeLabel: selectedDebateMode.id,
       debateModeInstruction: selectedDebateMode.instruction || '',
     }
 
@@ -146,7 +146,7 @@ export function useMagicWand({
     if (forParticipant) {
       const target = participants[participantIndex]
       const characterType = target?.characterType ?? null
-      const characterTypeLabel = CHARACTER_TYPES.find(entry => entry.value === characterType)?.labelEn ?? 'person'
+      const characterTypeLabel = CHARACTER_TYPES.find(entry => entry.value === characterType)?.value ?? 'person'
       const isModerator = !!target?.isModerator || target?.mood === 'moderator'
       systemPrompt = buildParticipantSystemPrompt({ languageNamed })
       userPrompt = buildParticipantPrompt({

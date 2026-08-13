@@ -1,4 +1,10 @@
 export default {
+  moods: { none: '중립', cooperative: '협력적인', socratic: '소크라테스식', diplomatic: '외교적인', devil: '악마의 변호인', antagonist: '적대적인', frivolous: '경박한', flirt: '추파를 던지는', liar: '거짓말쟁이', denialist: '부정론자', analytical: '분석적인', factchecker: '팩트체커', therapist: '치료사', curious: '호기심 많은', skeptical: '회의적인', pragmatic: '실용적인', creative: '창의적인', cautious: '신중한', competitive: '경쟁적인' },
+  educationLevels: { default: '모델 기본값', street: '실전형', primary: '초등학교', proficient: '능숙한 수준', academic: '학술적', expert: '전문가' },
+  ageGroups: ['어린이', '청소년', '성인', '장년층', '노년층'],
+  characterTypes: { default: '인물', historical: '역사적 인물', public: '공인', fictional: '가상 캐릭터' },
+  responseLengths: { short: '짧게', medium: '보통', detailed: '자세히', default: '자유' },
+  moodIntensity: ['낮음', '약함', '균형', '강함', '극단적'],
   modes: { free: '자유', brainstorm: '브레인스토밍', fact_check: '팩트 체크', design_review: '디자인 검토', decision: '의사결정', negotiation: '협상', red_team: '레드팀', socratic: '소크라테스식', peer_review: '동료 검토', consensus: '합의', role_play: '롤플레이' },
   common: {
     debateMode: '토론 모드',

@@ -1,3 +1,8 @@
+export function resolveConstraint(entry, debateMode) {
+  if (!entry?.constraints) return null
+  return entry.constraints[debateMode] ?? entry.constraints.default ?? null
+}
+
 export function buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions }) {
   const participantConstraints = (actor.constraints || [])
     .map(entry => typeof entry === 'string' ? { text: entry, override: false } : { text: String(entry?.text ?? ''), override: !!entry?.override })

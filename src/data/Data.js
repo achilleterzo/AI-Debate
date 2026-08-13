@@ -99,17 +99,17 @@ export class Data {
       const name = p.name ? ` (${esc(p.name)})` : ''
       const moderatorStr = p.isModerator ? ' · Moderator' : ''
       const char = CHARACTER_TYPES.find(c => c.value === (p.characterType ?? null))
-      const charStr = ` · ${esc(char?.label ?? 'Person')}`
+      const charStr = ` · ${esc(char?.value ?? 'person')}`
       const resp = RESPONSE_LENGTHS.find(r => r.value === (p.responseLength ?? null))
-      const respStr = ` · Verbosity: ${esc(resp?.label ?? 'Free')}`
+      const respStr = ` · Verbosity: ${esc(resp?.value ?? 'free')}`
       const moodObj = MOODS.find(m => m.id === p.mood)
-      const moodStr = moodObj?.instruction ? ` · ${moodObj.emoji} ${moodObj.label}` : ''
+      const moodStr = moodObj?.constraints?.default ? ` · ${moodObj.emoji} ${moodObj.id}` : ''
       const intensity = MOOD_INTENSITY[p.moodIntensity ?? DEFAULT_MOOD_INTENSITY]
-      const intensityStr = moodObj?.instruction && intensity ? ` [${intensity.label}]` : ''
+      const intensityStr = moodObj?.constraints?.default && intensity ? ` [${intensity.value}]` : ''
       const age = AGE_GROUPS[p.ageGroup ?? DEFAULT_AGE_GROUP]
-      const ageStr = ` · ${age?.label ?? '-'}`
+      const ageStr = ` · ${age?.value ?? '-'}`
       const edu = EDUCATION_LEVELS.find(e => e.value === (p.educationLevel ?? null))
-      const eduStr = edu?.instruction ? ` · ${edu.label}` : ''
+      const eduStr = edu?.constraints?.default ? ` · ${edu.value ?? 'education'}` : ''
       const epStr = p.endpointOverride?.trim() ? ' · EP' : ''
       return `<div class="part-row"><span style="color:${p.label};font-weight:700">${p.tag}</span>${name}${charStr}${respStr}${moodStr}${intensityStr}${eduStr}${ageStr}${epStr}${moderatorStr}</div>`
     }).join('')
@@ -320,7 +320,7 @@ ${CHAT_CSS}
 </head>
 <body>
   <h1>AI Debate — Chat Export</h1>
-  <div class="meta"><strong>Debate mode:</strong> ${esc(mode.labelEn)}${language ? ` &nbsp;·&nbsp; <strong>Language:</strong> ${esc(language)}` : ''}</div>
+  <div class="meta"><strong>Debate mode:</strong> ${esc(mode.id)}${language ? ` &nbsp;·&nbsp; <strong>Language:</strong> ${esc(language)}` : ''}</div>
   <div class="meta">AI Debate v${esc(APP_VERSION)} &nbsp;·&nbsp; Endpoint: ${esc(baseUrl)} &nbsp;·&nbsp; ${esc(now)}<br>${partRows}</div>
   <div class="msgs">
   ${body}
@@ -367,23 +367,23 @@ ${CHAT_CSS}
       const name = p.name ? ` (${p.name})` : ''
       const moderatorStr = p.isModerator ? ' · Moderator' : ''
       const char = CHARACTER_TYPES.find(c => c.value === (p.characterType ?? null))
-      const charStr = ` · ${char?.label ?? 'Person'}`
+      const charStr = ` · ${char?.value ?? 'person'}`
       const resp = RESPONSE_LENGTHS.find(r => r.value === (p.responseLength ?? null))
-      const respStr = ` · Verbosity: ${resp?.label ?? 'Free'}`
+      const respStr = ` · Verbosity: ${resp?.value ?? 'free'}`
       const moodObj = MOODS.find(m => m.id === p.mood)
-      const moodStr = moodObj?.instruction ? ` · ${moodObj.emoji} ${moodObj.label}` : ''
+      const moodStr = moodObj?.constraints?.default ? ` · ${moodObj.emoji} ${moodObj.id}` : ''
       const intensity = MOOD_INTENSITY[p.moodIntensity ?? DEFAULT_MOOD_INTENSITY]
-      const intensityStr = moodObj?.instruction && intensity ? ` [${intensity.label}]` : ''
+      const intensityStr = moodObj?.constraints?.default && intensity ? ` [${intensity.value}]` : ''
       const age = AGE_GROUPS[p.ageGroup ?? DEFAULT_AGE_GROUP]
-      const ageStr = ` · ${age?.label ?? '-'}`
+      const ageStr = ` · ${age?.value ?? '-'}`
       const edu = EDUCATION_LEVELS.find(e => e.value === (p.educationLevel ?? null))
-      const eduStr = edu?.instruction ? ` · ${edu.label}` : ''
+      const eduStr = edu?.constraints?.default ? ` · ${edu.value ?? 'education'}` : ''
       const epStr = p.endpointOverride?.trim() ? ' · EP' : ''
       return `- **${p.tag}**${name}${charStr}${respStr}${moodStr}${intensityStr}${eduStr}${ageStr}${epStr}${moderatorStr}`
     }).join('\n')
 
     let out = '# AI Debate — Export\n\n'
-    out += `**Debate mode:** ${mode.labelEn}${language ? ` · **Language:** ${language}` : ''}\n\n`
+    out += `**Debate mode:** ${mode.id}${language ? ` · **Language:** ${language}` : ''}\n\n`
     out += `**Data:** ${now}  \n**Endpoint:** ${baseUrl}  \n**App version:** ${APP_VERSION}\n\n`
     out += `## Participants\n${partList}\n\n---\n\n`
 
@@ -460,7 +460,7 @@ ${CHAT_CSS}
       exported: new Date().toISOString(),
       appVersion: APP_VERSION,
       debateMode: mode.id,
-      debateModeLabel: mode.labelEn,
+      debateModeLabel: mode.id,
       language: uiLang || null,
       languageLabel: debateLanguageLabel(uiLang) || null,
       baseUrl,
@@ -476,12 +476,12 @@ ${CHAT_CSS}
           tag: p.tag,
           name: p.name || null,
           isModerator: !!p.isModerator,
-          characterType: char?.label ?? 'Person',
-          responseLength: `Verbosity: ${resp?.label ?? 'Free'}`,
-          mood: moodObj?.label ?? null,
-          moodIntensity: intensity?.label ?? null,
-          age: (p.ageGroup ?? DEFAULT_AGE_GROUP) !== DEFAULT_AGE_GROUP ? age?.label : null,
-          education: edu?.instruction ? edu.label : null,
+          characterType: char?.value ?? 'person',
+          responseLength: `Verbosity: ${resp?.value ?? 'free'}`,
+          mood: moodObj?.id ?? null,
+          moodIntensity: intensity?.value ?? null,
+          age: (p.ageGroup ?? DEFAULT_AGE_GROUP) !== DEFAULT_AGE_GROUP ? age?.value : null,
+          education: edu?.constraints?.default ? (edu.value ?? 'education') : null,
           endpointOverride: p.endpointOverride?.trim() || null,
         }
       }),

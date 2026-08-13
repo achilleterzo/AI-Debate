@@ -1,5 +1,3 @@
-import { UI_OPTION_LABELS } from '../i18n/UiStrings'
-
 // Debate modes describe the shared purpose of the exchange. They are kept
 // separate from moods because a mode applies to the whole table, while a mood
 // remains an individual participant behaviour.
@@ -17,8 +15,6 @@ const text = (...parts) => parts.join(' ')
 const MODE_DEFINITIONS = [
   {
     id: 'free',
-    labelEn: 'Free',
-    label: UI_OPTION_LABELS.modes.free,
     emoji: '🗣️',
     instruction: null,
     conclusion: text(
@@ -27,8 +23,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'brainstorm',
-    labelEn: 'Brainstorm',
-    label: UI_OPTION_LABELS.modes.brainstorm,
     emoji: '💡',
     instruction: text(
       'On every turn, generate or extend several useful possibilities before judging them.',
@@ -42,8 +36,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'fact_check',
-    labelEn: 'Fact Check',
-    label: UI_OPTION_LABELS.modes.factCheck,
     emoji: '🔎',
     instruction: text(
       'On every turn, identify the factual claims that matter,',
@@ -58,8 +50,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'design_review',
-    labelEn: 'Design Review',
-    label: UI_OPTION_LABELS.modes.designReview,
     emoji: '🧩',
     instruction: text(
       'On every turn, review the proposal against its goals and constraints.',
@@ -73,8 +63,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'decision',
-    labelEn: 'Decision',
-    label: UI_OPTION_LABELS.modes.decision,
     emoji: '⚖️',
     instruction: text(
       'On every turn, move the group toward a decision:',
@@ -88,8 +76,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'negotiation',
-    labelEn: 'Negotiation',
-    label: UI_OPTION_LABELS.modes.negotiation,
     emoji: '🤝',
     instruction: text(
       'On every turn, distinguish positions from underlying interests,',
@@ -104,8 +90,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'red_team',
-    labelEn: 'Red Team',
-    label: UI_OPTION_LABELS.modes.redTeam,
     emoji: '🛡️',
     instruction: text(
       'On every turn, attack the strongest current proposal rather than a weak version of it.',
@@ -119,8 +103,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'socratic',
-    labelEn: 'Socratic',
-    label: UI_OPTION_LABELS.modes.socratic,
     emoji: '🏛️',
     instruction: text(
       'On every turn, lead with precise questions that test definitions, assumptions, evidence,',
@@ -134,8 +116,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'peer_review',
-    labelEn: 'Peer Review',
-    label: UI_OPTION_LABELS.modes.peerReview,
     emoji: '📚',
     instruction: text(
       'On every turn, give rigorous but constructive peer review:',
@@ -150,8 +130,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'consensus',
-    labelEn: 'Consensus',
-    label: UI_OPTION_LABELS.modes.consensus,
     emoji: '🌐',
     instruction: text(
       'On every turn, explicitly separate agreements from unresolved disagreements,',
@@ -167,8 +145,6 @@ const MODE_DEFINITIONS = [
   },
   {
     id: 'role_play',
-    labelEn: 'Role Play',
-    label: UI_OPTION_LABELS.modes.rolePlay,
     emoji: '🎭',
     instruction: text(
       'Treat the debate as a shared role-playing scene.',
@@ -186,8 +162,8 @@ const MODE_DEFINITIONS = [
   },
 ]
 
-export const DEBATE_MODES = MODE_DEFINITIONS.map(({ id, label, labelEn, emoji, instruction }) => ({
-  id, label, labelEn, emoji, instruction,
+export const DEBATE_MODES = MODE_DEFINITIONS.map(({ id, emoji, instruction }) => ({
+  id, emoji, instruction,
 }))
 
 export const DEBATE_MODE_CONCLUSION_INSTRUCTIONS = Object.fromEntries(
@@ -195,7 +171,7 @@ export const DEBATE_MODE_CONCLUSION_INSTRUCTIONS = Object.fromEntries(
 )
 
 export const DEFAULT_DEBATE_MODE = 'free'
-export const DEBATE_MODE_OPTIONS = DEBATE_MODES.map(mode => ({ value: mode.id, label: mode.label, emoji: mode.emoji }))
+export const DEBATE_MODE_OPTIONS = DEBATE_MODES.map(mode => ({ value: mode.id, emoji: mode.emoji }))
 
 export function normalizeDebateMode(value) {
   return DEBATE_MODES.some(mode => mode.id === value) ? value : DEFAULT_DEBATE_MODE

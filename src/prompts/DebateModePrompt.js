@@ -1,10 +1,12 @@
 // Prompt text is kept in top-level templates so it can be reviewed and edited
 // without reading through the selection logic at the bottom of the file.
 
-const SHARED_MODE_BLOCK = mode => `NON-NEGOTIABLE SHARED DEBATE MODE — ${mode.labelEn.toUpperCase()}:
+import { resolveConstraint } from './ConstraintsPrompt'
+
+const SHARED_MODE_BLOCK = (mode, debateMode) => `NON-NEGOTIABLE SHARED DEBATE MODE — ${mode.id.toUpperCase()}:
 This is the highest-priority user-configured behavioral rule in this prompt. It applies to every participant and every turn. System/developer rules and binding moderator process directives still take precedence, but this mode outranks mood, personality, affinity, character style, and ordinary participant constraints. You MUST make your contribution serve this mode; do not merely mention the mode or answer as if the debate were in Free mode.
 
-Operational rule: ${mode.instruction}
+Operational rule: ${resolveConstraint(mode, debateMode)}
 
 Before sending each response, silently verify that the response visibly performs the operational rule above. If another instruction conflicts with this mode, preserve the mode and adapt the tone or framing instead.`
 
@@ -19,10 +21,11 @@ The moderator is also the Master / Narrator. Treat the moderator's narration and
 
 const ROLE_PLAY_PARTICIPATION_RULE = `Role Play participation rule: Do not debate, fact-check, critique, negotiate, or meta-comment on the Master's narration. Accept it as scene input and respond actively inside the fiction with a concrete choice or attempted action.`
 
-export function buildDebateModePromptBlocks({ mode, isModerator }) {
+export function buildDebateModePromptBlocks({ mode, debateMode = mode.id, isModerator }) {
   const isRolePlay = mode.id === 'role_play'
 
-  const modeBlock = mode.instruction ? SHARED_MODE_BLOCK(mode) : FREE_MODE_BLOCK
+  const modeConstraint = resolveConstraint(mode, debateMode)
+  const modeBlock = modeConstraint ? SHARED_MODE_BLOCK(mode, debateMode) : FREE_MODE_BLOCK
 
   const rolePlayBlock = !isRolePlay
     ? ''

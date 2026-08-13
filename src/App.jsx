@@ -25,7 +25,7 @@ import DebateWizard from './components/DebateWizard'
 import ScrollToBottomButton from './components/ScrollToBottomButton'
 import SummaryProgressBadge from './components/SummaryProgressBadge'
 import { PALETTE } from './dataset/Palette'
-import { MOODS, MOOD_OPTIONS } from './prompts/Moods'
+import { MOODS } from './prompts/Moods'
 import { DEBATE_MODE_OPTIONS } from './prompts/Modes'
 import { RESPONSE_LENGTHS } from './prompts/ResponseLengths'
 import { CHARACTER_TYPES } from './dataset/CharacterTypes'
@@ -75,6 +75,59 @@ function resetUnlockedAffinities(participant) {
 
 function AppInner({ settings }) {
   const UI_STRINGS = useUiStrings()
+  const localizedMoods = useMemo(
+    () => MOODS.map(mood => ({
+      ...mood,
+      label: UI_STRINGS.moods[mood.id] ?? mood.id,
+    })),
+    [UI_STRINGS],
+  )
+  const localizedMoodOptions = useMemo(
+    () => localizedMoods.map(mood => ({ value: mood.id, label: mood.label, emoji: mood.emoji })),
+    [localizedMoods],
+  )
+  const localizedEducationLevels = useMemo(
+    () => EDUCATION_LEVELS.map(level => ({
+      ...level,
+      label: UI_STRINGS.educationLevels[level.value ?? 'default'] ?? (level.value ?? 'default'),
+    })),
+    [UI_STRINGS],
+  )
+  const localizedAgeGroups = useMemo(
+    () => AGE_GROUPS.map((group, index) => ({
+      ...group,
+      label: UI_STRINGS.ageGroups[index] ?? String(group.value),
+    })),
+    [UI_STRINGS],
+  )
+  const localizedCharacterTypes = useMemo(
+    () => CHARACTER_TYPES.map(type => ({
+      ...type,
+      label: UI_STRINGS.characterTypes[type.value ?? 'default'] ?? (type.value ?? 'default'),
+    })),
+    [UI_STRINGS],
+  )
+  const localizedResponseLengths = useMemo(
+    () => RESPONSE_LENGTHS.map(length => ({
+      ...length,
+      label: UI_STRINGS.responseLengths[length.value ?? 'default'] ?? (length.value ?? 'default'),
+    })),
+    [UI_STRINGS],
+  )
+  const localizedMoodIntensity = useMemo(
+    () => MOOD_INTENSITY.map((level, index) => ({
+      ...level,
+      label: UI_STRINGS.moodIntensity[index] ?? String(level.value),
+    })),
+    [UI_STRINGS],
+  )
+  const localizedModeOptions = useMemo(
+    () => DEBATE_MODE_OPTIONS.map(option => ({
+      ...option,
+      label: UI_STRINGS.modes[option.value] ?? option.value,
+    })),
+    [UI_STRINGS],
+  )
   const common = UI_STRINGS.common
   const ui = UI_STRINGS.app
   const topMenuUi = UI_STRINGS.topMenu
@@ -829,9 +882,9 @@ function AppInner({ settings }) {
           onClose={() => { wizard.cancel(); setWizardOpen(false) }}
           onGenerate={handleWizardGenerate}
           debateMode={debateMode}
-          debateModeOptions={DEBATE_MODE_OPTIONS}
+          debateModeOptions={localizedModeOptions}
           uiLang={uiLang}
-          characterTypes={CHARACTER_TYPES}
+          characterTypes={localizedCharacterTypes}
           moodSelectStyles={moodSelectStyles}
           endpointValue={endpointInput || DEFAULT_URL}
           endpointHistory={endpointHistory}
@@ -892,7 +945,7 @@ function AppInner({ settings }) {
           disabled={running}
           debateMode={debateMode}
           onDebateModeChange={setDebateMode}
-          debateModeOptions={DEBATE_MODE_OPTIONS}
+          debateModeOptions={localizedModeOptions}
         />
 
         <SummarySettings
@@ -934,16 +987,16 @@ function AppInner({ settings }) {
           running={running}
           setParticipants={setParticipants}
           userModel={Debate.USER_MODEL}
-          characterTypes={CHARACTER_TYPES}
-          responseLengths={RESPONSE_LENGTHS}
+          characterTypes={localizedCharacterTypes}
+          responseLengths={localizedResponseLengths}
           moodSelectStyles={moodSelectStyles}
-          moodOptions={MOOD_OPTIONS}
+          moodOptions={localizedMoodOptions}
           formatMoodOption={formatMoodOption}
-          moods={MOODS}
-          moodIntensity={MOOD_INTENSITY}
+          moods={localizedMoods}
+          moodIntensity={localizedMoodIntensity}
           defaultMoodIntensity={Debate.DEFAULT_MOOD_INTENSITY}
-          educationLevels={EDUCATION_LEVELS}
-          ageGroups={AGE_GROUPS}
+          educationLevels={localizedEducationLevels}
+          ageGroups={localizedAgeGroups}
           defaultAgeGroup={Debate.DEFAULT_AGE_GROUP}
           models={models}
           palette={PALETTE}

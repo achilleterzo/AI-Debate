@@ -72,7 +72,7 @@ export const MIN_MODERATION_COOLING = 0.01
 export const MAX_MODERATION_COOLING = 1
 export const MODERATION_COOLING_STEPS = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]
 
-export const SUMMARY_ACCUMULATE_STEPS = [2, 4, 8, 16, 32, 64]
+export const SUMMARY_ACCUMULATE_STEPS = [2, 4, 8, 16, 32, 64, 128, 256]
 
 // How much of a fetched page `fetch_url` returns per call. A page is never
 // truncated — the rest stays reachable through the block number — so this is a

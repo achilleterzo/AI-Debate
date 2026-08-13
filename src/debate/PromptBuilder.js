@@ -1,6 +1,6 @@
 import { DEBATE_MODES, DEFAULT_DEBATE_MODE, normalizeDebateMode } from '../prompts/Modes'
 import { buildDebateModePromptBlocks } from '../prompts/DebateModePrompt'
-import { buildConstraintsBlock } from '../prompts/ConstraintsPrompt'
+import { buildConstraintsBlock, resolveConstraint } from '../prompts/ConstraintsPrompt'
 import { buildAffinityBlock } from '../prompts/AffinityPrompt'
 import { buildLanguagePrompt } from '../prompts/LanguagePrompt'
 import { DEFAULT_DELIVERY_STYLE } from '../prompts/DeliveryStyle'
@@ -32,12 +32,17 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
 
   const mood = MOODS.find(m => m.id === actor.mood) ?? MOODS.find(m => m.id === DEFAULT_MOOD)
   const mode = DEBATE_MODES.find(entry => entry.id === normalizeDebateMode(debateMode)) ?? DEBATE_MODES[0]
-  const { modeBlock, rolePlayBlock, rolePlayParticipantRule } = buildDebateModePromptBlocks({ mode, isModerator: actor.isModerator })
+  const { modeBlock, rolePlayBlock, rolePlayParticipantRule } = buildDebateModePromptBlocks({ mode, debateMode: mode.id, isModerator: actor.isModerator })
   const moodIntensity = MOOD_INTENSITY[actor.moodIntensity ?? DEFAULT_MOOD_INTENSITY]
   const characterType = CHARACTER_TYPES.find(c => c.value === actor.characterType)
   const responseLength = RESPONSE_LENGTHS.find(r => r.value === actor.responseLength)
   const educationLevel = EDUCATION_LEVELS.find(e => e.value === actor.educationLevel)
   const ageGroup = AGE_GROUPS[actor.ageGroup ?? DEFAULT_AGE_GROUP]
+  const responseLengthConstraint = resolveConstraint(responseLength, mode.id)
+  const educationConstraint = resolveConstraint(educationLevel, mode.id)
+  const ageConstraint = resolveConstraint(ageGroup, mode.id)
+  const moodConstraint = resolveConstraint(mood, mode.id)
+  const moodIntensityConstraint = resolveConstraint(moodIntensity, mode.id)
   const identityBlock = buildLanguagePrompt({ actor, uiLang, languages: LANGUAGES, reasoningLangCustom: REASONING_LANG_CUSTOM })
 
   const roster = allParticipants
@@ -81,14 +86,14 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     // dead weight in every turn, so they follow the thinking level.
     taggedSection('reasoning_focus', hasNativeReasoning(actor) ? REASONING_FOCUS_BLOCK : ''),
     taggedSection('identity', identityBlock),
-    taggedSection('character_profile', characterType ? `Character type: ${characterType.label}.` : ''),
+    taggedSection('character_profile', characterType ? `Character type: ${characterType.value ?? characterType.id}.` : ''),
     taggedSection('response_style', [
-      responseLength?.instruction ? `Verbosity rule: ${responseLength.instruction}` : '',
+      responseLengthConstraint ? `Verbosity rule: ${responseLengthConstraint}` : '',
       DEFAULT_DELIVERY_STYLE,
-      educationLevel?.instruction ? `Education style: ${educationLevel.instruction}` : '',
-      ageGroup?.instruction ? `Age style: ${ageGroup.instruction}` : '',
-      mood?.instruction ? `Mood: ${mood.instruction}` : '',
-      mood?.instruction && moodIntensity?.instruction ? `Mood intensity: ${moodIntensity.instruction}` : '',
+      educationConstraint ? `Education style: ${educationConstraint}` : '',
+      ageConstraint ? `Age style: ${ageConstraint}` : '',
+      moodConstraint ? `Mood: ${moodConstraint}` : '',
+      moodConstraint && moodIntensityConstraint ? `Mood intensity: ${moodIntensityConstraint}` : '',
     ].filter(Boolean).join('\n\n')),
     taggedSection('tool_protocol', toolsAvailable
       ? [STRUCTURED_TOOL_CALL_PROTOCOL, buildAvailableToolProtocol(availableTools)].filter(Boolean).join('\n\n')

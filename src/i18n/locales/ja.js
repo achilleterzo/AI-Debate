@@ -1,4 +1,10 @@
 export default {
+  moods: { none: '中立', cooperative: '協力的', socratic: 'ソクラテス式', diplomatic: '外交的', devil: '悪魔の代弁者', antagonist: '敵対的', frivolous: '軽薄', flirt: 'フリート', liar: '嘘つき', denialist: '否定論者', analytical: '分析的', factchecker: 'ファクトチェッカー', therapist: 'セラピスト', curious: '好奇心旺盛', skeptical: '懐疑的', pragmatic: '現実的', creative: '創造的', cautious: '慎重', competitive: '競争的' },
+  educationLevels: { default: 'モデルの既定値', street: '実践的', primary: '小学校', proficient: '標準', academic: '学術的', expert: '専門家' },
+  ageGroups: ['子ども', 'ティーンエイジャー', '成人', '中年', '高齢者'],
+  characterTypes: { default: '人物', historical: '歴史上の人物', public: '著名人', fictional: '架空のキャラクター' },
+  responseLengths: { short: '短い', medium: '普通', detailed: '詳細', default: '自由' },
+  moodIntensity: ['低い', '軽い', 'バランス', '強い', '極端'],
   modes: { free: 'フリー', brainstorm: 'ブレインストーミング', fact_check: 'ファクトチェック', design_review: 'デザインレビュー', decision: '意思決定', negotiation: '交渉', red_team: 'レッドチーム', socratic: 'ソクラテス式', peer_review: 'ピアレビュー', consensus: '合意形成', role_play: 'ロールプレイ' },
   common: {
     debateMode: '議論モード',

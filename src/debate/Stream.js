@@ -246,7 +246,7 @@ export async function streamChat({
   const separateToolRounds = typeof onToolRound === 'function'
 
   while (true) {
-    const payloadMessages = compactMessages(apiMessages, { maxPerMsg: 18000 })
+    const payloadMessages = compactMessages(apiMessages, { maxPerMsg: 32000 })
     const totalChars = payloadMessages.reduce((count, message) => count + String(message.content || '').length, 0)
     const estimatedTokens = Math.ceil(totalChars / 4)
     if (typeof onEstimate === 'function') {

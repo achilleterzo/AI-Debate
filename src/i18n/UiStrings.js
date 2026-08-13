@@ -27,55 +27,22 @@ export function formatLanguageLabel(language) {
   return `${language.label} (${language.code.toUpperCase()})`
 }
 
-export const UI_OPTION_LABELS = {
-  characterTypes: {
-    default: 'Person',
-    historical: 'Historical figure',
-    public: 'Public figure',
-    fictional: 'Fictional character',
+export const UI_STRINGS = {
+  moods: {
+    none: 'Neutral', cooperative: 'Cooperative', socratic: 'Socratic', diplomatic: 'Diplomatic',
+    devil: "Devil's Advocate", antagonist: 'Antagonist', frivolous: 'Frivolous', flirt: 'Flirt',
+    liar: 'Liar', denialist: 'Denialist', analytical: 'Analytical', factchecker: 'Factchecker',
+    therapist: 'Therapist', curious: 'Curious', skeptical: 'Skeptical', pragmatic: 'Pragmatic',
+    creative: 'Creative', cautious: 'Cautious', competitive: 'Competitive',
+  },
+  educationLevels: {
+    default: 'Model default', street: 'Street-smart', primary: 'Primary school', proficient: 'Proficient',
+    academic: 'Academic', expert: 'Expert',
   },
   ageGroups: ['Child', 'Teenager', 'Adult', 'Mature', 'Elder'],
+  characterTypes: { default: 'Person', historical: 'Historical figure', public: 'Public figure', fictional: 'Fictional character' },
   responseLengths: { short: 'Short', medium: 'Medium', detailed: 'Detailed', default: 'Free' },
-  educationLevels: {
-    default: 'Model default',
-    street: 'Street-smart',
-    primary: 'Primary school',
-    proficient: 'Proficient',
-    academic: 'Academic',
-    expert: 'Expert',
-  },
   moodIntensity: ['Low', 'Light', 'Balanced', 'Strong', 'Extreme'],
-  moods: {
-    none: 'Neutral',
-    cooperative: 'Cooperative',
-    socratic: 'Socratic',
-    diplomatic: 'Diplomatic',
-    devil: "Devil's Advocate",
-    antagonist: 'Antagonist',
-    frivolous: 'Frivolous',
-    flirt: 'Flirt',
-    liar: 'Liar',
-    denialist: 'Denialist',
-    analytical: 'Analytical',
-    factchecker: 'Factchecker',
-    therapist: 'Therapist',
-  },
-  modes: {
-    free: 'Free',
-    brainstorm: 'Brainstorm',
-    factCheck: 'Fact Check',
-    designReview: 'Design Review',
-    decision: 'Decision',
-    negotiation: 'Negotiation',
-    redTeam: 'Red Team',
-    socratic: 'Socratic',
-    peerReview: 'Peer Review',
-    consensus: 'Consensus',
-    rolePlay: 'Role Play',
-  },
-}
-
-export const UI_STRINGS = {
   common: {
     debateMode: 'Debate mode',
     cancel: 'Cancel',

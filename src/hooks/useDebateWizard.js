@@ -102,7 +102,7 @@ export function useDebateWizard({
     const selectedMode = DEBATE_MODES.find(entry => entry.id === debateMode) ?? DEBATE_MODES[0]
     const modeContext = {
       debateMode: selectedMode.id,
-      debateModeLabel: selectedMode.labelEn,
+      debateModeLabel: selectedMode.id,
       debateModeInstruction: selectedMode.instruction || '',
     }
 
@@ -132,7 +132,7 @@ export function useDebateWizard({
         buildParticipantPrompt({
           languageNamed,
           characterType,
-          characterTypeLabel: CHARACTER_TYPES.find(entry => entry.value === characterType)?.labelEn ?? 'person',
+          characterTypeLabel: CHARACTER_TYPES.find(entry => entry.value === characterType)?.value ?? 'person',
           isModerator,
           moderatorMode: Debate.DEFAULT_MODERATOR_MODE,
           ...modeContext,
