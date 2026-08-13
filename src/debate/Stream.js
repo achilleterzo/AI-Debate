@@ -97,10 +97,81 @@ export function abortActiveStreams() {
   openRequests.clear()
 }
 
+/**
+ * The opening of the pinned conversation summary.
+ *
+ * Exported because the debate writes it and this file has to recognise it:
+ * they were two copies of the same literal, and the wrapper tag the debate
+ * later puts around every context message silently broke the match here — the
+ * summary stopped being recognised as one, so it was neither pinned nor
+ * counted. `isSummaryMessage` therefore looks past a leading wrapper tag
+ * instead of anchoring on the raw start of the content.
+ */
+export const CONVERSATION_SUMMARY_MARKER = '[Conversation summary so far]'
+
+export function isSummaryMessage(message) {
+  return String(message?.content || '')
+    .replace(/^\s*<[a-z_]+>\s*/i, '')
+    .startsWith(CONVERSATION_SUMMARY_MARKER)
+}
+
+/**
+ * What one message may occupy when no context budget was configured. Only the
+ * calls that carry no conversation — a character profile, a round summary —
+ * land here; a turn is invoked with the user's setting.
+ */
+const DEFAULT_MESSAGE_BUDGET_CHARS = 32_000
+
+/**
+ * The floor under a derived budget. A summary is compacted at roughly the same
+ * size as the context setting, so subtracting it can leave nothing at all —
+ * and a per-message allowance below an ordinary turn would mangle every
+ * message to save room the transcript no longer has anyway.
+ */
+const MIN_MESSAGE_BUDGET_CHARS = 4_000
+
+/**
+ * The system prompt is instructions, not conversation, and it does not come
+ * out of the conversation budget: at a 2 KB setting, trimming it to that would
+ * cut the persona, the shared rules and the tool protocol out of the turn.
+ */
+const MAX_SYSTEM_PROMPT_CHARS = 32_000
+
+/** Emergency shrink after the provider rejected the payload as too long. */
+const TOO_LONG_RETRY_BUDGET_CHARS = 6_000
+
 function trimText(txt, maxChars) {
   const s = String(txt || '')
   if (s.length <= maxChars) return s
   return s.slice(0, Math.max(0, maxChars - 28)) + '\n\n...[truncated for context]'
+}
+
+/**
+ * How the configured context is shared out, in characters.
+ *
+ * `perMessage` is what one ordinary message may take: the budget minus what
+ * the pinned summary has already spent. Deriving it is what removes the fixed
+ * ceiling that used to cut a long message at 32 000 characters however much
+ * context the user had configured, and to allow 32 000 to a single message
+ * however little.
+ *
+ * `summary` is separate because the summary is charged once, when it is
+ * subtracted above. Trimming it again to what is left would charge it twice —
+ * and at a small setting the floor under `perMessage` is larger than the room
+ * actually left, so the pinned summary was the message that got cut. Both
+ * numbers come from here so they cannot drift apart.
+ */
+export function resolveBudget(messages = [], contextChars = 0) {
+  if (!Number.isFinite(contextChars) || contextChars <= 0) {
+    return { perMessage: DEFAULT_MESSAGE_BUDGET_CHARS, summary: DEFAULT_MESSAGE_BUDGET_CHARS }
+  }
+  const pinned = messages
+    .filter(isSummaryMessage)
+    .reduce((total, message) => total + String(message?.content || '').length, 0)
+  return {
+    perMessage: Math.max(MIN_MESSAGE_BUDGET_CHARS, contextChars - pinned),
+    summary: contextChars,
+  }
 }
 
 /**
@@ -114,21 +185,29 @@ function trimText(txt, maxChars) {
  * whichever allowance is larger, so lowering the block size still lowers what
  * is sent, and the guard still bounds a tool that returns far more than asked.
  */
-function messageBudget(message, maxPerMsg) {
+function messageBudget(message, maxPerMsg, maxSummary) {
+  // Already charged against the budget by resolveBudget, so it is not trimmed
+  // to the remainder it paid for.
+  if (isSummaryMessage(message)) return maxSummary
   return message?.role === 'tool'
     ? Math.max(maxPerMsg, Web.maxToolResultChars())
     : maxPerMsg
 }
 
-function compactMessages(arr, { keepLast = Infinity, maxPerMsg = 12000 } = {}) {
+export function compactMessages(arr, {
+  keepLast = Infinity,
+  maxPerMsg = DEFAULT_MESSAGE_BUDGET_CHARS,
+  maxSummary = maxPerMsg,
+  maxSystem = MAX_SYSTEM_PROMPT_CHARS,
+} = {}) {
   const out = []
   const sys = arr.find(message => message.role === 'system')
-  if (sys) out.push({ ...sys, content: trimText(sys.content, maxPerMsg) })
+  if (sys) out.push({ ...sys, content: trimText(sys.content, maxSystem) })
   const nonSystem = arr.filter(message => message.role !== 'system')
   const recent = Number.isFinite(keepLast) ? nonSystem.slice(-keepLast) : nonSystem
-  const summary = nonSystem.find(message => String(message.content || '').startsWith('[Conversation summary so far]\n'))
+  const summary = nonSystem.find(isSummaryMessage)
   const selected = summary && !recent.includes(summary) ? [summary, ...recent] : recent
-  const tail = selected.map(message => ({ ...message, content: trimText(message.content, messageBudget(message, maxPerMsg)) }))
+  const tail = selected.map(message => ({ ...message, content: trimText(message.content, messageBudget(message, maxPerMsg, maxSummary)) }))
   return [...out, ...tail]
 }
 
@@ -213,6 +292,10 @@ export async function streamChat({
   // request in flight; this is what stops the turn from opening the next one
   // — the round after a tool result, or a retry — while it unwinds.
   stopRef = null,
+  // The conversation budget the user configured, in characters. The guard below
+  // sizes itself on it instead of on a fixed ceiling; 0 keeps its own default,
+  // which is what the calls that carry no conversation want.
+  contextChars = 0,
 }) {
   const label = `[${provider.id}] ${model}${purpose ? ` — ${purpose}` : ''}`
   console.group(label)
@@ -246,7 +329,10 @@ export async function streamChat({
   const separateToolRounds = typeof onToolRound === 'function'
 
   while (true) {
-    const payloadMessages = compactMessages(apiMessages, { maxPerMsg: 32000 })
+    // Recomputed per round: a tool result joins `apiMessages` between rounds,
+    // and the summary it has to share the budget with is already in there.
+    const budget = resolveBudget(apiMessages, contextChars)
+    const payloadMessages = compactMessages(apiMessages, { maxPerMsg: budget.perMessage, maxSummary: budget.summary })
     const totalChars = payloadMessages.reduce((count, message) => count + String(message.content || '').length, 0)
     const estimatedTokens = Math.ceil(totalChars / 4)
     if (typeof onEstimate === 'function') {
@@ -323,7 +409,15 @@ export async function streamChat({
       if (res.status === 400 && /prompt too long|max context length|context length/i.test(body) && !retriedTooLong) {
         retriedTooLong = true
         console.warn(`${label} prompt too long — retrying with a reduced context`)
-        apiMessages = compactMessages(apiMessages, { keepLast: 1, maxPerMsg: 6000 })
+        // Never above the emergency size — the point is to get under a context
+        // window we cannot measure — and never above what was configured, so a
+        // small setting is not overshot by the retry that is meant to shrink.
+        const retryBudget = resolveBudget(apiMessages, contextChars)
+        apiMessages = compactMessages(apiMessages, {
+          keepLast: 1,
+          maxPerMsg: Math.min(TOO_LONG_RETRY_BUDGET_CHARS, retryBudget.perMessage),
+          maxSummary: Math.min(TOO_LONG_RETRY_BUDGET_CHARS, retryBudget.summary),
+        })
         continue
       }
       console.error(`${label} HTTP ${res.status}:`, body)

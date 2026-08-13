@@ -1,9 +1,5 @@
 import { visibleContribution } from './ReasoningLeak'
-
-function moderatorModeOf(actor) {
-  if (['containment', 'facilitator', 'active'].includes(actor?.moderatorMode)) return actor.moderatorMode
-  return actor?.moderatorAlwaysIntervene ? 'active' : 'containment'
-}
+import { normalizeModeratorMode as moderatorModeOf } from '../settings/Settings'
 
 function moderatorPermissivenessOf(actor) {
   const value = Number(actor?.moderatorPermissiveness)

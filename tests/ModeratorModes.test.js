@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Debate } from '../src/debate/Debate'
+import { DEFAULT_MODERATOR_MODE, normalizeModeratorMode } from '../src/settings/Settings'
 
 const moderator = { id: 0, tag: 'M', isModerator: true, moderatorMode: 'containment' }
 const speaker = { id: 1, tag: 'A', name: 'Alice', isModerator: false }
@@ -18,12 +19,24 @@ function decide(mode, { actorOverrides = {}, ...extra } = {}) {
 describe('normalizeModeratorMode', () => {
   it('keeps a valid explicit mode', () => {
     expect(Debate.normalizeModeratorMode({ moderatorMode: 'facilitator' })).toBe('facilitator')
+    expect(Debate.normalizeModeratorMode({ moderatorMode: 'containment' })).toBe('containment')
+  })
+
+  it('facilitates by default', () => {
+    expect(DEFAULT_MODERATOR_MODE).toBe('facilitator')
+    expect(Debate.normalizeModeratorMode({})).toBe(DEFAULT_MODERATOR_MODE)
+    expect(Debate.mkParticipant(0, '').moderatorMode).toBe(DEFAULT_MODERATOR_MODE)
   })
 
   it('migrates the legacy always-intervene flag', () => {
     expect(Debate.normalizeModeratorMode({ moderatorAlwaysIntervene: true })).toBe('active')
-    expect(Debate.normalizeModeratorMode({ moderatorAlwaysIntervene: false })).toBe('containment')
-    expect(Debate.normalizeModeratorMode({})).toBe('containment')
+    expect(Debate.normalizeModeratorMode({ moderatorAlwaysIntervene: false })).toBe(DEFAULT_MODERATOR_MODE)
+  })
+
+  it('is the same function the prompt builder resolves the style with', () => {
+    // Two copies of this fallback are two places to change a default, and one
+    // of them to forget.
+    expect(Debate.normalizeModeratorMode).toBe(normalizeModeratorMode)
   })
 })
 

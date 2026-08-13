@@ -17,7 +17,7 @@ import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePrompt'
 import { visibleContribution } from '../prompts/ReasoningLeak'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
-import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, normalizeModeratorFacilitationInterval, normalizeModeratorPermissiveness } from '../settings/Settings'
+import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_MODE as DEFAULT_MODE, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, MODERATOR_MODES as MODERATOR_MODE_VALUES, contextBudgetChars, normalizeModeratorFacilitationInterval, normalizeModeratorMode, normalizeModeratorPermissiveness } from '../settings/Settings'
 import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
@@ -188,20 +188,15 @@ export class Debate {
    */
   static INHERIT_THINKING_LEVEL = ''
 
-  static MODERATOR_MODES = ['containment', 'facilitator', 'active']
+  static MODERATOR_MODES = MODERATOR_MODE_VALUES
 
-  static DEFAULT_MODERATOR_MODE = 'containment'
+  static DEFAULT_MODERATOR_MODE = DEFAULT_MODE
 
   static DEFAULT_MODERATOR_PERMISSIVENESS = DEFAULT_PERMISSIVENESS
 
   static DEFAULT_MODERATOR_FACILITATION_INTERVAL = DEFAULT_FACILITATION_INTERVAL
 
-  // Migrates the legacy moderatorAlwaysIntervene boolean into the mode select.
-  static normalizeModeratorMode(participant) {
-    const mode = participant?.moderatorMode
-    if (Debate.MODERATOR_MODES.includes(mode)) return mode
-    return participant?.moderatorAlwaysIntervene ? 'active' : Debate.DEFAULT_MODERATOR_MODE
-  }
+  static normalizeModeratorMode = normalizeModeratorMode
 
   static DEFAULT_MOOD_INTENSITY = 2
 
@@ -1594,7 +1589,8 @@ export class Debate {
 
         // The context size always applies: with a summary it bounds the recent
         // exchanges, without one it is the only thing keeping the payload sane.
-        const cappedContext = Debate.capContextMessages(contextMessages, summaryAccumulateThreshold * 1024)
+        const contextChars = contextBudgetChars(summaryAccumulateThreshold)
+        const cappedContext = Debate.capContextMessages(contextMessages, contextChars)
         contextMessages.splice(0, contextMessages.length, ...cappedContext)
 
         // Pinned outside the cap: dropping the summary would defeat its purpose.
@@ -1821,6 +1817,10 @@ export class Debate {
             baseUrl: actorBaseUrl,
             model: actor.model,
             messages: contextMessages,
+            // The turn is the one call that carries the conversation, so it is
+            // the one whose transport guard is sized on the context setting
+            // rather than on a fixed ceiling.
+            contextChars,
             systemPrompt,
             useTools: true,
             tools: availableTools,

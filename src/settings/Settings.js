@@ -78,6 +78,25 @@ export const DEFAULT_MODERATION_COOLING = 0.15
 export const DEFAULT_MODERATOR_PERMISSIVENESS = 2
 export const MODERATOR_PERMISSIVENESS_LEVELS = 5
 
+export const MODERATOR_MODES = ['containment', 'facilitator', 'active']
+
+/**
+ * The style a moderator runs in unless it was given one of its own.
+ *
+ * Lives here rather than on `Debate` because the prompt builder needs the same
+ * answer and cannot import the debate without a cycle — it used to carry its
+ * own copy of this list and this fallback, which is two places to change a
+ * default and one of them to forget.
+ */
+export const DEFAULT_MODERATOR_MODE = 'facilitator'
+
+/** Migrates the legacy moderatorAlwaysIntervene boolean into the mode select. */
+export function normalizeModeratorMode(participant) {
+  const mode = participant?.moderatorMode
+  if (MODERATOR_MODES.includes(mode)) return mode
+  return participant?.moderatorAlwaysIntervene ? 'active' : DEFAULT_MODERATOR_MODE
+}
+
 // How many rounds pass between two scheduled facilitation turns. Only the
 // facilitator style uses it: 1 means the moderator sums up every round.
 export const DEFAULT_MODERATOR_FACILITATION_INTERVAL = 1
@@ -88,6 +107,19 @@ export const MAX_MODERATION_COOLING = 1
 export const MODERATION_COOLING_STEPS = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]
 
 export const SUMMARY_ACCUMULATE_STEPS = [2, 4, 8, 16, 32, 64, 128, 256]
+
+/**
+ * The context setting as a number of characters.
+ *
+ * The control is labelled in KB and every consumer needs the same conversion,
+ * which used to be an inline `threshold * 1024` at each call site — including
+ * the ones that then compared it against a limit expressed in characters.
+ */
+export function contextBudgetChars(thresholdKb) {
+  const value = Number(thresholdKb)
+  if (!Number.isFinite(value) || value <= 0) return DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD * 1024
+  return Math.round(value * 1024)
+}
 
 // How much of a fetched page `fetch_url` returns per call. A page is never
 // truncated — the rest stays reachable through the block number — so this is a
