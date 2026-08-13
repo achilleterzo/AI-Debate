@@ -76,6 +76,23 @@ export default {
     overridePriorityTitle: '与聊天全局规则冲突时优先生效',
   },
   confirmModal: { defaultConfirm: '确认' },
+  importNotice: {
+    title: '已导入对话',
+    tagline: '这个文件是 JSON 导出文件，不是快照：它包含对话内容，但不包含辩论的配置。',
+    restoredTitle: '已恢复',
+    restored: [
+      '议题与完整记录',
+      '结论与上下文摘要',
+      '参与者的姓名、标签和角色',
+    ],
+    missingTitle: '导出文件中没有',
+    missing: [
+      '模型、约束与亲和度',
+      '轮数、超时与冷却',
+      '全局约束与共同指令',
+    ],
+    dontShowAgain: '不再显示',
+  },
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: '连接',

@@ -1,4 +1,4 @@
-import { DEFAULT_SHOW_SPLASH, SPLASH_STORAGE_KEY } from '../settings/Settings'
+import { DEFAULT_SHOW_IMPORT_NOTICE, DEFAULT_SHOW_SPLASH, DISMISSIBLE_NOTICE_KEYS, IMPORT_NOTICE_STORAGE_KEY, SPLASH_STORAGE_KEY } from '../settings/Settings'
 
 export class Storage {
   static LS_KEY = 'pap_settings'
@@ -127,6 +127,32 @@ export class Storage {
   static saveShowSplashOnStartup(value) {
     try {
       localStorage.setItem(SPLASH_STORAGE_KEY, String(!!value))
+    } catch {
+      return
+    }
+  }
+
+  static loadShowImportNotice() {
+    try {
+      const raw = localStorage.getItem(IMPORT_NOTICE_STORAGE_KEY)
+      return raw === null ? DEFAULT_SHOW_IMPORT_NOTICE : raw === 'true'
+    } catch {
+      return DEFAULT_SHOW_IMPORT_NOTICE
+    }
+  }
+
+  static saveShowImportNotice(value) {
+    try {
+      localStorage.setItem(IMPORT_NOTICE_STORAGE_KEY, String(!!value))
+    } catch {
+      return
+    }
+  }
+
+  /** Puts every dismissed notice back on, as it is on a fresh install. */
+  static restoreNotices() {
+    try {
+      for (const key of DISMISSIBLE_NOTICE_KEYS) localStorage.removeItem(key)
     } catch {
       return
     }

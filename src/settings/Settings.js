@@ -50,6 +50,21 @@ export function normalizeDisabledModels(raw) {
 export const SPLASH_STORAGE_KEY = 'showSplashOnStartup'
 export const DEFAULT_SHOW_SPLASH = true
 
+// Same reasoning as the splash: a notice dismissed for good should stay
+// dismissed even after the settings are cleared.
+export const IMPORT_NOTICE_STORAGE_KEY = 'showImportNotice'
+export const DEFAULT_SHOW_IMPORT_NOTICE = true
+
+/**
+ * Every "do not show again" flag, so the advanced settings can put them all
+ * back at once. A notice that can be dismissed forever is otherwise gone for
+ * good — the splash is not in here because it keeps its own entry in the menu.
+ *
+ * Restoring is a removal rather than a write of the default: the absence of
+ * the key is what a fresh install looks like.
+ */
+export const DISMISSIBLE_NOTICE_KEYS = [IMPORT_NOTICE_STORAGE_KEY]
+
 // Injected by Vite from package.json (see vite.config.js). Lives here rather
 // than in the update hook so non-React code — the exporters — can read it
 // without pulling React in.

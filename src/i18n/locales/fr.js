@@ -80,6 +80,23 @@ export default {
     overridePriorityTitle: 'Prévaut sur les règles globales du chat en cas de conflit',
   },
   confirmModal: { defaultConfirm: 'Confirmer' },
+  importNotice: {
+    title: 'Conversation importée',
+    tagline: 'Ce fichier est un export JSON, pas un instantané : il contient la conversation, pas la configuration du débat.',
+    restoredTitle: 'Restauré',
+    restored: [
+      'Sujet et transcription complète',
+      'Conclusions et résumé du contexte',
+      'Participants, avec nom, tag et rôle',
+    ],
+    missingTitle: 'Absent d\'un export',
+    missing: [
+      'Modèles, contraintes et affinités',
+      'Tours, délai et refroidissement',
+      'Contraintes globales et instructions partagées',
+    ],
+    dontShowAgain: 'Ne plus afficher',
+  },
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: 'Connexion',

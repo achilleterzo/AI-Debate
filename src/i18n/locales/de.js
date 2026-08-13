@@ -80,6 +80,23 @@ export default {
     overridePriorityTitle: 'Hat bei Konflikten Vorrang vor den globalen Chat-Regeln',
   },
   confirmModal: { defaultConfirm: 'Bestätigen' },
+  importNotice: {
+    title: 'Unterhaltung importiert',
+    tagline: 'Diese Datei ist ein JSON-Export, kein Snapshot: Sie enthält die Unterhaltung, nicht die Debattenkonfiguration.',
+    restoredTitle: 'Wiederhergestellt',
+    restored: [
+      'Thema und vollständiges Transkript',
+      'Schlussfolgerungen und Kontextzusammenfassung',
+      'Teilnehmende, mit Name, Tag und Rolle',
+    ],
+    missingTitle: 'Nicht in einem Export',
+    missing: [
+      'Modelle, Vorgaben und Affinitäten',
+      'Runden, Timeout und Abkühlung',
+      'Globale Vorgaben und gemeinsame Anweisungen',
+    ],
+    dontShowAgain: 'Nicht mehr anzeigen',
+  },
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: 'Verbindung',

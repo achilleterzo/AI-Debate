@@ -21,6 +21,7 @@ import InputActionButtons from './components/InputActionButtons'
 import RoundsInput from './components/RoundsInput'
 import AppModals from './components/AppModals'
 import SplashScreen from './components/SplashScreen'
+import ImportNoticeModal from './components/ImportNoticeModal'
 import DebateWizard from './components/DebateWizard'
 import ScrollToBottomButton from './components/ScrollToBottomButton'
 import SummaryProgressBadge from './components/SummaryProgressBadge'
@@ -365,6 +366,27 @@ function AppInner({ settings }) {
   }, [])
 
   const splash = useSplashScreen()
+  // Seeded once, like the splash: unticking the box inside the notice records
+  // the choice for next time without closing what is still being read.
+  const [showImportNotice, setShowImportNotice] = useState(Storage.loadShowImportNotice)
+  const [importNoticeVisible, setImportNoticeVisible] = useState(false)
+
+  const changeShowImportNotice = useCallback(next => {
+    setShowImportNotice(next)
+    Storage.saveShowImportNotice(next)
+  }, [])
+
+  const handleExportImported = useCallback(() => {
+    if (showImportNotice) setImportNoticeVisible(true)
+  }, [showImportNotice])
+
+  // The stored flag and the state seeded from it have to move together, or the
+  // notice would stay silent for the rest of the session despite being back on.
+  const handleRestoreNotices = useCallback(() => {
+    Storage.restoreNotices()
+    setShowImportNotice(true)
+  }, [])
+
   // Nothing in the app works without a reachable endpoint, so an unreachable
   // one puts the connection modal on screen by itself instead of leaving a red
   // badge as the only clue. Derived rather than opened by an effect, and it
@@ -816,6 +838,7 @@ function AppInner({ settings }) {
     topicRef,
     setTopicValue,
     invalidSnapshotMessage: ui.invalidJsonFile,
+    onExportImported: handleExportImported,
   })
 
   const exportItems = useMemo(() => Session.createExportItems({
@@ -874,6 +897,13 @@ function AppInner({ settings }) {
           onShowOnStartupChange={splash.setShowOnStartup}
           onClose={splash.close}
           onStart={() => { splash.close(); setWizardOpen(true) }}
+        />
+      )}
+      {importNoticeVisible && (
+        <ImportNoticeModal
+          showAgain={showImportNotice}
+          onShowAgainChange={changeShowImportNotice}
+          onClose={() => setImportNoticeVisible(false)}
         />
       )}
       {wizardOpen && (
@@ -1224,6 +1254,7 @@ function AppInner({ settings }) {
         onDebugModeChange={next => { localStorage.setItem('debugMode', next); setDebugMode(next) }}
         debugPayloadTurns={debugPayloadTurns}
         onDebugPayloadTurnsChange={setDebugPayloadTurns}
+        onRestoreNotices={handleRestoreNotices}
         running={running}
         enabledTools={enabledTools}
         onEnabledToolsChange={setEnabledTools}

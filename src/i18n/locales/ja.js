@@ -76,6 +76,23 @@ export default {
     overridePriorityTitle: '競合する場合、チャットのグローバルルールより優先されます',
   },
   confirmModal: { defaultConfirm: '確認' },
+  importNotice: {
+    title: '会話を読み込みました',
+    tagline: 'このファイルは JSON エクスポートであり、スナップショットではありません。会話は含まれますが、討論の設定は含まれません。',
+    restoredTitle: '復元されたもの',
+    restored: [
+      '議題と記録の全文',
+      '結論とコンテキスト要約',
+      '参加者（名前・タグ・役割）',
+    ],
+    missingTitle: 'エクスポートに含まれないもの',
+    missing: [
+      'モデル・制約・親和度',
+      'ラウンド数・タイムアウト・冷却',
+      '全体の制約と共通指示',
+    ],
+    dontShowAgain: '今後表示しない',
+  },
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: '接続',

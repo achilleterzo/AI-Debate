@@ -10,6 +10,7 @@ export function useSnapshots({
   topicRef,
   setTopicValue,
   invalidSnapshotMessage,
+  onExportImported,
 }) {
   const handleSaveSnapshot = useCallback(() => {
     // The composer keeps its text in a ref so that typing does not re-render
@@ -26,7 +27,13 @@ export function useSnapshots({
 
   const handleLoadSnapshot = useCallback(() => {
     Session.promptSnapshotFile({
-      onData: data => {
+      // A JSON export is not a snapshot — it resolves state into labels for a
+      // reader — but it does carry the conversation. Mapping it onto the
+      // snapshot shape here keeps one code path below instead of two, and the
+      // notice at the end says what an export could not bring with it.
+      onData: raw => {
+        const fromExport = Session.isExportedSession(raw)
+        const data = fromExport ? Session.fromExportedSession(raw, Debate.sessionConstants()) : raw
         if (data.participants?.length >= 2) {
           actions.setParticipants(Debate.hydrateParticipantsFromSession(data.participants))
         }
@@ -67,10 +74,12 @@ export function useSnapshots({
           actions.setSummary(data.summary)
         }
         if (data.turn) refs.turn.current = data.turn
+        // Last, so the notice lands on a session that is already on screen.
+        if (fromExport) onExportImported?.()
       },
       onError: () => alert(invalidSnapshotMessage),
     })
-  }, [actions, invalidSnapshotMessage, refs.sequence, refs.summary, refs.turn, setTopicValue])
+  }, [actions, invalidSnapshotMessage, onExportImported, refs.sequence, refs.summary, refs.turn, setTopicValue])
 
   return { handleSaveSnapshot, handleLoadSnapshot }
 }

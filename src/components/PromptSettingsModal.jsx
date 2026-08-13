@@ -33,6 +33,7 @@ export default function PromptSettingsModal({
   onPageBlockKbChange,
   debugPayloadTurns,
   onDebugPayloadTurnsChange,
+  onRestoreNotices,
   endpoint,
   onConnectEndpoint,
   connecting,
@@ -54,6 +55,9 @@ export default function PromptSettingsModal({
   const topMenuUi = UI_STRINGS.topMenu
   const [text, setText] = useState(value)
   const [activeTab, setActiveTab] = useState('main')
+  // Restoring a notice has no visible effect until the notice next fires, so
+  // the button has to say for itself that it did something.
+  const [noticesRestored, setNoticesRestored] = useState(false)
   const languageOptions = UI_LANGUAGE_OPTIONS
     .filter(language => TRANSLATED_LANGUAGE_CODES.includes(language.code))
     .map(language => ({ value: language.code, label: language.label, code: language.code }))
@@ -283,6 +287,17 @@ export default function PromptSettingsModal({
                     <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{appUi.debugPayloadTurnsHint}</span>
                   </div>
                 )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>{ui.noticesTitle}</span>
+                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.noticesDescription}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => { onRestoreNotices?.(); setNoticesRestored(true) }}
+                      style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}
+                    >{ui.restoreNotices}</button>
+                    {noticesRestored && <span style={{ fontSize: 11, color: '#4ade80' }}>{ui.noticesRestored}</span>}
+                  </div>
+                </div>
                 <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid #2e2e2e', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <button onClick={onClearSettings} style={{ background: 'transparent', border: '1px solid #5a2e2e', color: '#f87171', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{topMenuUi.clearSavedSettings}</button>
                   <div

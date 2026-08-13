@@ -56,6 +56,7 @@ export default function AppModals({
   onPageBlockKbChange,
   debugPayloadTurns,
   onDebugPayloadTurnsChange,
+  onRestoreNotices,
   endpointInput,
   onConnectEndpoint,
   availableModels = [],
@@ -127,6 +128,7 @@ export default function AppModals({
           onPageBlockKbChange={onPageBlockKbChange}
           debugPayloadTurns={debugPayloadTurns}
           onDebugPayloadTurnsChange={onDebugPayloadTurnsChange}
+          onRestoreNotices={onRestoreNotices}
           endpoint={endpointInput}
           onConnectEndpoint={onConnectEndpoint}
           connecting={connecting}

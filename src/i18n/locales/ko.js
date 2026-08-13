@@ -80,6 +80,23 @@ export default {
     overridePriorityTitle: '충돌 시 채팅 전역 규칙보다 우선 적용됩니다',
   },
   confirmModal: { defaultConfirm: '확인' },
+  importNotice: {
+    title: '대화를 가져왔습니다',
+    tagline: '이 파일은 JSON 내보내기이지 스냅샷이 아닙니다. 대화는 담겨 있지만 토론 설정은 들어 있지 않습니다.',
+    restoredTitle: '복원됨',
+    restored: [
+      '주제와 전체 기록',
+      '결론과 컨텍스트 요약',
+      '참가자의 이름·태그·역할',
+    ],
+    missingTitle: '내보내기에 없는 것',
+    missing: [
+      '모델·제약·친밀도',
+      '라운드·타임아웃·냉각',
+      '전역 제약과 공통 지침',
+    ],
+    dontShowAgain: '다시 표시하지 않기',
+  },
   endpointModal: {
     title: 'Endpoint override',
     mainTitle: '연결',
