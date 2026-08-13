@@ -502,7 +502,7 @@ export async function streamChat({
     // empty string, but it is not a usable contribution either; publishing
     // it creates a balloon that looks blank except for a stray `<` or similar
     // transport character.
-    const danglingMarkupAnswer = /^[<>{}\[\]`]+$/.test(full.trim())
+    const danglingMarkupAnswer = /^[<>{}[\]`]+$/.test(full.trim())
     // A line announcing a call is not a turn; a finished turn that happens to
     // carry a stray call still is. Length is the only thing that separates them
     // from outside, and getting it wrong in the generous direction costs one

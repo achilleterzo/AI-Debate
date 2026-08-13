@@ -22,6 +22,10 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
     effectiveConclusionModel,
     generateConclusion,
   } = conclusions
+  // Taken off the object once, here: reading `promptRefs.standard` inside the
+  // JSX reads a property of a ref holder during render, which the compiler
+  // lint refuses even though nothing dereferences `.current`.
+  const { custom: customPromptInput, standard: standardPromptInput } = promptRefs
   const [hasCustomPrompt, setHasCustomPrompt] = useState(() => !!customConclusionPrompt.trim())
   const [draftConclusionType, setDraftConclusionType] = useState(conclusionType)
   const [draftConclusionModel, setDraftConclusionModel] = useState(effectiveConclusionModel)
@@ -59,9 +63,9 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
               })}
             </div>
             {draftConclusionType === 'custom' ? (
-              <textarea defaultValue={customConclusionPrompt} ref={promptRefs.custom} onInput={event => { const present = !!event.currentTarget.value.trim(); setHasCustomPrompt(previous => previous === present ? previous : present) }} placeholder={ui.customConclusionPlaceholder} rows={3} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.5, padding: '8px 10px', resize: 'vertical' }} />
+              <textarea defaultValue={customConclusionPrompt} ref={customPromptInput} onInput={event => { const present = !!event.currentTarget.value.trim(); setHasCustomPrompt(previous => previous === present ? previous : present) }} placeholder={ui.customConclusionPlaceholder} rows={3} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.5, padding: '8px 10px', resize: 'vertical' }} />
             ) : (
-              <textarea defaultValue={standardConclusionPrompt} ref={promptRefs.standard} onBlur={event => commitStandardPrompt(event.target.value)} placeholder={ui.standardConclusionPlaceholder} rows={2} title={ui.standardConclusionTitle} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.45, padding: '8px 10px', resize: 'vertical' }} />
+              <textarea defaultValue={standardConclusionPrompt} ref={standardPromptInput} onBlur={event => commitStandardPrompt(event.target.value)} placeholder={ui.standardConclusionPlaceholder} rows={2} title={ui.standardConclusionTitle} style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.45, padding: '8px 10px', resize: 'vertical' }} />
             )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {wand && (
@@ -80,7 +84,7 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
               <div style={{ flex: 1 }}>
                 <ReactSelect styles={modelSelectStyles} options={options} value={draftConclusionModel ? { value: draftConclusionModel, label: draftConclusionModel } : null} onChange={option => setDraftConclusionModel(option?.value ?? '')} placeholder={common.chooseModel} isClearable menuPlacement="top" noOptionsMessage={() => common.noModels} />
               </div>
-              <button disabled={isDisabled} onClick={() => { const custom = promptRefs.custom.current?.value ?? ''; const standard = promptRefs.standard.current?.value ?? ''; setConclusionModel(draftConclusionModel); commitCustomPrompt(custom); commitStandardPrompt(standard); generateConclusion({ type: draftConclusionType, model: draftConclusionModel, customPrompt: custom, standardPrompt: standard }) }} style={{ ...styles.connectBtn(isDisabled), padding: '6px 18px', fontSize: 12, flexShrink: 0, background: conclusionRunning ? '#222' : `${conclusionTypeDefinition.color}22`, borderColor: `${conclusionTypeDefinition.color}66`, color: conclusionRunning ? '#555' : conclusionTypeDefinition.color }}>{conclusionRunning ? '…' : ui.generate}</button>
+              <button disabled={isDisabled} onClick={() => { const custom = customPromptInput.current?.value ?? ''; const standard = standardPromptInput.current?.value ?? ''; setConclusionModel(draftConclusionModel); commitCustomPrompt(custom); commitStandardPrompt(standard); generateConclusion({ type: draftConclusionType, model: draftConclusionModel, customPrompt: custom, standardPrompt: standard }) }} style={{ ...styles.connectBtn(isDisabled), padding: '6px 18px', fontSize: 12, flexShrink: 0, background: conclusionRunning ? '#222' : `${conclusionTypeDefinition.color}22`, borderColor: `${conclusionTypeDefinition.color}66`, color: conclusionRunning ? '#555' : conclusionTypeDefinition.color }}>{conclusionRunning ? '…' : ui.generate}</button>
             </div>
           </div>
         </div>
