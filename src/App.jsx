@@ -150,6 +150,7 @@ function AppInner({ settings }) {
     nextSeq,
     startDebate,
     stopDebate,
+    forceStopDebate,
     queueInterjection,
   } = useDebateController({
     participants,
@@ -350,6 +351,12 @@ function AppInner({ settings }) {
   })
 
   const handleStop = () => stopDebate()
+  const handleForceStop = () => forceStopDebate()
+  // Stable identity on purpose: the chat timeline is memoized, and an inline
+  // arrow here re-rendered every message — markdown included — on any state
+  // change in this component, which is what made the scroll stutter whenever
+  // the back-to-bottom button appeared or went away.
+  const handleResumeFromChat = useCallback(() => handleResume(), [handleResume])
 
   const openConfirm = useCallback((state, onConfirm) => {
     confirmActionRef.current = onConfirm
@@ -987,7 +994,7 @@ function AppInner({ settings }) {
           setPayloadModal={setPayloadModal}
           userModel={Debate.USER_MODEL}
           DotsComponent={DotsView}
-           onResume={() => handleResume()}
+           onResume={handleResumeFromChat}
           isWideLayout={isWideLayout}
         />
         {summaryInProgress && <SummaryProgressBadge />}
@@ -1082,6 +1089,7 @@ function AppInner({ settings }) {
           textareaRef={textareaRef}
           onStart={() => handleStart()}
           onStop={handleStop}
+          onForceStop={handleForceStop}
           onIntervene={handleInterjection}
           onResume={() => handleResume()}
         />

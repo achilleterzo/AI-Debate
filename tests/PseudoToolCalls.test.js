@@ -9,52 +9,52 @@ describe('arguments typed as prose', () => {
   // then the dice arguments alone under it, with no name and no markup.
   it('removes a bare argument object left under the narration', () => {
     const message = [
-      '*Senza muovere un muscolo, attivo il mio Susanoo perfetto.*',
+      '*Without moving a muscle, I raise my perfect Susanoo.*',
       '',
       '{ "count": 1, "sides": 20 }',
     ].join('\n')
 
-    expect(stripPseudoToolCalls(message)).toBe('*Senza muovere un muscolo, attivo il mio Susanoo perfetto.*')
+    expect(stripPseudoToolCalls(message)).toBe('*Without moving a muscle, I raise my perfect Susanoo.*')
   })
 
   it('recognises the arguments of the other tools too', () => {
-    expect(stripPseudoToolCalls('Verifico.\n\n{"query": "prezzo del rame 2026"}')).toBe('Verifico.')
-    expect(stripPseudoToolCalls('Leggo la fonte.\n\n{"url": "https://example.com", "page": 2}')).toBe('Leggo la fonte.')
-    expect(stripPseudoToolCalls('Cito.\n\n{"messageId": 12}')).toBe('Cito.')
+    expect(stripPseudoToolCalls('Let me check.\n\n{"query": "copper price 2026"}')).toBe('Let me check.')
+    expect(stripPseudoToolCalls('Reading the source.\n\n{"url": "https://example.com", "page": 2}')).toBe('Reading the source.')
+    expect(stripPseudoToolCalls('As quoted.\n\n{"messageId": 12}')).toBe('As quoted.')
   })
 
   it('keeps JSON that is being talked about rather than called', () => {
-    const message = 'La risposta arriva come {"count": 1, "sides": 20} dentro la frase.'
+    const message = 'The answer arrives as {"count": 1, "sides": 20} inside the sentence.'
     expect(stripPseudoToolCalls(message)).toBe(message)
   })
 
   // Nothing here is the argument list of any tool, so it is data the debate is
   // about and it stays.
   it('keeps a standalone JSON object that is not a call', () => {
-    const message = 'Ecco i dati:\n\n{"nome": "Madara", "clan": "Uchiha"}'
+    const message = 'Here is the data:\n\n{"name": "Madara", "clan": "Uchiha"}'
     expect(stripPseudoToolCalls(message)).toBe(message)
   })
 
   // What the balloon shows mid-stream, and what a truncated reply ends on.
   it('removes an argument object the model never closed', () => {
-    expect(stripPseudoToolCalls('Attacco.\n\n{ "count": 1, "sides"')).toBe('Attacco.')
-    expect(stripPseudoToolCalls('Attacco.\n\n{ "count": 1,')).toBe('Attacco.')
+    expect(stripPseudoToolCalls('I attack.\n\n{ "count": 1, "sides"')).toBe('I attack.')
+    expect(stripPseudoToolCalls('I attack.\n\n{ "count": 1,')).toBe('I attack.')
   })
 
   it('keeps an unclosed brace that belongs to the prose', () => {
-    const message = 'Il set è definito come {"nome": "Madara"'
+    const message = 'The set is defined as {"name": "Madara"'
     expect(stripPseudoToolCalls(message)).toBe(message)
   })
 
   it('empties the fence a typed call was wrapped in', () => {
-    expect(stripPseudoToolCalls('Tiro.\n\n```json\n{"count": 2, "sides": 6}\n```')).toBe('Tiro.')
+    expect(stripPseudoToolCalls('Rolling.\n\n```json\n{"count": 2, "sides": 6}\n```')).toBe('Rolling.')
   })
 })
 
 describe('calls typed with a name', () => {
   it('removes the JSON call dialects, wherever they sit', () => {
-    expect(stripPseudoToolCalls('Cerco: {"name": "web_search", "arguments": {"query": "rame"}} e poi rispondo.'))
-      .toBe('Cerco:  e poi rispondo.')
+    expect(stripPseudoToolCalls('Searching: {"name": "web_search", "arguments": {"query": "copper"}} and then I answer.'))
+      .toBe('Searching:  and then I answer.')
     expect(stripPseudoToolCalls('[TOOL_CALLS] [{"name": "roll_dice", "arguments": {"count": 1, "sides": 20}}]')).toBe('')
     expect(stripPseudoToolCalls('<|python_tag|>{"name": "web_search", "parameters": {"query": "x"}}<|eom_id|>')).toBe('')
     expect(stripPseudoToolCalls('functools[{"name": "quote_message", "arguments": {"messageId": 3}}]')).toBe('')
@@ -63,44 +63,44 @@ describe('calls typed with a name', () => {
   // The name and its arguments with no markup at all — not JSON, not a tag.
   // The opening line of a real turn looked exactly like the first one.
   it('removes the call written with no markup at all', () => {
-    expect(stripPseudoToolCalls('roll_dice{count:1,sides:20}\n\nGuts, parli di "peso".')).toBe('Guts, parli di "peso".')
-    expect(stripPseudoToolCalls("Registro questo. memory {action: 'write', content: 'nota'}")).toBe('Registro questo.')
-    expect(stripPseudoToolCalls('Attacco e `roll_dice(1d20)` decide.')).toBe('Attacco e  decide.')
-    expect(stripPseudoToolCalls('Tiro roll_dice(count=2, sides=10) adesso.')).toBe('Tiro  adesso.')
+    expect(stripPseudoToolCalls('roll_dice{count:1,sides:20}\n\nGuts, you speak of "weight".')).toBe('Guts, you speak of "weight".')
+    expect(stripPseudoToolCalls("I record this. memory {action: 'write', content: 'a note'}")).toBe('I record this.')
+    expect(stripPseudoToolCalls('I attack and `roll_dice(1d20)` decides.')).toBe('I attack and  decides.')
+    expect(stripPseudoToolCalls('I roll roll_dice(count=2, sides=10) now.')).toBe('I roll  now.')
   })
 
   // Straight from a role-play round: every participant, and the moderator,
   // typing the tool name as a tag with its arguments as attributes.
   it('removes the tool name used directly as a tag', () => {
-    expect(stripPseudoToolCalls('**Attacco Madara Uchiha**: <roll_dice count="1" sides="20"/> Gli do un pugno normale.'))
-      .toBe('**Attacco Madara Uchiha**:  Gli do un pugno normale.')
-    expect(stripPseudoToolCalls('L\'attacco è stato patetico.\n\n<quote_message messageId="50" />\n\nUn fallimento totale.'))
-      .toBe('L\'attacco è stato patetico.\n\nUn fallimento totale.')
+    expect(stripPseudoToolCalls('**Attacking Madara Uchiha**: <roll_dice count="1" sides="20"/> I throw an ordinary punch.'))
+      .toBe('**Attacking Madara Uchiha**:  I throw an ordinary punch.')
+    expect(stripPseudoToolCalls('That attack was pathetic.\n\n<quote_message messageId="50" />\n\nA total failure.'))
+      .toBe('That attack was pathetic.\n\nA total failure.')
     expect(stripPseudoToolCalls('<memory action="write" content="x">')).toBe('')
-    expect(stripPseudoToolCalls('Testo </roll_dice> altro')).toBe('Testo  altro')
+    expect(stripPseudoToolCalls('Text </roll_dice> more')).toBe('Text  more')
   })
 
   it('still removes the XML dialects it always did', () => {
     expect(stripPseudoToolCalls('<call:roll_dice count="1" sides="20"/>')).toBe('')
     expect(stripPseudoToolCalls('<function_calls><invoke name="web_search"></invoke></function_calls>')).toBe('')
-    expect(stripPseudoToolCalls('Testo <tool_call>{"name": "memory"}</tool_call> altro')).toBe('Testo  altro')
+    expect(stripPseudoToolCalls('Text <tool_call>{"name": "memory"}</tool_call> more')).toBe('Text  more')
   })
 
   // A model that types the call often types the answer it wanted too, and that
   // result is as invented as the call.
   it('removes an invented tool result', () => {
-    expect(stripPseudoToolCalls('Ho tirato.\n<tool_response>{"total": 20}</tool_response>\nEsce 20.')).toBe('Ho tirato.\n\nEsce 20.')
+    expect(stripPseudoToolCalls('I rolled.\n<tool_response>{"total": 20}</tool_response>\nIt comes up 20.')).toBe('I rolled.\n\nIt comes up 20.')
   })
 })
 
 describe('turning a typed call into a real one', () => {
   it('recovers a named call for a tool this request offered', () => {
-    const calls = extractPseudoToolCalls('[TOOL_CALLS] [{"name": "web_search", "arguments": {"query": "rame"}}]', LLM_TOOLS)
-    expect(calls).toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'web_search', arguments: { query: 'rame' } } }])
+    const calls = extractPseudoToolCalls('[TOOL_CALLS] [{"name": "web_search", "arguments": {"query": "copper"}}]', LLM_TOOLS)
+    expect(calls).toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'web_search', arguments: { query: 'copper' } } }])
   })
 
   it('recovers the roll the participant typed as a tag, so the dice really fall', () => {
-    const calls = extractPseudoToolCalls('**Attacco Madara Uchiha**: <roll_dice count="1" sides="20"/> Un pugno.', [ROLL_DICE_TOOL])
+    const calls = extractPseudoToolCalls('**Attacking Madara Uchiha**: <roll_dice count="1" sides="20"/> A punch.', [ROLL_DICE_TOOL])
     expect(calls).toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'roll_dice', arguments: { count: 1, sides: 20 } } }])
   })
 
@@ -110,31 +110,31 @@ describe('turning a typed call into a real one', () => {
   })
 
   it('recovers a markup-free call whose arguments fit the schema', () => {
-    expect(extractPseudoToolCalls('roll_dice{count:1,sides:20}\n\nGuts, parli di "peso".', [ROLL_DICE_TOOL]))
+    expect(extractPseudoToolCalls('roll_dice{count:1,sides:20}\n\nGuts, you speak of "weight".', [ROLL_DICE_TOOL]))
       .toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'roll_dice', arguments: { count: 1, sides: 20 } } }])
-    expect(extractPseudoToolCalls("Registro. memory {action: 'write', content: 'nota'}", LLM_TOOLS))
-      .toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'memory', arguments: { action: 'write', content: 'nota' } } }])
+    expect(extractPseudoToolCalls("I record. memory {action: 'write', content: 'a note'}", LLM_TOOLS))
+      .toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'memory', arguments: { action: 'write', content: 'a note' } } }])
   })
 
   // `1d20` is a notation, not an argument object: the text is cleaned, but
   // nothing runs on arguments the model never actually wrote.
   it('runs nothing when the prose carries no usable arguments', () => {
-    expect(extractPseudoToolCalls('Attacco e `roll_dice(1d20)` decide.', [ROLL_DICE_TOOL])).toEqual([])
-    expect(extractPseudoToolCalls('Tiro roll_dice(count=2) adesso.', [ROLL_DICE_TOOL])).toEqual([])
+    expect(extractPseudoToolCalls('I attack and `roll_dice(1d20)` decides.', [ROLL_DICE_TOOL])).toEqual([])
+    expect(extractPseudoToolCalls('I roll roll_dice(count=2) now.', [ROLL_DICE_TOOL])).toEqual([])
   })
 
   it('recovers bare arguments when exactly one offered tool takes them', () => {
-    const calls = extractPseudoToolCalls('Attacco.\n\n{ "count": 1, "sides": 20 }', [...LLM_TOOLS, ROLL_DICE_TOOL])
+    const calls = extractPseudoToolCalls('I attack.\n\n{ "count": 1, "sides": 20 }', [...LLM_TOOLS, ROLL_DICE_TOOL])
     expect(calls).toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'roll_dice', arguments: { count: 1, sides: 20 } } }])
   })
 
   it('runs nothing for a tool the request did not carry', () => {
-    expect(extractPseudoToolCalls('Attacco.\n\n{ "count": 1, "sides": 20 }', LLM_TOOLS)).toEqual([])
+    expect(extractPseudoToolCalls('I attack.\n\n{ "count": 1, "sides": 20 }', LLM_TOOLS)).toEqual([])
     expect(extractPseudoToolCalls('[TOOL_CALLS] [{"name": "roll_dice", "arguments": {"count": 1, "sides": 20}}]', LLM_TOOLS)).toEqual([])
   })
 
   it('runs nothing for JSON quoted inside a sentence', () => {
-    expect(extractPseudoToolCalls('Il tiro è { "count": 1, "sides": 20 } come detto.', [ROLL_DICE_TOOL])).toEqual([])
+    expect(extractPseudoToolCalls('The roll is { "count": 1, "sides": 20 } as said.', [ROLL_DICE_TOOL])).toEqual([])
   })
 })
 
@@ -143,9 +143,9 @@ describe('turning a typed call into a real one', () => {
 describe('the argument shapes match the real tool definitions', () => {
   it.each(ALL_TOOLS.map(tool => [tool.function.name, tool]))('%s', (name, tool) => {
     const args = Object.fromEntries((tool.function.parameters.required ?? []).map(key => [key, 1]))
-    const message = `Testo.\n\n${JSON.stringify(args)}`
+    const message = `Text.\n\n${JSON.stringify(args)}`
 
-    expect(stripPseudoToolCalls(message)).toBe('Testo.')
+    expect(stripPseudoToolCalls(message)).toBe('Text.')
     expect(extractPseudoToolCalls(message, [tool])).toEqual([
       { id: 'pseudo-1', type: 'function', function: { name, arguments: args } },
     ])

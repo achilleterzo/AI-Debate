@@ -235,7 +235,7 @@ describe('streamChat content assembly through the provider seam', () => {
   it('keeps a leaked <reasoning> monologue out of the answer and reports it as thinking', async () => {
     vi.stubGlobal('fetch', mockStreamedFetch([
       JSON.stringify({ message: { content: '<reasoning>\nЯ анализирую предложение.\n</reasoning>' } }) + '\n',
-      JSON.stringify({ message: { content: 'Ludwig, la tua analisi sposta il problema.' } }) + '\n',
+      JSON.stringify({ message: { content: 'Ludwig, your analysis moves the problem.' } }) + '\n',
       JSON.stringify({ done: true, message: { content: '' } }) + '\n',
     ]))
 
@@ -252,7 +252,7 @@ describe('streamChat content assembly through the provider seam', () => {
       onComplete: value => { completion = value },
     })
 
-    expect(result).toBe('Ludwig, la tua analisi sposta il problema.')
+    expect(result).toBe('Ludwig, your analysis moves the problem.')
     expect(thinkingUpdates.at(-1)).toBe('Я анализирую предложение.')
     expect(completion.thinking).toBe('Я анализирую предложение.')
   })
@@ -262,7 +262,7 @@ describe('streamChat content assembly through the provider seam', () => {
   it('hides a reasoning block that is still streaming', async () => {
     vi.stubGlobal('fetch', mockStreamedFetch([
       JSON.stringify({ message: { content: '<thinking>step one' } }) + '\n',
-      JSON.stringify({ message: { content: ' and step two</thinking>Ecco il contributo.' } }) + '\n',
+      JSON.stringify({ message: { content: ' and step two</thinking>Here is the contribution.' } }) + '\n',
       JSON.stringify({ done: true, message: { content: '' } }) + '\n',
     ]))
 
@@ -277,14 +277,14 @@ describe('streamChat content assembly through the provider seam', () => {
     })
 
     expect(tokens[0]).toBe('')
-    expect(result).toBe('Ecco il contributo.')
+    expect(result).toBe('Here is the contribution.')
   })
 
   // A model improvising the markup closes `<reasoning>` with `</think>` often
   // enough that requiring a matching pair swallowed the whole answer.
   it('answers normally when the block is closed with a different tag', async () => {
     vi.stubGlobal('fetch', mockStreamedFetch([
-      JSON.stringify({ message: { content: '<reasoning>deliberazione</think>Ecco il contributo.' } }) + '\n',
+      JSON.stringify({ message: { content: '<reasoning>deliberating</think>Here is the contribution.' } }) + '\n',
       JSON.stringify({ done: true, message: { content: '' } }) + '\n',
     ]))
 
@@ -297,7 +297,7 @@ describe('streamChat content assembly through the provider seam', () => {
       onToken: () => {},
     })
 
-    expect(result).toBe('Ecco il contributo.')
+    expect(result).toBe('Here is the contribution.')
   })
 
   // The turn is worth more than the tidiness: with the retry already spent, a
@@ -306,7 +306,7 @@ describe('streamChat content assembly through the provider seam', () => {
     let call = 0
     vi.stubGlobal('fetch', vi.fn(async () => {
       call += 1
-      const content = '<think>deliberazione\n\nEcco il contributo.'
+      const content = '<think>deliberating\n\nHere is the contribution.'
       return {
         ok: true,
         body: new ReadableStream({
@@ -332,8 +332,8 @@ describe('streamChat content assembly through the provider seam', () => {
 
     // One retry, told what actually went wrong, then the text rather than nothing.
     expect(call).toBe(2)
-    expect(result).toBe('deliberazione\n\nEcco il contributo.')
-    expect(tokens.at(-1)).toBe('deliberazione\n\nEcco il contributo.')
+    expect(result).toBe('deliberating\n\nHere is the contribution.')
+    expect(tokens.at(-1)).toBe('deliberating\n\nHere is the contribution.')
   })
 
   it('tells the model its answer was all deliberation before retrying', async () => {
@@ -342,7 +342,7 @@ describe('streamChat content assembly through the provider seam', () => {
     vi.stubGlobal('fetch', vi.fn(async (url, options) => {
       call += 1
       bodies.push(JSON.parse(options.body))
-      const content = call === 1 ? '<think>solo deliberazione' : 'Ecco il contributo.'
+      const content = call === 1 ? '<think>solo deliberating' : 'Here is the contribution.'
       return {
         ok: true,
         body: new ReadableStream({
@@ -365,7 +365,7 @@ describe('streamChat content assembly through the provider seam', () => {
       onToken: () => {},
     })
 
-    expect(result).toBe('Ecco il contributo.')
+    expect(result).toBe('Here is the contribution.')
     expect(bodies[1].messages.at(-1).content).toContain('only internal deliberation')
   })
 
@@ -395,7 +395,7 @@ describe('streamChat content assembly through the provider seam', () => {
                 JSON.stringify({ done: true, message: { content: '' } }) + '\n',
               ]
             : [
-                JSON.stringify({ message: { content: 'Ecco finalmente il contributo.' } }) + '\n',
+                JSON.stringify({ message: { content: 'Here is the contribution at last.' } }) + '\n',
                 JSON.stringify({ done: true, message: { content: '' } }) + '\n',
               ]
       return {
@@ -421,7 +421,7 @@ describe('streamChat content assembly through the provider seam', () => {
       onToken: () => {},
     })
 
-    expect(result).toBe('Ecco finalmente il contributo.')
+    expect(result).toBe('Here is the contribution at last.')
     // The retry request carries something the previous one did not.
     const lastUserMessages = bodies.map(body => body.messages.at(-1).content)
     expect(lastUserMessages.at(-1)).toContain('was NOT executed')
@@ -432,7 +432,7 @@ describe('streamChat content assembly through the provider seam', () => {
   // and, beside it, a malformed call to save the turn to memory. Retrying threw
   // the contribution away and the user watched it vanish from the balloon.
   it('publishes a finished answer that carries a stray tool call, without retrying', async () => {
-    const answer = `Noam, la tua obiezione è la più severa di questo dibattito. ${'Dispiego le vie prima di giudicare. '.repeat(20)}`
+    const answer = `Noam, your objection is the harshest in this debate. ${'I lay out the paths before judging. '.repeat(20)}`
     let call = 0
     vi.stubGlobal('fetch', vi.fn(async () => {
       call += 1
@@ -850,7 +850,7 @@ describe('streamChat empty response handling', () => {
 
 describe('prompt scaffolding in the visible answer', () => {
   it('strips the delimiters the model echoes back', async () => {
-    const leaked = 'Ecco la mia posizione.\n</conversation_context>\n<fetched_sources>Fine.'
+    const leaked = 'Here is my position.\n</conversation_context>\n<fetched_sources>End.'
     vi.stubGlobal('fetch', mockStreamedFetch([
       JSON.stringify({ message: { content: leaked } }) + '\n',
       JSON.stringify({ done: true, message: { content: '' } }) + '\n',
@@ -867,8 +867,8 @@ describe('prompt scaffolding in the visible answer', () => {
 
     expect(result).not.toContain('conversation_context')
     expect(result).not.toContain('fetched_sources')
-    expect(result).toContain('Ecco la mia posizione.')
-    expect(result).toContain('Fine.')
+    expect(result).toContain('Here is my position.')
+    expect(result).toContain('End.')
   })
 })
 
@@ -906,7 +906,7 @@ describe('a turn that spends itself on tools', () => {
       call += 1
       // Two rounds of tool calls, then the model is out of rounds.
       if (call <= 2) return bodyOf([toolCall('roll_dice'), doneEmpty])
-      return bodyOf([JSON.stringify({ message: { content: 'Ecco la mia analisi.' } }) + '\n', doneEmpty])
+      return bodyOf([JSON.stringify({ message: { content: 'Here is my analysis.' } }) + '\n', doneEmpty])
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -920,7 +920,7 @@ describe('a turn that spends itself on tools', () => {
       onToken: () => {},
     })
 
-    expect(result).toBe('Ecco la mia analisi.')
+    expect(result).toBe('Here is my analysis.')
     const requests = modelRequests(fetchMock)
     expect(requests).toHaveLength(3)
     expect(requests[2].at(-1).content).toMatch(NUDGE)

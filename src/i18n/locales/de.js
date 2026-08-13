@@ -298,6 +298,8 @@ export default {
     start: 'Starten',
     stop: 'Stopp',
     stopping: 'Wird gestoppt…',
+    forceStop: 'Sofort stoppen',
+    forceStopTitle: 'Bricht den laufenden Zug sofort ab, ohne auf die fertige Antwort des Modells zu warten',
     lastPromptTitle: estimate =>
       `Letzter gesendeter Prompt: ${estimate.totalChars} Zeichen (~${estimate.estimatedTokens} Tokens), ${estimate.messageCount} Nachrichten, Modell ${estimate.model}`,
     lastPromptLabel: estimate =>

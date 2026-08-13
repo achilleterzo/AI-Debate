@@ -293,6 +293,8 @@ export default {
     start: '시작',
     stop: '정지',
     stopping: '정지 중…',
+    forceStop: '강제 정지',
+    forceStopTitle: '모델이 응답을 마칠 때까지 기다리지 않고 진행 중인 턴을 즉시 중단합니다',
     lastPromptTitle: estimate =>
       `마지막으로 전송된 프롬프트: ${estimate.totalChars}자 (약 ${estimate.estimatedTokens} 토큰), 메시지 ${estimate.messageCount}개, 모델 ${estimate.model}`,
     lastPromptLabel: estimate =>

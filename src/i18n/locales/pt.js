@@ -295,6 +295,8 @@ export default {
     start: 'Iniciar',
     stop: 'Parar',
     stopping: 'Parando…',
+    forceStop: 'Parada forçada',
+    forceStopTitle: 'Corta agora o turno em andamento, sem esperar o modelo terminar de responder',
     lastPromptTitle: estimate =>
       `Último prompt enviado: ${estimate.totalChars} caracteres (~${estimate.estimatedTokens} tokens), ${estimate.messageCount} mensagens, modelo ${estimate.model}`,
     lastPromptLabel: estimate =>

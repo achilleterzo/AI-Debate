@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Debate } from './Debate'
+import { abortActiveStreams } from './Stream'
 
 export function useDebateController({
   participants,
@@ -184,6 +185,24 @@ export function useDebateController({
     }
   }, [setStopping])
 
+  /**
+   * Ends the turn that is speaking, instead of waiting for it to finish.
+   *
+   * The ordinary stop is read between turns, so a model halfway through a long
+   * answer keeps going for as long as it needs — which is the wait the user is
+   * trying to cut when they ask a second time. This aborts the request itself:
+   * the text already on screen stays, and the run unwinds from there.
+   */
+  const forceStopDebate = useCallback(() => {
+    stopRef.current = true
+    setStopping(true)
+    if (userInputRejectRef.current) {
+      userInputRejectRef.current(new Error('stop'))
+      userInputRejectRef.current = null
+    }
+    abortActiveStreams()
+  }, [setStopping])
+
   const queueInterjection = useCallback((text, clearTopic) => {
     const interjection = {
       role: 'interjection',
@@ -206,6 +225,7 @@ export function useDebateController({
     nextSeq,
     startDebate,
     stopDebate,
+    forceStopDebate,
     queueInterjection,
   }
 }

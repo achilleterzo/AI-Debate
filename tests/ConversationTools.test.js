@@ -33,10 +33,10 @@ describe('conversation tools', () => {
   // The tool is a second way into the transcript, so it obeys the same rule as
   // the payload: a deliberation is not a contribution and is not handed out.
   it('returns the contribution without a leaked reasoning block', () => {
-    const withLeak = [{ role: 'A', turn: 1, content: '<reasoning>Я думаю.</reasoning>Il contributo.' }]
+    const withLeak = [{ role: 'A', turn: 1, content: '<reasoning>Я думаю.</reasoning>The contribution.' }]
 
     expect(JSON.parse(formatRecentMessages(withLeak, { limit: 5 })).messages)
-      .toEqual([{ role: 'A', turn: 1, content: 'Il contributo.' }])
+      .toEqual([{ role: 'A', turn: 1, content: 'The contribution.' }])
     expect(JSON.parse(formatRecentMessages(withLeak, { limit: 5, searchTerm: 'думаю' })).messages)
       .toEqual([])
   })

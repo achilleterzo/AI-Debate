@@ -4,7 +4,7 @@ import { PALETTE } from '../dataset/Palette'
 import { Session } from '../data/Session'
 import { buildSystemPrompt } from './PromptBuilder'
 import { formatHistoryMessage } from './ContextPayload'
-import { streamChat } from './Stream'
+import { StreamAbortedError, abortActiveStreams, streamChat } from './Stream'
 import { getProvider } from '../providers/index.js'
 import { Web } from '../services/Web'
 import { buildOrderedItems } from '../utils/Sorting'
@@ -133,6 +133,26 @@ function reconcileToolContinuation(history, previousSeq, currentSeq, currentCont
   }
 
   return { history, activeSeq: currentSeq, content: currentContent }
+}
+
+/**
+ * The runs in flight, so a hot reload can end them.
+ *
+ * Replacing a module remounts the app but does not touch a run already going:
+ * it keeps taking turns, keeps summarising, and keeps writing into setters
+ * whose component is gone — a debate nobody can see, spending tokens behind
+ * the page that replaced it. Only the dev server ever replaces a module, so
+ * this exists for the editing loop; a real reload takes the whole context down
+ * and nothing survives it.
+ */
+const runsInFlight = new Set()
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    for (const runtime of runsInFlight) runtime.stopRef.current = true
+    runsInFlight.clear()
+    abortActiveStreams()
+  })
 }
 
 export class Debate {
@@ -1228,6 +1248,7 @@ export class Debate {
     } = runtime
 
     stopRef.current = false
+    runsInFlight.add(runtime)
     setStopping(false)
     setRunning(true)
 
@@ -1320,6 +1341,7 @@ export class Debate {
           for (const doc of docs) {
             let sum = ''
             await streamChat({
+              purpose: 'attachment summary',
               baseUrl: summaryBaseUrl,
               model: summaryModel,
               useTools: false,
@@ -1450,6 +1472,7 @@ export class Debate {
 
           const summaryCall = async (prompt, payloadsOut, kind = 'summary') => {
             const result = await streamChat({
+              purpose: `round ${round + 1} summary`,
               baseUrl: summaryBaseUrl,
               model: summaryModel,
                messages: [{ role: 'user', content: prompt }],
@@ -1512,7 +1535,7 @@ export class Debate {
              }
              lastModerationTargets = []
           } catch (err) {
-            console.warn('[summary] fallita:', err.message)
+            console.warn('[summary] failed:', err.message)
           } finally {
             setSummaryInProgress(false)
           }
@@ -1886,6 +1909,7 @@ export class Debate {
             },
           })
           const full = await streamChat({
+            purpose: `turn of ${actor.name || actor.tag}`,
             baseUrl: actorBaseUrl,
             model: actor.model,
             messages: contextMessages,
@@ -1893,6 +1917,10 @@ export class Debate {
             useTools: true,
             tools: availableTools,
             think: actor.thinkingLevel === 'none' ? false : Debate.normalizeThinkingLevel(actor.thinkingLevel),
+            // A forced stop aborts the request that is open; this is what keeps
+            // the turn from opening the next one — a tool round, a retry —
+            // between the abort and the run unwinding.
+            stopRef,
             executeTool: conversationToolExecutor,
             onToolInvocation: invocation => {
               history = history.map(message => message.seq === activeMessageSeq
@@ -2141,19 +2169,31 @@ export class Debate {
           }
            syncHistory()
         } catch (err) {
-          const errMsg = {
-            role: 'error',
-            content: `⚠ ${err.message} — use the Resume button to retry from this point.`,
-            turn: turnLabel,
-            seq: nextSeq(),
+          // A forced stop is not a failure: the user cut the turn on purpose,
+          // so the run ends where it stands. Whatever had already streamed
+          // stays — it is what the reader saw — and only an empty placeholder
+          // is dropped. Resuming continues from here as after any stop.
+          if (err instanceof StreamAbortedError) {
+            const partial = history.find(message => message.seq === activeMessageSeq)
+            if (!String(partial?.content ?? '').trim()) {
+              history = history.filter(message => message.seq !== activeMessageSeq)
+            }
+          } else {
+            const errMsg = {
+              role: 'error',
+              content: `⚠ ${err.message} — use the Resume button to retry from this point.`,
+              turn: turnLabel,
+              seq: nextSeq(),
+            }
+            history = [...history.filter(message => message.seq !== activeMessageSeq), errMsg]
           }
-          history = [...history.filter(message => message.seq !== activeMessageSeq), errMsg]
           syncHistory()
           turnRef.current = { round, step: s, skipSummary: true }
           setStreamingRole(null)
           setStreamingSeq(null)
           setStopping(false)
           setRunning(false)
+          runsInFlight.delete(runtime)
           return
         }
 
@@ -2176,5 +2216,6 @@ export class Debate {
     setStreamingSeq(null)
     setStopping(false)
     setRunning(false)
+    runsInFlight.delete(runtime)
   }
 }

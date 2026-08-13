@@ -1,6 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TWO_COLUMN_MIN_WIDTH } from '../settings/Settings'
 
+/** Within this of the bottom the chat follows the stream on its own. */
+const FOLLOW_DISTANCE_PX = 80
+
+/**
+ * How far up the button waits before appearing.
+ *
+ * Deliberately further than the follow distance. With one threshold for both
+ * edges the button appeared and vanished repeatedly while the reader hovered
+ * around it, and every flip is a render. Kept close enough to the follow
+ * distance that the stretch where the chat has stopped following but the
+ * button is not up yet is under one message tall.
+ */
+const SHOW_BUTTON_DISTANCE_PX = 160
+
+/** How long `scrollIntoView` is left alone to finish its animation. */
+const SMOOTH_SCROLL_MS = 600
+
 export function useAppLayout({ messages, conclusions = [], streamingRole, headerOpen }) {
   const bottomRef = useRef(null)
   const chatRef = useRef(null)
@@ -9,6 +26,8 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
   const inputAreaRef = useRef(null)
   const autoScrollRef = useRef(true)
   const scrollFrameRef = useRef(null)
+  const scrollProbeRef = useRef(null)
+  const smoothScrollUntilRef = useRef(0)
   const showScrollBtnRef = useRef(false)
   const [headerBodyHeight, setHeaderBodyHeight] = useState(360)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
@@ -24,6 +43,7 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
     scrollFrameRef.current = window.requestAnimationFrame(() => {
       scrollFrameRef.current = null
       if (!autoScrollRef.current) return
+      if (performance.now() < smoothScrollUntilRef.current) return
       const chat = chatRef.current
       if (!chat) return
       chat.scrollTop = chat.scrollHeight
@@ -35,6 +55,11 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
   }, [])
 
   useEffect(() => { showScrollBtnRef.current = showScrollBtn }, [showScrollBtn])
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current != null) window.cancelAnimationFrame(scrollFrameRef.current)
+    if (scrollProbeRef.current != null) window.cancelAnimationFrame(scrollProbeRef.current)
+  }, [])
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(`(min-width: ${TWO_COLUMN_MIN_WIDTH}px)`)
@@ -116,20 +141,37 @@ export function useAppLayout({ messages, conclusions = [], streamingRole, header
     scheduleAutoScroll()
   }, [conclusions, messages, streamingRole, scheduleAutoScroll])
 
+  /**
+   * Scroll fires many times per frame, and reading the geometry forces a
+   * layout every time — most expensive precisely while the chat is streaming
+   * and the DOM keeps changing under it. One measurement per frame is all the
+   * button needs, and it is what keeps the wheel smooth across the threshold.
+   */
   const handleChatScroll = useCallback(() => {
-    const chat = chatRef.current
-    if (!chat) return
-    const atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80
-    autoScrollRef.current = atBottom
-    if (showScrollBtnRef.current !== !atBottom) {
-      showScrollBtnRef.current = !atBottom
-      setShowScrollBtn(!atBottom)
-    }
+    if (scrollProbeRef.current != null) return
+    scrollProbeRef.current = window.requestAnimationFrame(() => {
+      scrollProbeRef.current = null
+      const chat = chatRef.current
+      if (!chat) return
+      const distance = chat.scrollHeight - chat.scrollTop - chat.clientHeight
+      autoScrollRef.current = distance < FOLLOW_DISTANCE_PX
+      const shown = showScrollBtnRef.current
+      const next = shown ? distance >= FOLLOW_DISTANCE_PX : distance >= SHOW_BUTTON_DISTANCE_PX
+      if (next !== shown) {
+        showScrollBtnRef.current = next
+        setShowScrollBtn(next)
+      }
+    })
   }, [])
 
   const scrollToBottom = useCallback(() => {
     autoScrollRef.current = true
+    showScrollBtnRef.current = false
     setShowScrollBtn(false)
+    // The animation owns the scroll position for its duration. An auto-scroll
+    // jump landing in the middle of it sets scrollTop outright, which reads as
+    // the scroll snagging halfway down.
+    smoothScrollUntilRef.current = performance.now() + SMOOTH_SCROLL_MS
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 

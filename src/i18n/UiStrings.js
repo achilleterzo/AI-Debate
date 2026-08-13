@@ -434,6 +434,8 @@ export const UI_STRINGS = {
     start: 'Start',
     stop: 'Stop',
     stopping: 'Stopping…',
+    forceStop: 'Force stop',
+    forceStopTitle: 'Cut the turn in progress now, without waiting for the model to finish answering',
     lastPromptTitle: estimate =>
       `Last prompt sent: ${estimate.totalChars} characters (~${estimate.estimatedTokens} tokens), ${estimate.messageCount} messages, model ${estimate.model}`,
     lastPromptLabel: estimate =>

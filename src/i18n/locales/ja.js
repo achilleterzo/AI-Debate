@@ -289,6 +289,8 @@ export default {
     start: '開始',
     stop: '停止',
     stopping: '停止中…',
+    forceStop: '強制停止',
+    forceStopTitle: 'モデルの応答完了を待たずに、進行中のターンを直ちに中断します',
     lastPromptTitle: estimate =>
       `最後に送信したプロンプト: ${estimate.totalChars} 文字（約${estimate.estimatedTokens} トークン）、${estimate.messageCount} 件のメッセージ、モデル ${estimate.model}`,
     lastPromptLabel: estimate =>

@@ -68,6 +68,35 @@ function repeatedToolResultNote(name) {
   return `The ${name} call with these exact arguments already ran in this turn and its full result is earlier in this conversation. Nothing has changed, so it is not repeated here: read the result above and continue from it.`
 }
 
+/**
+ * Thrown when the user cut the stream instead of waiting for it.
+ *
+ * Distinct from a timeout, which aborts the same request through the same
+ * signal: a timeout is a failure worth showing in the chat, while this one is
+ * the user having already decided the turn is over.
+ */
+export class StreamAbortedError extends Error {
+  constructor() {
+    super('Stream stopped on request')
+    this.name = 'StreamAbortedError'
+  }
+}
+
+/**
+ * The requests in flight, so a forced stop can end them now.
+ *
+ * The ordinary stop is cooperative: it is read between turns, so the model that
+ * is already speaking streams to the end — which on a long answer is exactly
+ * the wait the user was trying to cut. Nothing short of aborting the request
+ * ends that, so every controller joins this set for as long as it is open.
+ */
+const openRequests = new Set()
+
+export function abortActiveStreams() {
+  for (const controller of openRequests) controller.abort()
+  openRequests.clear()
+}
+
 function trimText(txt, maxChars) {
   const s = String(txt || '')
   if (s.length <= maxChars) return s
@@ -176,8 +205,16 @@ export async function streamChat({
   onThinking = null,
   think = true,
   provider = getProvider(),
+  // What this request is for, in the console. Turns, round summaries and
+  // attachment summaries all logged the same `[provider] model` line, which
+  // left no way to tell from the log which one was firing.
+  purpose = '',
+  // The run's cooperative stop flag, when the caller has one. Aborting ends the
+  // request in flight; this is what stops the turn from opening the next one
+  // — the round after a tool result, or a retry — while it unwinds.
+  stopRef = null,
 }) {
-  const label = `[${provider.id}] ${model}`
+  const label = `[${provider.id}] ${model}${purpose ? ` — ${purpose}` : ''}`
   console.group(label)
 
   let apiMessages = systemPrompt
@@ -216,13 +253,25 @@ export async function streamChat({
       onEstimate({ model, messageCount: payloadMessages.length, totalChars, estimatedTokens })
     }
     if (payloadMessages.length !== apiMessages.length || payloadMessages.some((message, index) => message.content !== (apiMessages[index]?.content ?? ''))) {
-      console.warn(`${label} payload compattato prima dell'invio (context guard)`)
+      console.warn(`${label} payload compacted before sending (context guard)`)
     }
+    if (stopRef?.current) throw new StreamAbortedError()
     const controller = new AbortController()
+    let timedOut = false
     const timer = setTimeout(() => {
-      console.warn(`${label} timeout dopo ${timeoutMs / 1000}s — abort`)
+      timedOut = true
+      console.warn(`${label} timed out after ${timeoutMs / 1000}s — aborting`)
       controller.abort()
     }, timeoutMs)
+    openRequests.add(controller)
+    const releaseRequest = () => {
+      clearTimeout(timer)
+      openRequests.delete(controller)
+    }
+    // An abort that no timer asked for is the user having forced the stop.
+    const abortReason = () => (timedOut
+      ? new Error(`Timeout: no answer from ${model} after ${timeoutMs / 1000}s`)
+      : new StreamAbortedError())
 
     const wantsTools = useTools && supportsTools && toolRound < MAX_TOOL_ROUNDS && !retried
     const request = provider.buildChatRequest({
@@ -253,17 +302,15 @@ export async function streamChat({
         body: JSON.stringify(request.body),
       })
     } catch (err) {
-      clearTimeout(timer)
+      releaseRequest()
       onResponse?.({ request: debugRequest, response: { error: err.message } })
       console.error(`${label} fetch error:`, err)
       console.groupEnd()
-      throw err.name === 'AbortError'
-        ? new Error(`Timeout: nessuna risposta da ${model} dopo ${timeoutMs / 1000}s`)
-        : err
+      throw err.name === 'AbortError' ? abortReason() : err
     }
 
     if (!res.ok) {
-      clearTimeout(timer)
+      releaseRequest()
       const body = await res.text().catch(() => '')
       onResponse?.({ request: debugRequest, response: { status: res.status, body } })
       if (res.status >= 500 && res.status < 600 && !retriedServerError) {
@@ -275,14 +322,14 @@ export async function streamChat({
       }
       if (res.status === 400 && /prompt too long|max context length|context length/i.test(body) && !retriedTooLong) {
         retriedTooLong = true
-        console.warn(`${label} prompt troppo lungo — retry con contesto ridotto`)
+        console.warn(`${label} prompt too long — retrying with a reduced context`)
         apiMessages = compactMessages(apiMessages, { keepLast: 1, maxPerMsg: 6000 })
         continue
       }
       console.error(`${label} HTTP ${res.status}:`, body)
       console.groupEnd()
       if (res.status === 403 && /requires a subscription|upgrade for access/i.test(body)) {
-        throw new Error(`Model ${model} richiede subscription/upgrade sul provider cloud`)
+        throw new Error(`Model ${model} requires a subscription or upgrade on the cloud provider`)
       }
       throw new Error(`HTTP ${res.status}${body ? ': ' + body.slice(0, 200) : ''}`)
     }
@@ -305,7 +352,7 @@ export async function streamChat({
     const handleEvent = event => {
       switch (event.type) {
         case 'malformed':
-          console.warn(`${label} riga non parsabile:`, event.line)
+          console.warn(`${label} unparsable line:`, event.line)
           break
         // A provider-reported error aborts the turn: it is surfaced to the
         // caller instead of being logged and swallowed, which used to leave
@@ -366,21 +413,21 @@ export async function streamChat({
         for (const event of parser.push(decoder.decode(value, { stream: true }))) handleEvent(event)
       }
     } catch (streamErr) {
-      clearTimeout(timer)
+      releaseRequest()
       onResponse?.({ request: debugRequest, response: { error: streamErr.message } })
       console.error(`${label} stream error:`, streamErr)
       console.groupEnd()
-      throw streamErr
+      throw streamErr.name === 'AbortError' ? abortReason() : streamErr
     }
 
-    clearTimeout(timer)
+    releaseRequest()
 
     const rawStreamContent = full
     const pseudoToolCalls = wantsTools
       ? extractPseudoToolCalls(rawStreamContent, tools)
       : []
     if (pseudoToolCalls.length > 0) {
-      console.warn(`${label} pseudo-call scritte nel testo normalizzate in tool_calls:`, pseudoToolCalls)
+      console.warn(`${label} calls typed into the text normalized into tool_calls:`, pseudoToolCalls)
       toolCalls = [...toolCalls, ...pseudoToolCalls]
     }
     const rawVisibleContent = cleanVisibleText(rawStreamContent)
@@ -428,7 +475,7 @@ export async function streamChat({
         const key = toolResultKey(name, args)
         const repeated = deliveredToolResults.has(key)
         deliveredToolResults.add(key)
-        if (repeated) console.log(`${label} ${name} ripetuto con gli stessi argomenti — risultato non riallegato`)
+        if (repeated) console.log(`${label} ${name} repeated with the same arguments — result not attached again`)
         apiMessages = [...apiMessages, {
           role: 'tool',
           tool_name: name,
@@ -489,7 +536,7 @@ export async function streamChat({
     // because from the outside it is indistinguishable from a silent model.
     const emptiedByCleaning = !full.trim() && rawStreamContent.trim()
     if (emptiedByCleaning) {
-      console.warn(`${label} risposta di ${rawStreamContent.length} caratteri ripulita fino a vuota${leakedReasoning ? ' — era tutta dentro un blocco di ragionamento' : ''}`)
+      console.warn(`${label} ${rawStreamContent.length}-character answer cleaned down to nothing${leakedReasoning ? ' — all of it sat inside a reasoning block' : ''}`)
     }
 
     // Reaching here with tool calls means the turn had no round left to run
@@ -519,11 +566,11 @@ export async function streamChat({
         ? true
         : (droppedToolCalls && !answeredAnyway)
     if (droppedToolCalls && answeredAnyway) {
-      console.warn(`${label} tool call scartata accanto a una risposta completa — pubblicata la risposta`)
+      console.warn(`${label} tool call dropped next to a complete answer — publishing the answer`)
     }
     if (worthRetrying && !retried) {
       retried = true
-      console.warn(`${label} ${emptyAnswer ? 'risposta vuota' : danglingMarkupAnswer ? 'risposta troncata su markup' : 'risposta con tool call non eseguibile'} — retry`)
+      console.warn(`${label} ${emptyAnswer ? 'empty answer' : danglingMarkupAnswer ? 'answer cut off on markup' : 'answer with a tool call nobody can run'} — retrying`)
       fallbackContent = full
       // The retry used to repeat the request unchanged whenever a nudge had
       // already been sent when the tool rounds ran out — same input, same
@@ -546,7 +593,7 @@ export async function streamChat({
     // The retry answered with nothing usable. Whatever the attempt before it
     // wrote is still better than an empty balloon.
     if (!full.trim() && fallbackContent.trim()) {
-      console.warn(`${label} retry senza risposta — pubblicato il testo del tentativo precedente`)
+      console.warn(`${label} retry produced nothing — publishing the text from the previous attempt`)
       full = fallbackContent
       onToken(separateToolRounds ? full : [visiblePrefix, full].filter(Boolean).join('\n\n'))
     }
@@ -560,7 +607,7 @@ export async function streamChat({
         ? cleanToolContinuationText(rawStreamContent, previousToolSegment, { keepUnclosedTail: true })
         : cleanVisibleText(rawStreamContent, { keepUnclosedTail: true })
       if (full.trim()) {
-        console.warn(`${label} blocco di ragionamento mai chiuso — turno pubblicato senza i tag invece di perderlo`)
+        console.warn(`${label} reasoning block never closed — publishing the turn without the tags rather than losing it`)
         onToken(separateToolRounds ? full : [visiblePrefix, full].filter(Boolean).join('\n\n'))
       }
     }

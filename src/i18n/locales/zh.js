@@ -287,6 +287,8 @@ export default {
     start: '开始',
     stop: '停止',
     stopping: '正在停止…',
+    forceStop: '强制停止',
+    forceStopTitle: '立即中断进行中的回合，不等待模型回答完毕',
     lastPromptTitle: estimate =>
       `最后发送的请求：${estimate.totalChars} 字符（约 ${estimate.estimatedTokens} tokens），${estimate.messageCount} 条消息，模型 ${estimate.model}`,
     lastPromptLabel: estimate => `最近请求：约 ${estimate.estimatedTokens} tok · ${estimate.model}`,

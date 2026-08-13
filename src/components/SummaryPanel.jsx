@@ -105,11 +105,20 @@ export default function SummaryPanel({
         </span>
       </div>
       {summaryVisible && (
+        // A summary grows for the whole debate, and unbounded it pushed the
+        // chat out of the column and ran past the bottom of the window with no
+        // way to reach its own end. It scrolls inside its own band instead, so
+        // the whole text stays readable and the chat keeps its room.
+        // `contain` stops the chat from scrolling on underneath once this
+        // reaches its end.
         <div className={summary ? 'selectable' : undefined} style={{
           padding: '8px 16px 12px',
           fontSize: 12, color: '#aaa', lineHeight: 1.6,
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           borderTop: '1px solid #1e1e1e',
+          maxHeight: '40vh',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
         }}>
           {summary || ui.noSummary}
         </div>

@@ -297,6 +297,8 @@ export default {
     start: 'Démarrer',
     stop: 'Arrêter',
     stopping: 'Arrêt en cours…',
+    forceStop: 'Arrêt forcé',
+    forceStopTitle: "Interrompt immédiatement le tour en cours, sans attendre que le modèle finisse de répondre",
     lastPromptTitle: estimate =>
       `Dernier prompt envoyé : ${estimate.totalChars} caractères (~${estimate.estimatedTokens} tokens), ${estimate.messageCount} messages, modèle ${estimate.model}`,
     lastPromptLabel: estimate =>

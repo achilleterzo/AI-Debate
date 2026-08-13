@@ -6,9 +6,9 @@ import { Debate } from '../src/debate/Debate'
 describe('stripPromptScaffolding', () => {
   it('removes a whole block, monologue included', () => {
     const answer = stripPromptScaffolding(
-      '<reasoning_focus>\nLet me review what is happening. I should check memory first.\n</reasoning_focus>Ecco la mia posizione.',
+      '<reasoning_focus>\nLet me review what is happening. I should check memory first.\n</reasoning_focus>Here is my position.',
     )
-    expect(answer.trim()).toBe('Ecco la mia posizione.')
+    expect(answer.trim()).toBe('Here is my position.')
   })
 
   it('empties an answer that was nothing but scaffolding', () => {
@@ -17,8 +17,8 @@ describe('stripPromptScaffolding', () => {
   })
 
   it('removes stray opening and closing tags', () => {
-    expect(stripPromptScaffolding('Testo valido.\n</conversation_context>').trim()).toBe('Testo valido.')
-    expect(stripPromptScaffolding('<fetched_sources>\nTesto valido.').trim()).toBe('Testo valido.')
+    expect(stripPromptScaffolding('Valid text.\n</conversation_context>').trim()).toBe('Valid text.')
+    expect(stripPromptScaffolding('<fetched_sources>\nValid text.').trim()).toBe('Valid text.')
   })
 
   it('keeps several blocks from swallowing the text between them', () => {

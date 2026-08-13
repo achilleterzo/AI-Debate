@@ -107,7 +107,7 @@ describe('links point somewhere a browser may go', () => {
 
 describe('ordinary markdown still renders', () => {
   const cases = [
-    ['emphasis', 'Testo **grassetto** e *corsivo*', /<strong>grassetto<\/strong>.*<em>corsivo<\/em>/s],
+    ['emphasis', 'Text **bold** and *italic*', /<strong>bold<\/strong>.*<em>italic<\/em>/s],
     ['inline code', 'valore `x = 1`', /<code>x = 1<\/code>/],
     ['list', '- primo\n- secondo', /<ul>[\s\S]*<li>primo<\/li>/],
     ['quote', '> citazione', /<blockquote>/],

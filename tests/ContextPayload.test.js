@@ -61,26 +61,8 @@ describe('leaked reasoning in the payload', () => {
   // A block the model never closed would otherwise take the whole message with
   // it, and the turn would vanish from the payload while staying in the chat.
   it('still carries a turn whose block was never closed', () => {
-    expect(format({ role: 'A', content: '<think>deliberazione\n\nEcco il contributo.', seq: 15 }).content)
-      .toBe('[#15] Alice said: deliberazione\n\nEcco il contributo.')
-  })
-})
-
-// One participant types a call instead of emitting it, the next reads that
-// turn as an example, and within a round the whole table is writing the same
-// string. Cleaning on the way in is what breaks the chain — including for the
-// turns already recorded, which are cleaned again every time they are sent.
-describe('a typed tool call in the payload', () => {
-  it('never travels to the other participants as an example to copy', () => {
-    expect(format({ role: 'A', content: '**Attacco Madara**: <roll_dice count="1" sides="20"/> Gli do un pugno.', seq: 20 }).content)
-      .toBe('[#20] Alice said: **Attacco Madara**:  Gli do un pugno.')
-    expect(format({ role: 'M', content: 'Risolvo.\n\n<quote_message messageId="50" />\n\nFallimento totale.', seq: 21 }).content)
-      .toContain('Risolvo.\n\nFallimento totale.')
-  })
-
-  it('does not come back to the actor in its own turns either', () => {
-    expect(format({ role: 'B', content: 'Colpisco.\n\n{ "count": 1, "sides": 20 }', seq: 22 }))
-      .toEqual({ role: 'assistant', content: 'Colpisco.' })
+    expect(format({ role: 'A', content: '<think>deliberating\n\nHere is the contribution.', seq: 15 }).content)
+      .toBe('[#15] Alice said: deliberating\n\nHere is the contribution.')
   })
 })
 
@@ -107,23 +89,38 @@ describe('citations in the payload', () => {
   })
 })
 
-// gemma4 and others write `<call:roll_dice{count:1,sides:20}/>` in prose. The
-// call never ran, and a transcript that keeps it hands the syntax to everyone
-// who reads the turn — which is how a whole table ends up typing calls.
+// A model writes the call into the prose instead of emitting it. The call never
+// ran, and a transcript that keeps it hands the syntax to everyone who reads
+// the turn: the next participant copies it, and within a round the whole table
+// is typing calls nobody executes. Cleaning on the way in is what breaks that
+// chain, including for the turns already recorded — they are cleaned again
+// every time they are sent.
 describe('typed tool calls in the payload', () => {
   it('removes the compact inline form, keeping the prose around it', () => {
-    const content = 'Tutto questo parlare è stancante.\n\n<call:roll_dice{count:1,sides:20}/>\n\nTengo un pugno normale.'
+    const content = 'All this talking is tiring.\n\n<call:roll_dice{count:1,sides:20}/>\n\nI throw an ordinary punch.'
     expect(format({ role: 'A', content, seq: 20 }).content)
-      .toBe('[#20] Alice said: Tutto questo parlare è stancante.\n\nTengo un pugno normale.')
+      .toBe('[#20] Alice said: All this talking is tiring.\n\nI throw an ordinary punch.')
   })
 
   it('removes a citation call written with the quoting some models use inside it', () => {
-    const content = '<call:quote_message{excerpt:<|"|>una mano tremante<|"|>,messageId:544}/>\n\nÈ esattamente questo il punto.'
+    const content = '<call:quote_message{excerpt:<|"|>a trembling hand<|"|>,messageId:544}/>\n\nThat is exactly the point.'
     expect(format({ role: 'A', content, seq: 21 }).content)
-      .toBe('[#21] Alice said: È esattamente questo il punto.')
+      .toBe('[#21] Alice said: That is exactly the point.')
   })
 
   it('treats a turn that was nothing but a typed call as no contribution', () => {
     expect(format({ role: 'A', content: '<call:roll_dice{count:1,sides:20}/>', seq: 22 })).toBeNull()
+  })
+
+  it('removes the tool name written as a tag, and the arguments written alone', () => {
+    expect(format({ role: 'A', content: '**Attacking Madara**: <roll_dice count="1" sides="20"/> I throw a punch.', seq: 23 }).content)
+      .toBe('[#23] Alice said: **Attacking Madara**:  I throw a punch.')
+    expect(format({ role: 'M', content: 'Resolving.\n\n<quote_message messageId="50" />\n\nA total failure.', seq: 24 }).content)
+      .toContain('Resolving.\n\nA total failure.')
+  })
+
+  it('does not come back to the actor in its own turns either', () => {
+    expect(format({ role: 'B', content: 'I strike.\n\n{ "count": 1, "sides": 20 }', seq: 25 }))
+      .toEqual({ role: 'assistant', content: 'I strike.' })
   })
 })

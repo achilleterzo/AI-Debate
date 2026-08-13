@@ -11,7 +11,7 @@ export function useAttachments() {
         const document = await Document.parse(file)
         setAttachedDocs(previous => [...previous.filter(entry => entry.name !== document.name), document])
       } catch (error) {
-        console.error('Errore parsing documento:', error)
+        console.error('Document parsing failed:', error)
       }
     }
   }, [])

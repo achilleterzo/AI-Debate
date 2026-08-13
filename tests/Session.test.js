@@ -28,9 +28,9 @@ describe('Session.restorableMessages', () => {
 
   it('moves a legacy reasoning block out of the restored message', () => {
     expect(Session.restorableMessages([
-      { role: 'A', content: '<reasoning>Я анализирую.</reasoning>Ecco il contributo.' },
+      { role: 'A', content: '<reasoning>Я анализирую.</reasoning>Here is the contribution.' },
     ])).toEqual([
-      { role: 'A', content: 'Ecco il contributo.', thinking: 'Я анализирую.' },
+      { role: 'A', content: 'Here is the contribution.', thinking: 'Я анализирую.' },
     ])
   })
 

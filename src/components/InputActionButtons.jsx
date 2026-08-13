@@ -19,6 +19,7 @@ export default function InputActionButtons({
   textareaRef,
   onStart,
   onStop,
+  onForceStop,
   onIntervene,
   onResume,
 }) {
@@ -111,27 +112,32 @@ export default function InputActionButtons({
 
       {running && (
         <>
-          <button
-            style={{
-              ...styles.connectBtn(false),
-              minHeight: 44,
-              alignSelf: 'stretch',
-              background: '#334155',
-              color: '#e0e0e0',
-              cursor: 'pointer',
-            }}
-            onClick={() => {
-              const txt = (topicRef.current || '').trim()
-              if (!txt) {
-                textareaRef.current?.focus()
-                return
-              }
-              onIntervene()
-            }}
-            title={ui.queueCurrentText}
-          >
-            {ui.intervene}
-          </button>
+          {/* Interjecting queues text for a turn after this one, and the run is
+              already ending: while it stops, the button would take input that
+              never gets spoken. */}
+          {!stopping && (
+            <button
+              style={{
+                ...styles.connectBtn(false),
+                minHeight: 44,
+                alignSelf: 'stretch',
+                background: '#334155',
+                color: '#e0e0e0',
+                cursor: 'pointer',
+              }}
+              onClick={() => {
+                const txt = (topicRef.current || '').trim()
+                if (!txt) {
+                  textareaRef.current?.focus()
+                  return
+                }
+                onIntervene()
+              }}
+              title={ui.queueCurrentText}
+            >
+              {ui.intervene}
+            </button>
+          )}
           <button
             style={{
               ...styles.connectBtn(stopping),
@@ -146,6 +152,25 @@ export default function InputActionButtons({
           >
             {stopping ? ui.stopping : ui.stop}
           </button>
+          {/* The stop waits for the turn in progress to end on its own, which
+              on a long answer is a long wait. This one does not wait. */}
+          {stopping && (
+            <button
+              style={{
+                ...styles.connectBtn(false),
+                minHeight: 44,
+                alignSelf: 'stretch',
+                background: '#7f1d1d',
+                borderColor: '#ef4444',
+                color: '#fee2e2',
+                cursor: 'pointer',
+              }}
+              onClick={onForceStop}
+              title={ui.forceStopTitle}
+            >
+              {ui.forceStop}
+            </button>
+          )}
         </>
       )}
 
