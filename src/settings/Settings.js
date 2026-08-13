@@ -22,6 +22,29 @@ export const DEFAULT_TIMEOUT_SEC = 120
 export const DEFAULT_FALLBACK_MODEL = ''
 export const DEBUG_MODE_STORAGE_KEY = 'debugMode'
 
+/**
+ * Models switched off in the Ollama settings tab.
+ *
+ * An endpoint usually serves far more models than a table ever uses, and every
+ * one of them lands in every picker. Disabling is a list, not a per-picker
+ * filter: the names are dropped as the model list is retrieved, so nothing
+ * downstream — pickers, the default model, the wizard — ever sees them.
+ *
+ * Kept as the exclusion rather than the selection on purpose: a model pulled
+ * later is available without having to be enabled first.
+ */
+export const DEFAULT_DISABLED_MODELS = []
+
+export function normalizeDisabledModels(raw) {
+  if (!Array.isArray(raw)) return []
+  const names = new Set()
+  for (const entry of raw) {
+    const name = String(entry ?? '').trim()
+    if (name) names.add(name)
+  }
+  return [...names]
+}
+
 // The splash lives outside the settings blob so that clearing the saved
 // settings does not silently bring the welcome screen back.
 export const SPLASH_STORAGE_KEY = 'showSplashOnStartup'

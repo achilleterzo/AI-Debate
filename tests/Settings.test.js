@@ -9,7 +9,21 @@ import {
   DEFAULT_MODERATOR_PERMISSIVENESS,
   normalizeModerationCooling,
   normalizeModeratorPermissiveness,
+  normalizeDisabledModels,
 } from '../src/settings/Settings'
+
+describe('normalizeDisabledModels', () => {
+  it('keeps trimmed, unique names and drops everything else', () => {
+    expect(normalizeDisabledModels(['a:latest', ' b:latest ', 'a:latest', '', null, 3]))
+      .toEqual(['a:latest', 'b:latest', '3'])
+  })
+
+  it('falls back to an empty list for anything that is not an array', () => {
+    expect(normalizeDisabledModels()).toEqual([])
+    expect(normalizeDisabledModels(null)).toEqual([])
+    expect(normalizeDisabledModels('a:latest')).toEqual([])
+  })
+})
 
 describe('normalizeModerationCooling', () => {
   it('uses the default for invalid or non-positive values', () => {

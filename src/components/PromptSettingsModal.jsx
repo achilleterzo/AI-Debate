@@ -6,8 +6,9 @@ import { TRANSLATED_LANGUAGE_CODES } from '../i18n/locales'
 import { UPDATE_ERROR, UPDATE_STATUS } from '../services/Updates'
 import { TOOL_SETTINGS } from '../tools/ToolSettings'
 import { MAX_DEBUG_PAYLOAD_TURNS, MIN_DEBUG_PAYLOAD_TURNS, PAGE_BLOCK_STEPS, normalizeDebugPayloadTurns } from '../settings/Settings'
+import OllamaSettings from './OllamaSettings'
 
-const TABS = ['main', 'promptRules', 'advanced']
+const TABS = ['main', 'ollama', 'promptRules', 'advanced']
 
 export default function PromptSettingsModal({
   value,
@@ -32,6 +33,19 @@ export default function PromptSettingsModal({
   onPageBlockKbChange,
   debugPayloadTurns,
   onDebugPayloadTurnsChange,
+  endpoint,
+  onConnectEndpoint,
+  connecting,
+  connectError,
+  ollamaOk,
+  endpointHistory,
+  onDeleteEndpointHistoryEntry,
+  availableModels,
+  disabledModels,
+  onToggleModelEnabled,
+  onSetAllModelsEnabled,
+  defaultModel,
+  onDefaultModelChange,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.promptSettingsModal
@@ -46,6 +60,7 @@ export default function PromptSettingsModal({
 
   const tabLabel = {
     main: ui.tabMain,
+    ollama: ui.tabOllama,
     promptRules: ui.tabPromptRules,
     advanced: ui.tabAdvanced,
   }
@@ -149,6 +164,25 @@ export default function PromptSettingsModal({
                   )}
                 </div>
               </div>
+            )}
+
+            {activeTab === 'ollama' && (
+              <OllamaSettings
+                endpoint={endpoint}
+                onConnect={onConnectEndpoint}
+                connecting={connecting}
+                connectError={connectError}
+                ollamaOk={ollamaOk}
+                history={endpointHistory}
+                onDeleteHistoryEntry={onDeleteEndpointHistoryEntry}
+                models={availableModels}
+                disabledModels={disabledModels}
+                onToggleModel={onToggleModelEnabled}
+                onSetAllModelsEnabled={onSetAllModelsEnabled}
+                defaultModel={defaultModel}
+                onSelectDefaultModel={onDefaultModelChange}
+                disabled={running}
+              />
             )}
 
             {activeTab === 'promptRules' && (

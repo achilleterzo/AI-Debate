@@ -32,7 +32,8 @@ import { CHARACTER_TYPES } from './dataset/CharacterTypes'
 import { EDUCATION_LEVELS } from './prompts/EducationLevels'
 import { MOOD_INTENSITY } from './prompts/MoodIntensity'
 import { AGE_GROUPS } from './prompts/AgeGroups'
-import { UiStringsProvider, useUiStrings } from './i18n/UiStringsContext'
+import { useUiStrings } from './i18n/UiStringsContext'
+import { UiStringsProvider } from './i18n/UiStringsProvider'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from './prompts/DefaultGeneralPersonalityInstructions'
 import { isCustomOutputLanguage } from './prompts/LanguagePrompt'
 import { DEFAULT_URL } from './settings/Settings'
@@ -82,7 +83,9 @@ function AppInner({ settings }) {
   const [ollamaOk, setOllamaOk] = useState(null)
 
   // ── models ──
-  const [models, setModels] = useState([])
+  // Everything the endpoint serves. The app runs off `models` below, which is
+  // this list minus what the Ollama settings tab switched off.
+  const [availableModels, setAvailableModels] = useState([])
   const [headerOpen, setHeaderOpen] = useState(true)
 
   // ── conversation ──
@@ -103,10 +106,12 @@ function AppInner({ settings }) {
     debugPayloadTurns, setDebugPayloadTurns, uiLang, setUiLang,
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
+    disabledModels, setDisabledModels,
     defaultThinkingLevel, setDefaultThinkingLevel,
     enabledTools, setEnabledTools,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
   } = settings
+  const models = useMemo(() => AI.keepEnabledModels(availableModels, disabledModels), [availableModels, disabledModels])
   // The overrides stay stored while the switch is off, so turning it back on
   // restores the previous choice; what the operations see is the gated value.
   const effectiveSummaryModelOverride = summaryModelEnabled ? summaryModelOverride : ''
@@ -345,10 +350,32 @@ function AppInner({ settings }) {
     noLocalModelsMessage: ui.noLocalModels,
     setConnecting,
     setConnectError,
-    setModels,
+    setModels: setAvailableModels,
     setBaseUrl,
     setOllamaOk,
   })
+
+  /**
+   * A model switched off in the Ollama tab is dropped from the list the app
+   * retrieves, so it can no longer be the general default either: every picker
+   * resolves that default against the list it has just been removed from. The
+   * selection moves to the first model still enabled rather than emptying —
+   * losing the default is what puts the connection modal back on screen.
+   */
+  const handleToggleModelEnabled = useCallback((model, enabled) => {
+    const rest = disabledModels.filter(entry => entry !== model)
+    const nextDisabled = enabled ? rest : [...rest, model]
+    setDisabledModels(nextDisabled)
+    if (!enabled && defaultModel === model) {
+      setDefaultModel(AI.firstEnabledModel(availableModels, nextDisabled))
+    }
+  }, [availableModels, defaultModel, disabledModels, setDefaultModel, setDisabledModels])
+
+  const handleSetAllModelsEnabled = useCallback(enabled => {
+    setDisabledModels(enabled ? [] : [...availableModels])
+    // Switching everything off leaves nothing to fall back to.
+    if (!enabled) setDefaultModel('')
+  }, [availableModels, setDefaultModel, setDisabledModels])
 
   const handleStop = () => stopDebate()
   const handleForceStop = () => forceStopDebate()
@@ -1151,6 +1178,12 @@ function AppInner({ settings }) {
         onSearchApiKeyChange={setSearchApiKey}
         pageBlockKb={pageBlockKb}
         onPageBlockKbChange={setPageBlockKb}
+        endpointInput={endpointInput}
+        onConnectEndpoint={connectMainEndpoint}
+        availableModels={availableModels}
+        disabledModels={disabledModels}
+        onToggleModelEnabled={handleToggleModelEnabled}
+        onSetAllModelsEnabled={handleSetAllModelsEnabled}
       />
       </div>
     </div>

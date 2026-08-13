@@ -56,6 +56,12 @@ export default function AppModals({
   onPageBlockKbChange,
   debugPayloadTurns,
   onDebugPayloadTurnsChange,
+  endpointInput,
+  onConnectEndpoint,
+  availableModels = [],
+  disabledModels = [],
+  onToggleModelEnabled,
+  onSetAllModelsEnabled,
 }) {
   return (
     <>
@@ -121,6 +127,19 @@ export default function AppModals({
           onPageBlockKbChange={onPageBlockKbChange}
           debugPayloadTurns={debugPayloadTurns}
           onDebugPayloadTurnsChange={onDebugPayloadTurnsChange}
+          endpoint={endpointInput}
+          onConnectEndpoint={onConnectEndpoint}
+          connecting={connecting}
+          connectError={connectError}
+          ollamaOk={ollamaOk}
+          endpointHistory={endpointHistory}
+          onDeleteEndpointHistoryEntry={onDeleteEndpointHistoryEntry}
+          availableModels={availableModels}
+          disabledModels={disabledModels}
+          onToggleModelEnabled={onToggleModelEnabled}
+          onSetAllModelsEnabled={onSetAllModelsEnabled}
+          defaultModel={defaultModel}
+          onDefaultModelChange={onDefaultModelChange}
         />
       )}
       {customLangModal && (
