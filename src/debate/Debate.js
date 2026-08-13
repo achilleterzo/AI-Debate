@@ -425,89 +425,6 @@ export class Debate {
     return [...history, { ...interjection, pending: false }]
   }
 
-  static detectTopicDrift({ history = [], messages = [] }) {
-    const activeTopic = Debate.getActiveTopicMessage(history)
-    if (!activeTopic?.content?.trim() || messages.length === 0) return { detected: false, reason: '' }
-
-    const topicText = activeTopic.content.toLowerCase()
-    const roundText = messages.map(message => String(message.content || '')).join('\n\n').toLowerCase()
-
-    const wholeSubjectFocus = /\b(opinion|project|website|site|webzine|initiative|about)\b/.test(topicText)
-    if (!wholeSubjectFocus) return { detected: false, reason: '' }
-
-    const wholeSubjectAnchors = ['project', 'website', 'site', 'webzine', 'editorial', 'coverage', 'mission', 'publication', 'initiative', 'opinion']
-    const anchorHits = wholeSubjectAnchors.filter(anchor => roundText.includes(anchor)).length
-
-    const detailMentions = [
-      ...String(messages.map(message => message.content || '').join('\n\n')).matchAll(/"([^"]{3,})"/g),
-      ...String(messages.map(message => message.content || '').join('\n\n')).matchAll(/\*\*([^*]{3,})\*\*/g),
-    ]
-    const uniqueDetails = new Set(detailMentions.map(match => String(match[1] || '').trim().toLowerCase()).filter(Boolean))
-
-    const detected = uniqueDetails.size >= 2 && anchorHits === 0
-    return {
-      detected,
-      reason: detected ? 'participants drifted from the overall topic into specific side details without reconnecting them to the main subject' : '',
-    }
-  }
-
-  static detectUnsupportedAssumptionDrift({ messages = [] }) {
-    if (messages.length === 0) return { detected: false, reason: '' }
-
-    const text = messages.map(message => String(message.content || '')).join('\n\n').toLowerCase()
-    const assumptionSignals = [
-      'traffic',
-      'click',
-      'clickbait',
-      'analytics',
-      'business model',
-      'strategy of survival',
-      'strategia di sopravvivenza',
-      'wants traffic',
-      'vuole traffico',
-      'intention',
-      'intent',
-      'motivation',
-      'motive',
-      'opportunism',
-      'parasitism',
-      'parassitismo',
-      'not paid collaborators',
-      'collaboratori non pagati',
-    ]
-    const evidenceSignals = [
-      'homepage',
-      'home page',
-      'about page',
-      'about us',
-      'mission',
-      'declares',
-      'states',
-      'homepage says',
-      'the site says',
-      'they declare',
-      'declara',
-      'dice',
-      'dichiara',
-      'testo',
-      'pagina',
-      'source',
-      'fonte',
-      'report',
-      'article',
-      'articolo',
-    ]
-
-    const assumptionHits = assumptionSignals.filter(signal => text.includes(signal)).length
-    const evidenceHits = evidenceSignals.filter(signal => text.includes(signal)).length
-    const detected = assumptionHits >= 2 && evidenceHits === 0
-
-    return {
-      detected,
-      reason: detected ? 'participants are making undocumented inferences about motives, traffic, or internal strategy instead of staying with observable evidence' : '',
-    }
-  }
-
   static sessionConstants() {
     return {
       mkParticipant: Debate.mkParticipant,
@@ -1455,15 +1372,6 @@ export class Debate {
             const label = participant ? (participant.name || participant.tag) : message.role
             return `${label}: ${text}`
           }).join('\n\n')
-
-          const topicDrift = Debate.detectTopicDrift({ history, messages: forSummary })
-          const unsupportedAssumptions = Debate.detectUnsupportedAssumptionDrift({ messages: forSummary })
-          if (topicDrift.detected || unsupportedAssumptions.detected) {
-            roundModerationSignal = {
-              needed: true,
-              reason: [topicDrift.reason, unsupportedAssumptions.reason].filter(Boolean).join(' | '),
-            }
-          }
 
           const summaryModel = Debate.pickOperationalModel(parts, summaryModelOverride, defaultModel)
           const summarySystem = Debate.buildRoundSummarySystemPrompt(uiLang, LANGUAGES)
