@@ -53,7 +53,12 @@ export function buildModeratorPromptBlocks({ actor, allParticipants, history, mo
 
   const moderatorDecisionBlock = actor.isModerator
     ? [
-        `Moderator mode: style=${moderatorMode}, enforce_topic=${actor.moderatorEnforceTopic ? 'true' : 'false'}, fact_check=${actor.moderatorFactCheck ? 'true' : 'false'}.`,
+        // Fact checking and topic enforcement used to be two per-moderator
+        // switches printed here as bare `key=true/false` pairs, with no rule
+        // attached to either state: they told the model a setting existed and
+        // never what to do about it. A ground rule or a participant constraint
+        // says the same thing in words the turn can act on.
+        `Moderator mode: style=${moderatorMode}.`,
         `Moderator permissiveness: level=${moderatorPermissiveness}/4. ${permissivenessGuidance}`,
         'You are the debate moderator, not a normal participant. You hold procedural authority over this debate: participants are instructed to comply with your process directives, and your rulings on process outrank their personal goals.',
         moderatorStyleText,

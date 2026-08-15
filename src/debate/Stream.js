@@ -184,14 +184,38 @@ export function resolveBudget(messages = [], contextChars = 0) {
  * the model reasoned over the remainder as if the page ended there. It keeps
  * whichever allowance is larger, so lowering the block size still lowers what
  * is sent, and the guard still bounds a tool that returns far more than asked.
+ *
+ * `trimTools` withdraws that exemption for the one caller that cannot honor it:
+ * the retry after the provider rejected the payload as too long. There the
+ * fetched page is usually the largest thing in the request, and the exchange it
+ * belongs to is now kept whole, so exempting it means retrying with the message
+ * that caused the rejection at full size.
  */
-function messageBudget(message, maxPerMsg, maxSummary) {
+function messageBudget(message, maxPerMsg, maxSummary, trimTools = false) {
   // Already charged against the budget by resolveBudget, so it is not trimmed
   // to the remainder it paid for.
   if (isSummaryMessage(message)) return maxSummary
-  return message?.role === 'tool'
+  return message?.role === 'tool' && !trimTools
     ? Math.max(maxPerMsg, Web.maxToolResultChars())
     : maxPerMsg
+}
+
+/**
+ * Where a `keepLast` window may actually start.
+ *
+ * A `tool` message answers the `tool_calls` carried by the assistant message
+ * before it, and only that pairing says which call it answers. Cutting between
+ * the two leaves an orphan result: Ollama tolerates it because it matches on
+ * `tool_name`, an OpenAI-compatible endpoint rejects the payload outright, and
+ * either way the model is handed a result with no record of having asked for
+ * it. The window is widened backwards over the whole exchange instead —
+ * including the nudge that may follow it, which alone would be a request to
+ * answer with the material it refers to no longer in the payload.
+ */
+function wholeToolExchangeStart(messages, startIndex) {
+  let start = startIndex
+  while (start > 0 && (messages[start].role === 'tool' || messages[start - 1].role === 'tool')) start--
+  return start
 }
 
 export function compactMessages(arr, {
@@ -199,15 +223,18 @@ export function compactMessages(arr, {
   maxPerMsg = DEFAULT_MESSAGE_BUDGET_CHARS,
   maxSummary = maxPerMsg,
   maxSystem = MAX_SYSTEM_PROMPT_CHARS,
+  trimToolResults = false,
 } = {}) {
   const out = []
   const sys = arr.find(message => message.role === 'system')
   if (sys) out.push({ ...sys, content: trimText(sys.content, maxSystem) })
   const nonSystem = arr.filter(message => message.role !== 'system')
-  const recent = Number.isFinite(keepLast) ? nonSystem.slice(-keepLast) : nonSystem
+  const recent = Number.isFinite(keepLast)
+    ? nonSystem.slice(wholeToolExchangeStart(nonSystem, Math.max(0, nonSystem.length - keepLast)))
+    : nonSystem
   const summary = nonSystem.find(isSummaryMessage)
   const selected = summary && !recent.includes(summary) ? [summary, ...recent] : recent
-  const tail = selected.map(message => ({ ...message, content: trimText(message.content, messageBudget(message, maxPerMsg, maxSummary)) }))
+  const tail = selected.map(message => ({ ...message, content: trimText(message.content, messageBudget(message, maxPerMsg, maxSummary, trimToolResults)) }))
   return [...out, ...tail]
 }
 
@@ -414,7 +441,12 @@ export async function streamChat({
         // small setting is not overshot by the retry that is meant to shrink.
         const retryBudget = resolveBudget(apiMessages, contextChars)
         apiMessages = compactMessages(apiMessages, {
+          // One message, widened to the whole tool exchange when the last one
+          // sits inside it: an orphaned result is not a smaller payload, it is
+          // a malformed one. What buys the room back is trimming the result
+          // itself, which is why its size exemption is withdrawn here.
           keepLast: 1,
+          trimToolResults: true,
           maxPerMsg: Math.min(TOO_LONG_RETRY_BUDGET_CHARS, retryBudget.perMessage),
           maxSummary: Math.min(TOO_LONG_RETRY_BUDGET_CHARS, retryBudget.summary),
         })

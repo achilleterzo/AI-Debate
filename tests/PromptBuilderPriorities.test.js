@@ -236,6 +236,48 @@ describe('buildSystemPrompt moderator modes and hierarchy', () => {
   })
 })
 
+describe('the length budget is not something a content rule can raise', () => {
+  const withLengths = {
+    ...constants,
+    RESPONSE_LENGTHS: [
+      { value: 'short', constraints: { default: 'Respond briefly: at most one paragraph of 2 to 4 sentences.' } },
+    ],
+  }
+
+  function buildShort(extra = {}) {
+    return buildSystemPrompt({
+      actor: { ...participants[0], responseLength: 'short' },
+      allParticipants: participants,
+      history: [],
+      uiLang: 'en',
+      constants: withLengths,
+      ...extra,
+    })
+  }
+
+  it('states the verbosity rule as a ceiling rather than a preference', () => {
+    const prompt = buildShort()
+    expect(prompt).toContain('HARD LENGTH BUDGET')
+    expect(prompt).toContain('at most one paragraph of 2 to 4 sentences')
+    expect(prompt).toContain('never by exceeding the length')
+  })
+
+  it('places the budget outside the precedence ladder so no constraint outranks it', () => {
+    const prompt = buildShort({
+      globalConstraints: ['Always argue your position thoroughly and substantiate every claim.'],
+    })
+    expect(prompt).toContain('The verbosity rule stated in the response style above sits outside this ladder')
+    expect(prompt).toContain('When the rules below ask for more material than the budget holds, drop material.')
+    expect(prompt).toContain('honor each one in its most compact possible form')
+  })
+
+  it('drops the budget wording entirely when no length is configured', () => {
+    const prompt = build()
+    expect(prompt).not.toContain('HARD LENGTH BUDGET')
+    expect(prompt).not.toContain('sits outside this ladder')
+  })
+})
+
 describe('reasoning instructions follow the thinking level', () => {
   it('omits the reasoning focus when the participant thinks instantly', () => {
     const prompt = build({ thinkingLevel: 'none' })

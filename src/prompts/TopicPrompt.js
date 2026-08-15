@@ -1,4 +1,48 @@
-export function buildTopicPromptBlocks({ history, attachedDocs }) {
+/**
+ * Below this, an attachment is simply included: the round-trip through the
+ * tool would cost more context than the document itself.
+ */
+const ATTACHMENT_INLINE_CHARS = 2000
+
+/** How much of a long attachment the index shows, so the tool call is informed. */
+const ATTACHMENT_PREVIEW_CHARS = 700
+
+/**
+ * The attached documents as the participants receive them.
+ *
+ * Everything used to be pasted in whole, in every participant's prompt, on
+ * every turn: an 80 KB document was paid for once per turn per participant,
+ * and at the context budget it was the transcript that got cut to make room
+ * for it. With `read_attachment` available the long ones travel as an index —
+ * name, size, and enough of the opening to know what it is — and the full text
+ * is one tool call away. Short ones are still included outright, and so is
+ * everything when the tool is not available: without it the prompt is the only
+ * way the document can be read at all.
+ */
+function buildDocsBlock(attachedDocs, attachmentToolAvailable, attachmentsSummarized) {
+  if (attachedDocs.length === 0) return ''
+
+  const rendered = attachedDocs.map(doc => {
+    const content = String(doc.content ?? '')
+    if (!attachmentToolAvailable || content.length <= ATTACHMENT_INLINE_CHARS) {
+      return `## ${doc.name}\n${content}`
+    }
+    const opening = attachmentsSummarized
+      ? `Analytical summary:\n${content}`
+      : `Opening of the document:\n${content.slice(0, ATTACHMENT_PREVIEW_CHARS)}…`
+    return `## ${doc.name}\n(${content.length} characters${attachmentsSummarized ? ', summarized' : ''})\n${opening}`
+  })
+
+  const indexed = attachmentToolAvailable
+    && attachedDocs.some(doc => String(doc.content ?? '').length > ATTACHMENT_INLINE_CHARS)
+  const note = indexed
+    ? '\n\nThe documents above marked with a character count are not reproduced in full here. Read one with the read_attachment tool before quoting it or stating what it says; the summary or opening shown is not the document.'
+    : ''
+
+  return `\n\nAttached context documents:\n${rendered.join('\n\n')}${note}`
+}
+
+export function buildTopicPromptBlocks({ history, attachedDocs, attachmentToolAvailable = false, attachmentsSummarized = false }) {
   const topicDirectives = history
     .filter(m => (m.role === 'topic' || m.role === 'interjection') && m.content?.trim())
     .map((m, index) => {
@@ -30,9 +74,7 @@ export function buildTopicPromptBlocks({ history, attachedDocs }) {
     ? `Topic directives history:\n${topicDirectives}\n\nTreat topic and topic updates as authoritative steering instructions from outside the debate flow, not as conversational turns by any participant or by the moderator.`
     : ''
 
-  const docsBlock = attachedDocs.length > 0
-    ? `\n\nAttached context documents:\n${attachedDocs.map(d => `## ${d.name}\n${d.content}`).join('\n\n')}`
-    : ''
+  const docsBlock = buildDocsBlock(attachedDocs, attachmentToolAvailable, attachmentsSummarized)
 
   return { topicDirectiveBlock, activeTopicBlock, sourcePriorityBlock, docsBlock }
 }

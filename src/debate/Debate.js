@@ -18,7 +18,7 @@ import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePr
 import { visibleContribution } from '../prompts/ReasoningLeak'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_MODE as DEFAULT_MODE, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, MODERATOR_MODES as MODERATOR_MODE_VALUES, contextBudgetChars, normalizeModeratorFacilitationInterval, normalizeModeratorMode, normalizeModeratorPermissiveness } from '../settings/Settings'
-import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readMemory, rollDice } from '../tools'
+import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, READ_ATTACHMENT_TOOL, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readAttachment, readMemory, rollDice } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
@@ -156,9 +156,15 @@ if (import.meta.hot) {
 }
 
 export class Debate {
+  // Fallback size of the transcript sent with a conclusion, for a call made
+  // without the user's context setting. When the setting is known the budget
+  // comes from it, so this is a floor for callers that have none.
   static CONCLUSION_CONVERSATION_LIMIT = 8000
 
-  static CONCLUSION_MESSAGE_LIMIT = 600
+  // What the transcript keeps when the rest of the conclusion prompt — the
+  // attachments, the previous conclusions, the mode guidance — is already
+  // larger than the budget. Below this a conclusion has nothing to read.
+  static MIN_CONCLUSION_CONVERSATION_CHARS = 4000
 
   static CONCLUSION_ATTACHMENT_LIMIT = 2200
 
@@ -227,8 +233,6 @@ export class Debate {
       moderatorPermissiveness: Debate.DEFAULT_MODERATOR_PERMISSIVENESS,
       moderatorFacilitationInterval: Debate.DEFAULT_MODERATOR_FACILITATION_INTERVAL,
       moderatorDynamicAffinity: false,
-      moderatorFactCheck: false,
-      moderatorEnforceTopic: false,
       mood: Debate.DEFAULT_MOOD,
       moodIntensity: Debate.DEFAULT_MOOD_INTENSITY,
       reasoningLang: '',
@@ -481,8 +485,6 @@ export class Debate {
       moderatorPermissiveness: normalizeModeratorPermissiveness(participant.moderatorPermissiveness),
       moderatorFacilitationInterval: normalizeModeratorFacilitationInterval(participant.moderatorFacilitationInterval),
       moderatorDynamicAffinity: !!participant.moderatorDynamicAffinity,
-      moderatorEnforceTopic: !!participant.moderatorEnforceTopic,
-      moderatorFactCheck: !!participant.moderatorFactCheck,
       mood: participant.mood,
       moodIntensity: participant.moodIntensity ?? Debate.DEFAULT_MOOD_INTENSITY,
       reasoningLang: participant.reasoningLang ?? '',
@@ -612,22 +614,97 @@ export class Debate {
       .filter(Boolean)
   }
 
-  static buildConclusionConversation(history = [], participants = [], { limit = Debate.CONCLUSION_CONVERSATION_LIMIT, messageLimit = Debate.CONCLUSION_MESSAGE_LIMIT } = {}) {
-    const lines = history
+  /**
+   * The transcript a conclusion reads, fitted to a character budget.
+   *
+   * Whole messages, newest first, for as many as the budget takes — the same
+   * rule `capContextMessages` applies to a turn. It used to cut every message
+   * to a fixed 600 characters instead, which left the reviewer reading fifty
+   * half-sentences: an argument was never present end to end, so nothing about
+   * it could be assessed, and the model reported the truncation itself as a
+   * flaw of the debate. Cutting the joined text at a character offset had the
+   * same effect on the oldest message kept, which began mid-word.
+   *
+   * `messageLimit` stays available as a hard per-message cap for a caller that
+   * wants one, and is off by default: a long turn is what a conclusion is for.
+   * The newest message is kept whole even when it alone exceeds the budget —
+   * the transport guard is what bounds the payload, and dropping it would send
+   * a conclusion with no conversation at all.
+   */
+  static buildConclusionConversation(history = [], participants = [], { limit = Debate.CONCLUSION_CONVERSATION_LIMIT, messageLimit = 0 } = {}) {
+    const perMessage = Number.isFinite(messageLimit) && messageLimit > 0 ? messageLimit : Infinity
+    const entries = history
       .filter(message => !['error', 'topic', 'interjection', 'pending'].includes(message.role))
       // A conclusion is drawn from what was said, so a leaked deliberation is
       // not part of the material — the same rule the turn payload follows.
       .map(message => ({ message, text: visibleContribution(message.content) }))
       .filter(({ text }) => text)
       .map(({ message, text }) => {
-        if (message.role === 'user') return `Moderator: ${text.slice(0, messageLimit)}`
+        const body = text.length > perMessage ? `${text.slice(0, perMessage)}…[message truncated]` : text
+        if (message.role === 'user') return `Moderator: ${body}`
         const participant = participants.find(entry => entry.tag === message.role)
-        return `${participant?.name || participant?.tag || message.role}: ${text.slice(0, messageLimit)}`
+        return `${participant?.name || participant?.tag || message.role}: ${body}`
       })
 
-    let full = lines.join('\n\n')
-    if (full.length > limit) full = '…[conversation truncated]\n\n' + full.slice(full.length - limit)
-    return full
+    const maxChars = Number.isFinite(limit) && limit > 0 ? limit : Infinity
+    const kept = []
+    let total = 0
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const size = entries[index].length + (kept.length > 0 ? 2 : 0)
+      if (kept.length > 0 && total + size > maxChars) break
+      kept.unshift(entries[index])
+      total += size
+    }
+    const omitted = entries.length - kept.length
+    const body = kept.join('\n\n')
+    return omitted > 0 ? `…[${omitted} earlier messages omitted for context]\n\n${body}` : body
+  }
+
+  /**
+   * The whole conclusion request, sized on the user's context setting.
+   *
+   * The conversation shares one payload with the attachments, the previous
+   * conclusions and the mode guidance, so it cannot simply be given the budget:
+   * what is left after the rest is what it may take. The prompt is measured
+   * rather than estimated because the conversation travels inside JSON, where
+   * every newline costs two characters — and if the assembled prompt still
+   * exceeds the budget, the transcript gives back the excess and is rebuilt.
+   * Without this the transport guard cut the *end* of the prompt, which is
+   * where the JSON closes: the model read a truncated input object.
+   */
+  static buildConclusionRequest({
+    history = [],
+    participants = [],
+    attachedDocs = [],
+    conclusions = [],
+    summary = null,
+    conclusionType,
+    type,
+    model,
+    customPrompt = '',
+    standardPrompt = '',
+    debateMode = DEFAULT_DEBATE_MODE,
+    contextChars = 0,
+  }) {
+    const budget = Number.isFinite(contextChars) && contextChars > 0 ? contextChars : Debate.CONCLUSION_CONVERSATION_LIMIT
+    const assemble = conversationLimit => {
+      const conversation = Debate.buildConclusionConversation(history, participants, { limit: conversationLimit })
+      const context = Debate.buildConclusionContext({ conversation, attachedDocs, conclusions, summary, type, model, customPrompt, debateMode })
+      return { conversation, context, prompt: Debate.buildConclusionPrompt({ conclusionType, context, customPrompt, standardPrompt }) }
+    }
+
+    let conversationLimit = budget
+    let built = assemble(conversationLimit)
+    // The excess comes off what the transcript actually took, not off the
+    // limit it was offered: messages are dropped whole, so a limit still above
+    // the assembled length drops nothing and the pass repeats unchanged.
+    for (let attempt = 0; attempt < 3 && built.prompt.length > budget; attempt += 1) {
+      const next = Math.max(Debate.MIN_CONCLUSION_CONVERSATION_CHARS, built.conversation.length - (built.prompt.length - budget))
+      if (next >= conversationLimit) break
+      conversationLimit = next
+      built = assemble(conversationLimit)
+    }
+    return built
   }
 
   static getLatestConclusionByType(conclusions = [], type) {
@@ -660,7 +737,7 @@ export class Debate {
     const docsForConclusion = Debate.buildConclusionAttachments(attachedDocs)
     return {
       debate_mode: selectedMode.id,
-      debate_mode_label: selectedMode.id,
+      debate_mode_label: selectedMode.label,
       debate_mode_instruction: selectedMode.instruction || '',
       debate_mode_conclusion_instruction: DEBATE_MODE_CONCLUSION_INSTRUCTIONS[selectedMode.id] || DEBATE_MODE_CONCLUSION_INSTRUCTIONS[DEFAULT_DEBATE_MODE],
       conversation,
@@ -901,10 +978,6 @@ export class Debate {
 
   static hasDirectPersonalAttack(history = [], participants = [], moderatorTag = '', permissiveness = Debate.DEFAULT_MODERATOR_PERMISSIVENESS) {
     return Debate.getDirectPersonalAttackTargets(history, participants, moderatorTag, permissiveness).length > 0
-  }
-
-  static updateConclusionConv(history, participants, conclusionConvRef) {
-    conclusionConvRef.current = Debate.buildConclusionConversation(history, participants)
   }
 
   static applyDynamicAffinityUpdates({ participants = [], deltas = {}, moderatorIntervention = false, moderationTargets = [], moderationCooling = 0 }) {
@@ -1153,7 +1226,6 @@ export class Debate {
       setUserInputPending,
       turnRef,
       interjectRef,
-      conclusionConvRef,
       conclusionsRef,
       memoryRef,
       setMemory,
@@ -1379,6 +1451,11 @@ export class Debate {
               baseUrl: summaryBaseUrl,
               model: summaryModel,
                messages: [{ role: 'user', content: prompt }],
+              // The round's turns and the summary they extend travel in this
+              // one message, so it is sized on the context setting like the
+              // turn is. On the default ceiling a round of long turns lost its
+              // tail, and the summary was written from a prompt cut mid-turn.
+              contextChars: contextBudgetChars(summaryAccumulateThreshold),
               systemPrompt: summarySystem,
               useTools: false,
               onToken: () => {},
@@ -1668,6 +1745,7 @@ export class Debate {
           characterContext,
           uiLang,
           attachedDocs: docsForPrompt,
+          attachmentsSummarized: docsForPrompt !== docs,
           globalConstraints,
           generalPersonalityInstructions,
           debateMode: normalizeDebateMode(debateMode),
@@ -1729,6 +1807,10 @@ export class Debate {
           }
           const conversationToolExecutor = createConversationToolExecutor({
             getMessages: () => history,
+            // The originals, never `docsForPrompt`: the prompt may carry a
+            // summary of a document, and this is how a participant reaches the
+            // text that summary was made from.
+            readAttachment: args => readAttachment(docs, args),
             // The citation is attached to the message being written, not stored
             // apart from it: it travels with the turn through the timeline, the
             // snapshots, the exports and every later payload.
@@ -2111,7 +2193,6 @@ export class Debate {
         setStreamingSeq(null)
       }
 
-      Debate.updateConclusionConv(history, parts, conclusionConvRef)
       // The interrupted round is over; every round after it is planned from
       // scratch and nobody is owed a skip.
       resumedRoundSpeakers = null

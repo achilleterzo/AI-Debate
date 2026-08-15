@@ -12,6 +12,7 @@ import {
 import { participantMode } from '../services/Suggestions'
 import EndpointModelGroup from './EndpointModelGroup'
 import MagicWand from './MagicWand'
+import RemoveButton from './RemoveButton'
 import { thinkingLevelLabel, thinkingLevelOptions } from './ThinkingLevels'
 
 export default function ParticipantsPanel({
@@ -61,6 +62,15 @@ export default function ParticipantsPanel({
     label: `${ui.useDefaultThinking} · ${thinkingLevelLabel(ui, defaultThinkingLevel)}`,
   }
   const thinkingLevelChoices = [useDefaultThinkingOption, ...thinkingLevelOptions(ui)]
+  // "No level" is stored as null and travels as '' here, the way it did when
+  // this was a native select whose first option had an empty value.
+  const educationOptions = educationLevels.map(level => ({ value: level.value ?? '', label: level.label }))
+  // The one picker on the row that has to fill the space left between the age
+  // slider and the toggles, instead of the fixed 170px the others take.
+  const growingSelectStyles = {
+    ...moodSelectStyles,
+    container: base => ({ ...moodSelectStyles.container?.(base) ?? base, width: 'auto', flex: '1 1 auto', minWidth: 0 }),
+  }
   const describeDraft = draft => [
     draft.mood ? moods.find(mood => mood.id === draft.mood)?.label : null,
     draft.ageGroup != null ? ageGroups[draft.ageGroup]?.label : null,
@@ -530,25 +540,18 @@ export default function ParticipantsPanel({
                     {ageGroups[p.ageGroup ?? defaultAgeGroup]?.label}
                   </span>
                 </div>
-                <select
-                  value={p.educationLevel ?? ''}
-                  onChange={e => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, educationLevel: e.target.value || null } : x))}
-                  style={{
-                    flex: '1 1 auto',
-                    minWidth: 0,
-                    height: 28,
-                    background: '#0f0f0f',
-                    color: '#aaa',
-                    border: '1px solid #2e2e2e',
-                    borderRadius: 6,
-                    padding: '0 8px',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                  }}
+                {/* The last native select on the row: it kept the browser's own
+                    control, arrow and menu next to react-select neighbours that
+                    are 1px shorter and open a styled list. */}
+                <ReactSelect
+                  styles={growingSelectStyles}
+                  options={educationOptions}
+                  value={educationOptions.find(option => option.value === (p.educationLevel ?? '')) ?? educationOptions[0] ?? null}
+                  onChange={option => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, educationLevel: option?.value || null } : x))}
+                  isSearchable={false}
+                  menuPlacement="auto"
                   title={ui.educationTitle}
-                >
-                  {educationLevels.map(e => <option key={e.value ?? ''} value={e.value ?? ''}>{e.label}</option>)}
-                </select>
+                />
                 </>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={ui.localUserTitle}>
@@ -666,43 +669,6 @@ export default function ParticipantsPanel({
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorFactCheckTitle}>
-                  <span style={{ fontSize: 11, color: p.moderatorFactCheck ? '#facc15' : '#666', whiteSpace: 'nowrap' }}>{ui.moderatorFactCheck}</span>
-                  <div
-                    onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorFactCheck: !x.moderatorFactCheck } : x))}
-                    role="switch"
-                    aria-checked={!!p.moderatorFactCheck}
-                    style={{
-                      width: 34, height: 18, borderRadius: 9, position: 'relative',
-                      background: p.moderatorFactCheck ? '#facc15' : '#444',
-                      transition: 'background 0.2s', cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{
-                      position: 'absolute', top: 2, left: p.moderatorFactCheck ? 18 : 2,
-                      width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
-                    }} />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.enforceTopicTitle}>
-                  <span style={{ fontSize: 11, color: p.moderatorEnforceTopic ? '#4ade80' : '#666', whiteSpace: 'nowrap' }}>{ui.enforceTopic}</span>
-                  <div
-                    onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorEnforceTopic: !x.moderatorEnforceTopic } : x))}
-                    role="switch"
-                    aria-checked={!!p.moderatorEnforceTopic}
-                    style={{
-                      width: 34, height: 18, borderRadius: 9, position: 'relative',
-                      background: p.moderatorEnforceTopic ? '#4ade80' : '#444',
-                      transition: 'background 0.2s', cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{
-                      position: 'absolute', top: 2, left: p.moderatorEnforceTopic ? 18 : 2,
-                      width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
-                    }} />
-                  </div>
-                </div>
                 </div>
               </div>
             )}
@@ -750,13 +716,12 @@ export default function ParticipantsPanel({
                     >
                       {constraint}
                     </button>
-                    <button
+                    <RemoveButton
                       onClick={() => onDeleteConstraint(idx, ci)}
-                      style={{ background: 'none', border: 'none', color: isOverride ? '#a8823f' : '#7f629d', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}
                       title={ui.removeConstraint}
-                    >
-                      ✕
-                    </button>
+                      color={isOverride ? '#a8823f' : '#7f629d'}
+                      size={12}
+                    />
                   </div>
                   )
                 })}

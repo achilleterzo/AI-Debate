@@ -41,7 +41,12 @@ export function useSnapshots({
         if (typeof data.generalPersonalityInstructions === 'string') actions.setGeneralPersonalityInstructions(data.generalPersonalityInstructions)
         if (typeof data.debateMode === 'string') actions.setDebateMode(normalizeDebateMode(data.debateMode))
         if (typeof data.customConclusionPrompt === 'string') actions.setCustomConclusionPrompt(data.customConclusionPrompt)
-        if (typeof data.standardConclusionPrompt === 'string') actions.setStandardConclusionPrompt(data.standardConclusionPrompt)
+        // Snapshots written before the guidance was kept per conclusion type
+        // carry one string under the singular key; the setter spreads it.
+        const standardPrompts = data.standardConclusionPrompts ?? data.standardConclusionPrompt
+        if (typeof standardPrompts === 'string' || (standardPrompts && typeof standardPrompts === 'object')) {
+          actions.setStandardConclusionPrompt(standardPrompts)
+        }
         if (data.maxTurns != null) actions.setMaxTurns(data.maxTurns)
         if (data.timeoutSec != null) actions.setTimeoutSec(data.timeoutSec)
         if (data.moderationCooling != null) {

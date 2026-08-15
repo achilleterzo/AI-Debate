@@ -31,6 +31,10 @@
 const TOOL_ARGUMENT_SHAPES = {
   web_search: { properties: ['query'], required: ['query'] },
   fetch_url: { properties: ['url', 'page', 'mode'], required: ['url'] },
+  // No required argument: called bare it lists the attachments. So an empty
+  // object is not a call — `matchesShape` rejects it — but a typed
+  // `read_attachment` by name is still recognised through KNOWN_TOOL_NAMES.
+  read_attachment: { properties: ['name', 'page'], required: [] },
   get_recent_messages: { properties: ['limit', 'participantTags', 'searchTerm'], required: ['limit'] },
   quote_message: { properties: ['messageId', 'excerpt'], required: ['messageId'] },
   request_moderator_intervention: { properties: ['reason'], required: ['reason'] },

@@ -260,6 +260,50 @@ export function buildGlobalRulesPrompt({
   ].filter(Boolean).join('\n\n')
 }
 
+/** A topic is a brief, not a one-line suggestion, so it gets more room. */
+export const MAX_TOPIC_CHARS = 700
+
+/**
+ * The opening topic, written from what the user said the debate is for.
+ *
+ * The wizard already asks for the purpose and uses it to shape the personas
+ * and the ground rules, then leaves the topic box empty — so the user has to
+ * write, in the debate's own terms, the thing they have just described. This
+ * turns the purpose into the prompt the table actually receives; it is a
+ * proposal, and lands in the composer where it can be edited before starting.
+ */
+export function buildTopicProposalPrompt({
+  debateMode = 'free',
+  debateModeLabel = debateMode,
+  debateModeInstruction = '',
+  purpose = '',
+  participants = [],
+  languageNamed = '',
+}) {
+  const roster = participants
+    .map(participant => {
+      const traits = (participant?.traits || []).filter(Boolean).join('; ')
+      return `- ${participant?.name || participant?.tag}${participant?.isModerator ? ' (moderator)' : ''}${traits ? ` — ${traits}` : ''}`
+    })
+    .filter(Boolean)
+    .join('\n')
+
+  return [
+    `Shared debate mode: ${debateModeLabel} (${debateMode}).${debateModeInstruction ? ` ${debateModeInstruction}` : ''}`,
+    purpose.trim()
+      ? `What the user said this debate is for:\n${purpose.trim()}`
+      : 'The user has not described a purpose: derive the topic from the debate mode alone.',
+    roster ? `The table that will debate it:\n${roster}` : '',
+    'Write the opening topic this table will be given. It is addressed to every participant at once: state what is under discussion and what the debate has to produce, concretely enough that a participant knows what a useful first turn looks like.',
+    debateMode === 'role_play'
+      ? 'In Role Play this is the opening scene: establish the setting, the situation the characters are in, and what is at stake, so every participant can act inside it.'
+      : 'Do not assign positions, do not name a participant, do not answer the topic yourself, and do not state the conclusion the debate should reach.',
+    `Write one topic, at most ${MAX_TOPIC_CHARS} characters. Plain prose, no title, no bullet list, no preamble.`,
+    outputLanguageLine(languageNamed, 'word of the topic'),
+    'Return exactly 1 string in a JSON array.',
+  ].filter(Boolean).join('\n\n')
+}
+
 /**
  * Behaviour rules for one participant.
  *
@@ -309,6 +353,41 @@ export function buildParticipantConstraintPrompt({
     outputLanguageLine(languageNamed, 'rule'),
     `Return exactly ${count} strings in a JSON array.`,
   ].filter(Boolean).join('\n\n')
+}
+
+/**
+ * Reads the topic out of the answer.
+ *
+ * Not `parseSuggestions`: that one reads a list, and its line-based fallback
+ * would keep only the first line of a topic written as prose across two
+ * paragraphs — which is what a model does about half the time when asked for
+ * one string. A JSON array is still preferred when there is one.
+ */
+export function parseTopicProposal(raw) {
+  const text = stripFences(raw)
+  if (!text) return ''
+
+  const start = text.indexOf('[')
+  const end = text.lastIndexOf(']')
+  if (start !== -1 && end > start) {
+    try {
+      const parsed = JSON.parse(text.slice(start, end + 1))
+      const first = Array.isArray(parsed)
+        ? parsed.find(entry => typeof entry === 'string' && entry.trim())
+        : null
+      if (first) return cleanEntry(first).slice(0, MAX_TOPIC_CHARS).trim()
+    } catch {
+      // Prose, then.
+    }
+  }
+
+  return text
+    .split('\n')
+    .map(line => cleanEntry(line))
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, MAX_TOPIC_CHARS)
+    .trim()
 }
 
 const AGE_ALIASES = { child: 0, teenager: 1, teen: 1, adult: 2, mature: 3, elder: 4, elderly: 4, senior: 4 }

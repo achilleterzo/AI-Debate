@@ -6,6 +6,7 @@ export default {
   responseLengths: { short: '简短', medium: '中等', detailed: '详细', default: '自由' },
   moodIntensity: ['低', '轻微', '平衡', '强烈', '极端'],
   modes: { free: '自由', brainstorm: '头脑风暴', fact_check: '事实核查', design_review: '设计评审', decision: '决策', negotiation: '谈判', red_team: '红队', socratic: '苏格拉底式', peer_review: '同行评审', consensus: '共识', role_play: '角色扮演' },
+  conclusionTypes: { summary: '摘要', considerations: '要点分析', contradictions: '矛盾', blindspot: '盲点', verdict: '裁定', next_steps: '后续步骤', custom: '提示词' },
   common: {
     debateMode: '辩论模式',
     cancel: '取消',
@@ -194,10 +195,6 @@ export default {
     moderatorFacilitationIntervalTitle: '两次计划内引导发言之间相隔的轮数，最后一轮也包含在内。攻击仍会照常处理。',
     moderatorDynamicAffinityTitle: '主持人的动态好感度',
     moderatorDynamicAffinity: '主持人动态好感度',
-    moderatorFactCheckTitle: '事实核查',
-    moderatorFactCheck: '事实核查',
-    enforceTopicTitle: '要求参与者遵守主题',
-    enforceTopic: '遵守主题',
     editConstraint: '编辑约束',
     removeConstraint: '删除约束',
     addConstraint: '添加约束',

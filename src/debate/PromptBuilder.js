@@ -15,7 +15,7 @@ function taggedSection(tag, content) {
   return normalized ? `<${tag}>\n${normalized}\n</${tag}>` : ''
 }
 
-export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, toolsAvailable = true, availableTools = [], quoteToolAvailable = false, constants }) {
+export function buildSystemPrompt({ actor, allParticipants, history, externalModerationTrigger = null, characterContext = null, uiLang = 'en', attachedDocs = [], attachmentsSummarized = false, globalConstraints = [], generalPersonalityInstructions = '', debateMode = DEFAULT_DEBATE_MODE, toolsAvailable = true, availableTools = [], quoteToolAvailable = false, constants }) {
   const {
     MOODS,
     DEFAULT_MOOD,
@@ -32,7 +32,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
 
   const mood = MOODS.find(m => m.id === actor.mood) ?? MOODS.find(m => m.id === DEFAULT_MOOD)
   const mode = DEBATE_MODES.find(entry => entry.id === normalizeDebateMode(debateMode)) ?? DEBATE_MODES[0]
-  const { modeBlock, rolePlayBlock, rolePlayParticipantRule } = buildDebateModePromptBlocks({ mode, debateMode: mode.id, isModerator: actor.isModerator })
+  const { modeBlock, rolePlayBlock, rolePlayParticipantRule } = buildDebateModePromptBlocks({ mode, isModerator: actor.isModerator })
   const moodIntensity = MOOD_INTENSITY[actor.moodIntensity ?? DEFAULT_MOOD_INTENSITY]
   const characterType = CHARACTER_TYPES.find(c => c.value === actor.characterType)
   const responseLength = RESPONSE_LENGTHS.find(r => r.value === actor.responseLength)
@@ -52,7 +52,15 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
 
   const affinityBlock = buildAffinityBlock({ actor, allParticipants })
 
-  const { topicDirectiveBlock, activeTopicBlock, sourcePriorityBlock, docsBlock } = buildTopicPromptBlocks({ history, attachedDocs })
+  const { topicDirectiveBlock, activeTopicBlock, sourcePriorityBlock, docsBlock } = buildTopicPromptBlocks({
+    history,
+    attachedDocs,
+    // Indexed instead of inlined only when this turn actually carries the tool
+    // that can read them back. Describing a document the turn cannot open is
+    // how a model ends up quoting one it never saw.
+    attachmentToolAvailable: toolsAvailable && availableTools.some(tool => tool.function?.name === 'read_attachment'),
+    attachmentsSummarized,
+  })
 
   const { moderatorAuthorityBoundary, moderatorDecisionBlock, moderatorDirectiveBlock } = buildModeratorPromptBlocks({
     actor,
@@ -78,7 +86,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
       ? 'A procedural intervention is required in this turn. Before writing ANY visible response, you MUST emit one structured apply_moderation tool call with the concise reason/directive. Do not explain, quote, or simulate the intervention in visible text. The tool call creates the separate moderation message. After the tool result, output exactly [SKIP_TURN] unless your active moderator style explicitly requires a separate substantive contribution.'
       : 'A procedural intervention is required in this turn. You have no tools available, so write it directly as your visible response: the concise reason and directive, nothing else. Do not mention tools, and do not write any call-shaped text.'
 
-  const constraintsBlock = buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions })
+  const constraintsBlock = buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions, hasLengthBudget: !!responseLengthConstraint })
 
   return [
     taggedSection('context_discipline', CONTEXT_DISCIPLINE_BLOCK),
@@ -88,7 +96,12 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     taggedSection('identity', identityBlock),
     taggedSection('character_profile', characterType ? `Character type: ${characterType.value ?? characterType.id}.` : ''),
     taggedSection('response_style', [
-      responseLengthConstraint ? `Verbosity rule: ${responseLengthConstraint}` : '',
+      // Length and content are separate axes, and saying so is what stops a
+      // "substantiate your position" rule from being honored by writing more.
+      // Without this the model has no way to satisfy both except expansion.
+      responseLengthConstraint
+        ? `Verbosity rule (HARD LENGTH BUDGET — a ceiling, not a preference): ${responseLengthConstraint}\n\nThis budget is orthogonal to every content rule in this prompt. Global rules, personal constraints and debate conduct decide WHAT you argue; this rule decides HOW MUCH you write, and they never conflict. A rule asking you to argue, justify, substantiate, elaborate, give examples or be thorough is satisfied INSIDE this budget, by choosing less material and compressing it — never by exceeding the length. If everything cannot fit, drop content and say less; do not extend the response. Only an explicit system/developer instruction, a binding moderator directive, or a character override constraint that speaks about length itself may raise this ceiling.`
+        : '',
       DEFAULT_DELIVERY_STYLE,
       educationConstraint ? `Education style: ${educationConstraint}` : '',
       ageConstraint ? `Age style: ${ageConstraint}` : '',

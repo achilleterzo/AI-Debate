@@ -162,8 +162,23 @@ const MODE_DEFINITIONS = [
   },
 ]
 
+/**
+ * The mode's English name, for the places that are not the interface.
+ *
+ * The interface has translated labels of its own (`UI_STRINGS.modes`), which is
+ * why the label was taken off the mode definitions. What was missed is that the
+ * prompts and the exports also name the mode, and they fell back to the raw id:
+ * a participant was told the mode was `RED_TEAM`, a conclusion was handed
+ * `debate_mode_label: "peer_review"`, and an export header read `decision`.
+ * That is our storage key shown to a model and to a reader.
+ */
+const titleCase = id => id
+  .split('_')
+  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+  .join(' ')
+
 export const DEBATE_MODES = MODE_DEFINITIONS.map(({ id, emoji, instruction }) => ({
-  id, emoji, instruction,
+  id, emoji, instruction, label: titleCase(id),
 }))
 
 export const DEBATE_MODE_CONCLUSION_INSTRUCTIONS = Object.fromEntries(
@@ -175,4 +190,9 @@ export const DEBATE_MODE_OPTIONS = DEBATE_MODES.map(mode => ({ value: mode.id, e
 
 export function normalizeDebateMode(value) {
   return DEBATE_MODES.some(mode => mode.id === value) ? value : DEFAULT_DEBATE_MODE
+}
+
+/** The English name of whichever mode an id resolves to. */
+export function debateModeLabel(value) {
+  return titleCase(normalizeDebateMode(value))
 }

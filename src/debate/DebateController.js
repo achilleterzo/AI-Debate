@@ -59,8 +59,6 @@ export function useDebateController({
   const useSummaryRef = useRef(useSummary)
   const characterContextRef = useRef({})
 
-  const conclusionConvRef = useRef('')
-
   const contextEstimate = useMemo(() => {
     const convText = messages
       .filter(message => !['error', 'participant_left', 'participant_joined'].includes(message.role))
@@ -124,7 +122,6 @@ export function useDebateController({
     setUserInputPending,
     turnRef,
     interjectRef,
-    conclusionConvRef,
     conclusionsRef,
     memoryRef,
     setMemory,

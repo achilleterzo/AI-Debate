@@ -6,6 +6,7 @@ export default {
   responseLengths: { short: '짧게', medium: '보통', detailed: '자세히', default: '자유' },
   moodIntensity: ['낮음', '약함', '균형', '강함', '극단적'],
   modes: { free: '자유', brainstorm: '브레인스토밍', fact_check: '팩트 체크', design_review: '디자인 검토', decision: '의사결정', negotiation: '협상', red_team: '레드팀', socratic: '소크라테스식', peer_review: '동료 검토', consensus: '합의', role_play: '롤플레이' },
+  conclusionTypes: { summary: '요약', considerations: '고찰', contradictions: '모순', blindspot: '맹점', verdict: '판정', next_steps: '다음 단계', custom: '프롬프트' },
   common: {
     debateMode: '토론 모드',
     cancel: '취소',
@@ -199,10 +200,6 @@ export default {
     moderatorFacilitationIntervalTitle: '예정된 촉진 발언 사이의 라운드 수이며 마지막 라운드도 포함합니다. 공격은 그와 무관하게 처리됩니다.',
     moderatorDynamicAffinityTitle: '진행자의 동적 호감도',
     moderatorDynamicAffinity: '진행자 동적 호감도',
-    moderatorFactCheckTitle: '팩트체크',
-    moderatorFactCheck: '팩트체크',
-    enforceTopicTitle: '참여자가 주제를 지키게 하기',
-    enforceTopic: '주제 지키기',
     editConstraint: '제약 편집',
     removeConstraint: '제약 삭제',
     addConstraint: '제약 추가',

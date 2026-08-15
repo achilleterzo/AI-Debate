@@ -2,8 +2,6 @@ import { useUiStrings } from '../i18n/UiStringsContext'
 import { styles } from './Style'
 
 export default function InputActionButtons({
-  globalConstraints,
-  onAddGlobalConstraint,
   attachedDocs,
   docInputRef,
   onFilesSelected,
@@ -41,39 +39,6 @@ export default function InputActionButtons({
         }}
       />
       <button
-        title={ui.addGlobalConstraint}
-        onClick={onAddGlobalConstraint}
-        style={{
-          background: globalConstraints.length > 0 ? '#24192d' : '#161616',
-          border: `1px solid ${globalConstraints.length > 0 ? '#6a3b87' : '#2e2e2e'}`,
-          borderRadius: 8,
-          width: 44,
-          height: 44,
-          padding: 0,
-          cursor: 'pointer',
-          color: globalConstraints.length > 0 ? '#caa9ee' : '#555',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0,
-          position: 'relative',
-          transition: 'all 0.15s',
-        }}
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 4h10M3 8h10M3 12h10"/>
-          <circle cx="6" cy="4" r="1.4" fill="currentColor" stroke="none"/>
-          <circle cx="10" cy="8" r="1.4" fill="currentColor" stroke="none"/>
-          <circle cx="7" cy="12" r="1.4" fill="currentColor" stroke="none"/>
-        </svg>
-        {globalConstraints.length > 0 && (
-          <span style={{
-            position: 'absolute', top: -4, right: -4,
-            minWidth: 16, height: 16, borderRadius: 999,
-            background: '#6a3b87', border: '1px solid #8f5bb3',
-            color: '#f3e8ff', fontSize: 10, lineHeight: '14px', fontWeight: 700,
-            padding: '0 4px',
-          }}>{globalConstraints.length}</span>
-        )}
-      </button>
-      <button
         title={ui.attachDocument}
         onClick={() => docInputRef.current?.click()}
         style={{
@@ -105,7 +70,7 @@ export default function InputActionButtons({
       </button>
 
       {!running && messages.length === 0 && (
-        <button style={{ ...styles.connectBtn(!canStart), minHeight: 44, alignSelf: 'stretch', cursor: canStart ? 'pointer' : 'default' }} onClick={onStart} disabled={!canStart}>
+        <button style={{ ...styles.connectBtn(!canStart), minHeight: 44, alignSelf: 'flex-end', cursor: canStart ? 'pointer' : 'default' }} onClick={onStart} disabled={!canStart}>
           {ui.start}
         </button>
       )}
@@ -120,7 +85,7 @@ export default function InputActionButtons({
               style={{
                 ...styles.connectBtn(false),
                 minHeight: 44,
-                alignSelf: 'stretch',
+                alignSelf: 'flex-end',
                 background: '#334155',
                 color: '#e0e0e0',
                 cursor: 'pointer',
@@ -142,7 +107,7 @@ export default function InputActionButtons({
             style={{
               ...styles.connectBtn(stopping),
               minHeight: 44,
-              alignSelf: 'stretch',
+              alignSelf: 'flex-end',
               background: stopping ? '#3f1d1d' : '#7f1d1d',
               borderColor: '#b91c1c',
               color: stopping ? '#a88' : '#fee2e2',
@@ -159,7 +124,7 @@ export default function InputActionButtons({
               style={{
                 ...styles.connectBtn(false),
                 minHeight: 44,
-                alignSelf: 'stretch',
+                alignSelf: 'flex-end',
                 background: '#7f1d1d',
                 borderColor: '#ef4444',
                 color: '#fee2e2',
@@ -177,7 +142,7 @@ export default function InputActionButtons({
       {!running && messages.length > 0 && (
         <>
           <button
-            style={{ ...styles.connectBtn(!canResume), minHeight: 44, alignSelf: 'stretch' }}
+            style={{ ...styles.connectBtn(!canResume), minHeight: 44, alignSelf: 'flex-end' }}
             onClick={onResume}
             disabled={!canResume}
             title={

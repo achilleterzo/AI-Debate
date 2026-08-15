@@ -11,7 +11,7 @@ import UserInputBoxView from './components/UserInputBox'
 import ConclusionsPanel from './components/ConclusionsPanel'
 import AttachmentsChips from './components/AttachmentsChips'
 import TopicComposer from './components/TopicComposer'
-import GlobalConstraintsChips from './components/GlobalConstraintsChips'
+import GlobalConstraintsMenu from './components/GlobalConstraintsMenu'
 import DebateModeSettings from './components/DebateModeSettings'
 import AffinitySettings from './components/AffinitySettings'
 import SummarySettings from './components/SummarySettings'
@@ -196,9 +196,6 @@ function AppInner({ settings }) {
   const [userInputPending, setUserInputPending] = useState(null) // { resolve, tag }
   const userInputRef = useRef('')
 
-  // Progressive conversation summary for conclusions, updated every round.
-  const conclusionConvRef = useRef('') // text accumulated round by round, truncated to ~8000 chars
-
   const {
     contextEstimate,
     turnRef,
@@ -297,7 +294,9 @@ function AppInner({ settings }) {
   const conclusionsState = useConclusions({
     initialModel: saved?.conclusionModel ?? '',
     initialCustomPrompt: saved?.customConclusionPrompt ?? '',
-    initialStandardPrompt: saved?.standardConclusionPrompt ?? '',
+    // The singular key is what older settings and snapshots carry: one string
+    // shared by every type, which the hook spreads across all of them.
+    initialStandardPrompts: saved?.standardConclusionPrompts ?? saved?.standardConclusionPrompt ?? '',
     models,
     participants,
     summaryModelOverride: effectiveSummaryModelOverride,
@@ -305,11 +304,11 @@ function AppInner({ settings }) {
     attachedDocs,
     messages,
     summaryRef,
-    conversationRef: conclusionConvRef,
     baseUrl,
     uiLang,
     timeoutSec,
     debateMode,
+    summaryAccumulateThreshold,
     nextSeq,
     setLastPromptEstimate,
     setLastRequest,
@@ -345,7 +344,7 @@ function AppInner({ settings }) {
     setConclusions,
     customConclusionPrompt,
     setCustomConclusionPrompt,
-    standardConclusionPrompt,
+    standardConclusionPrompts,
     setStandardConclusionPrompt,
   } = conclusionsState
   useEffect(() => {
@@ -526,6 +525,10 @@ function AppInner({ settings }) {
     setUiLang(config.uiLang)
     setParticipants(Debate.reindexParticipants(result.participants))
     setGlobalConstraints(result.globalConstraints)
+    // A proposal, not a decision: it lands in the composer, where the user
+    // reads it and edits it before pressing start. `resetChat` above has just
+    // cleared the box, so nothing written by hand is overwritten.
+    if (result.topic) setTopicValue(result.topic)
     setWizardOpen(false)
   }
 
@@ -804,7 +807,7 @@ function AppInner({ settings }) {
       generalPersonalityInstructions,
       debateMode,
       customConclusionPrompt,
-      standardConclusionPrompt,
+      standardConclusionPrompts,
       maxTurns,
         timeoutSec,
       baseUrl,
@@ -1145,12 +1148,14 @@ function AppInner({ settings }) {
           await addFiles(files)
         }}
       >
-        {/* ── column wrapper: chips above, controls row below ── */}
+        {/* ── column wrapper: attachments above, controls row below ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
-        <GlobalConstraintsChips constraints={globalConstraints} onEdit={handleEditGlobalConstraint} onDelete={handleDeleteGlobalConstraint} />
         <AttachmentsChips attachments={attachedDocs} onRemove={removeAttachment} />
-        {/* ── row: topic input + buttons ── */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+        {/* ── row: topic input + buttons ──
+            Bottom-aligned, not stretched: the topic field grows with what is
+            typed into it, and a stretched Start button grew into a slab beside
+            a paragraph-long topic. */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <TopicComposer
           hasTopic={hasTopic}
           topicRef={topicRef}
@@ -1181,9 +1186,14 @@ function AppInner({ settings }) {
           running={running}
         />
 
+        <GlobalConstraintsMenu
+          constraints={globalConstraints}
+          onAdd={handleAddGlobalConstraint}
+          onEdit={handleEditGlobalConstraint}
+          onDelete={handleDeleteGlobalConstraint}
+        />
+
         <InputActionButtons
-          globalConstraints={globalConstraints}
-          onAddGlobalConstraint={handleAddGlobalConstraint}
           attachedDocs={attachedDocs}
           docInputRef={docInputRef}
           onFilesSelected={addFiles}

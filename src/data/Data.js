@@ -320,7 +320,7 @@ ${CHAT_CSS}
 </head>
 <body>
   <h1>AI Debate — Chat Export</h1>
-  <div class="meta"><strong>Debate mode:</strong> ${esc(mode.id)}${language ? ` &nbsp;·&nbsp; <strong>Language:</strong> ${esc(language)}` : ''}</div>
+  <div class="meta"><strong>Debate mode:</strong> ${esc(mode.label)}${language ? ` &nbsp;·&nbsp; <strong>Language:</strong> ${esc(language)}` : ''}</div>
   <div class="meta">AI Debate v${esc(APP_VERSION)} &nbsp;·&nbsp; Endpoint: ${esc(baseUrl)} &nbsp;·&nbsp; ${esc(now)}<br>${partRows}</div>
   <div class="msgs">
   ${body}
@@ -383,7 +383,7 @@ ${CHAT_CSS}
     }).join('\n')
 
     let out = '# AI Debate — Export\n\n'
-    out += `**Debate mode:** ${mode.id}${language ? ` · **Language:** ${language}` : ''}\n\n`
+    out += `**Debate mode:** ${mode.label}${language ? ` · **Language:** ${language}` : ''}\n\n`
     out += `**Data:** ${now}  \n**Endpoint:** ${baseUrl}  \n**App version:** ${APP_VERSION}\n\n`
     out += `## Participants\n${partList}\n\n---\n\n`
 
@@ -460,7 +460,7 @@ ${CHAT_CSS}
       exported: new Date().toISOString(),
       appVersion: APP_VERSION,
       debateMode: mode.id,
-      debateModeLabel: mode.id,
+      debateModeLabel: mode.label,
       language: uiLang || null,
       languageLabel: debateLanguageLabel(uiLang) || null,
       baseUrl,

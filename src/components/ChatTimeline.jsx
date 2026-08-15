@@ -15,6 +15,7 @@ import {
 } from '../utils/ChatGrouping'
 import { normalizeMathShorthands, renderMessageMarkdown } from '../utils/MessageMarkdown'
 import { useUiStrings } from '../i18n/UiStringsContext'
+import { conclusionTypeLabel } from '../prompts/ConclusionTypes'
 import { TOOL_ICONS } from '../tools'
 
 /**
@@ -143,7 +144,9 @@ function ChatTimeline({
       const c = item.c
       const cidx = item.cidx
       const ct = conclusionTypes.find(x => x.id === c.type)
-      const title = c.title || ct?.label || c.type
+      // A conclusion drawn before the type names were translated carries an
+      // English title of its own; only the fallback can be localized here.
+      const title = c.title || conclusionTypeLabel(UI_STRINGS, ct ?? c.type)
       const color = ct?.color || '#888'
       elems.push(
         <div key={`conclusion-${cidx}`} style={{ textAlign: 'center', margin: '12px 16px' }}>

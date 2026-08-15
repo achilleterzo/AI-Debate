@@ -1,4 +1,5 @@
 import { useUiStrings } from '../i18n/UiStringsContext'
+import RemoveButton from './RemoveButton'
 
 export default function AttachmentsChips({ attachments, onRemove }) {
   const UI_STRINGS = useUiStrings()
@@ -12,7 +13,7 @@ export default function AttachmentsChips({ attachments, onRemove }) {
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 2H3a1 1 0 00-1 1v7a1 1 0 001 1h6a1 1 0 001-1V5L7 2z"/><path d="M7 2v3h3"/></svg>
           <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.name}</span>
           {attachment.truncated && <span style={{ color: '#aa7744', fontSize: 10 }} title={ui.docTruncated}>!</span>}
-          <button onClick={() => onRemove(index)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}>x</button>
+          <RemoveButton onClick={() => onRemove(index)} title={ui.removeAttachment} color="#7878b0" size={12} />
         </div>
       ))}
     </div>

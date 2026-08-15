@@ -3,7 +3,7 @@ export function resolveConstraint(entry, debateMode) {
   return entry.constraints[debateMode] ?? entry.constraints.default ?? null
 }
 
-export function buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions }) {
+export function buildConstraintsBlock({ actor, allParticipants, globalConstraints, generalPersonalityInstructions, hasLengthBudget = false }) {
   const participantConstraints = (actor.constraints || [])
     .map(entry => typeof entry === 'string' ? { text: entry, override: false } : { text: String(entry?.text ?? ''), override: !!entry?.override })
     .filter(entry => entry.text.trim())
@@ -40,11 +40,14 @@ export function buildConstraintsBlock({ actor, allParticipants, globalConstraint
   return [
     generalPersonalityInstructions?.trim(),
     'Precedence between the rule sections below, from strongest to weakest: 1) the non-negotiable shared debate mode above, 2) character override constraints for a direct conflict only, 3) global rules, 4) your personal constraints, 5) general debate conduct. System/developer rules and binding moderator process directives remain higher than all of these. Apply every non-conflicting global rule on every turn; a character override may supersede only the specific global rule it directly conflicts with and must not erase, weaken, or make optional the remaining global rules.',
+    // Only when the turn actually carries one: pointing at a length budget the
+    // response style never stated is an instruction about nothing.
+    hasLengthBudget && 'The verbosity rule stated in the response style above sits outside this ladder: it is a length budget, and none of the sections below may raise it. They govern the content of your turn, not its size. A rule from any of them that asks you to argue, justify, substantiate, develop, illustrate or be thorough is an instruction about what the response must contain, and it is satisfied within the length budget by narrowing scope and compressing — never by writing past it. When the rules below ask for more material than the budget holds, drop material.',
     overrideConstraints.length > 0
       ? `Character override constraints (highest priority — when they conflict with ANY other rule in this prompt, including global rules, these win):\n${overrideConstraints.map(entry => `- ${entry.text}`).join('\n')}`
       : '',
     (globalConstraints || []).length > 0
-      ? `Global rules — MANDATORY FOR EVERY PARTICIPANT AND EVERY TURN (apply these proactively; they are not optional background guidance):\n${(globalConstraints || []).map(text => `- ${text}`).join('\n')}\n\nUnless a higher-priority instruction or a character override directly conflicts with one specific rule, follow every global rule in this response. Do not omit unrelated global rules.`
+      ? `Global rules — MANDATORY FOR EVERY PARTICIPANT AND EVERY TURN (apply these proactively; they are not optional background guidance):\n${(globalConstraints || []).map(text => `- ${text}`).join('\n')}\n\nUnless a higher-priority instruction or a character override directly conflicts with one specific rule, follow every global rule in this response. Do not omit unrelated global rules.${hasLengthBudget ? ' Mandatory means you apply them, not that you write more: honor each one in its most compact possible form so that all of them fit inside your length budget.' : ''}`
       : '',
     personalConstraints.length > 0
       ? `Your personal constraints:\n${personalConstraints.map(entry => `- ${entry.text}`).join('\n')}`

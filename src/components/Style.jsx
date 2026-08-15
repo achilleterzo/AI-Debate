@@ -169,7 +169,12 @@ export const styles = {
 		border: '1px solid #2e2e2e', borderRadius: 8,
 		padding: '10px 12px', fontSize: 14, resize: 'none',
 		outline: 'none', fontFamily: 'inherit', lineHeight: 1.5,
-		minHeight: 44, maxHeight: 160,
+		// The ceiling `autoGrowTextarea` measures against: the field grows with
+		// its content and the browser clamps it here, at roughly nine lines,
+		// after which it scrolls. It used to stay one line tall whatever was in
+		// it, so a topic written as a paragraph was read through a slot.
+		minHeight: 44, maxHeight: 220,
+		overflowY: 'auto', boxSizing: 'border-box',
 	},
 	btn: (color, disabled) => ({
 		background: disabled ? '#2e2e2e' : color,

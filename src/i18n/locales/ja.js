@@ -6,6 +6,7 @@ export default {
   responseLengths: { short: '短い', medium: '普通', detailed: '詳細', default: '自由' },
   moodIntensity: ['低い', '軽い', 'バランス', '強い', '極端'],
   modes: { free: 'フリー', brainstorm: 'ブレインストーミング', fact_check: 'ファクトチェック', design_review: 'デザインレビュー', decision: '意思決定', negotiation: '交渉', red_team: 'レッドチーム', socratic: 'ソクラテス式', peer_review: 'ピアレビュー', consensus: '合意形成', role_play: 'ロールプレイ' },
+  conclusionTypes: { summary: '要約', considerations: '考察', contradictions: '矛盾', blindspot: '盲点', verdict: '判定', next_steps: '次のステップ', custom: 'プロンプト' },
   common: {
     debateMode: '議論モード',
     cancel: 'キャンセル',
@@ -195,10 +196,6 @@ export default {
     moderatorFacilitationIntervalTitle: '予定されたファシリテーション発言の間隔（ラウンド数）。最終ラウンドも対象です。攻撃にはいずれにせよ対応します。',
     moderatorDynamicAffinityTitle: 'モデレーターの動的親密度',
     moderatorDynamicAffinity: 'モデレーターの動的親密度',
-    moderatorFactCheckTitle: 'ファクトチェック',
-    moderatorFactCheck: 'ファクトチェック',
-    enforceTopicTitle: '参加者にトピックを守らせる',
-    enforceTopic: 'トピックを守らせる',
     editConstraint: '制約を編集',
     removeConstraint: '制約を削除',
     addConstraint: '制約を追加',

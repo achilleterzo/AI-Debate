@@ -1,6 +1,7 @@
 export const TOOL_SETTINGS = [
   { id: 'web_search', icon: '🔍', labelKey: 'webSearch' },
   { id: 'fetch_url', icon: '🌐', labelKey: 'fetchUrl' },
+  { id: 'read_attachment', icon: '📎', labelKey: 'readAttachment' },
   { id: 'get_recent_messages', icon: '🕘', labelKey: 'getRecentMessages' },
   { id: 'quote_message', icon: '❝', labelKey: 'quoteMessage' },
   { id: 'request_moderator_intervention', icon: '🙋', labelKey: 'requestModeratorIntervention' },

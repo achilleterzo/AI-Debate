@@ -141,7 +141,12 @@ describe('turning a typed call into a real one', () => {
 // The shapes are written out in the module to avoid an import cycle, so this is
 // what keeps them honest.
 describe('the argument shapes match the real tool definitions', () => {
-  it.each(ALL_TOOLS.map(tool => [tool.function.name, tool]))('%s', (name, tool) => {
+  // A tool with no required argument has no bare-object form to recognise: an
+  // empty object identifies nothing, so it is deliberately not a call. Its name
+  // still has to be known, which the named-dialect tests below cover.
+  const withRequiredArguments = ALL_TOOLS.filter(tool => (tool.function.parameters.required ?? []).length > 0)
+
+  it.each(withRequiredArguments.map(tool => [tool.function.name, tool]))('%s', (name, tool) => {
     const args = Object.fromEntries((tool.function.parameters.required ?? []).map(key => [key, 1]))
     const message = `Text.\n\n${JSON.stringify(args)}`
 

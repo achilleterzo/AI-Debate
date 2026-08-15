@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Storage } from '../data/Storage'
 import { Web } from '../services/Web'
 import { Debate } from '../debate/Debate'
+import { autoGrowTextarea } from '../utils/Textarea'
 
 export function useTopicComposer({
   participants,
@@ -53,7 +54,12 @@ export function useTopicComposer({
 
   const setTopicValue = useCallback(value => {
     topicRef.current = value
-    if (textareaRef.current) textareaRef.current.value = value
+    if (textareaRef.current) {
+      textareaRef.current.value = value
+      // Written from outside the field — a wand suggestion, the wizard's topic,
+      // the clear after a start — so there is no input event to grow it.
+      autoGrowTextarea(textareaRef.current)
+    }
     syncTopicFlag(value)
   }, [syncTopicFlag])
 

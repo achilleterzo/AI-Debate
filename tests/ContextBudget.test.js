@@ -122,3 +122,46 @@ describe('the transport guard sized on the setting', () => {
     expect(isSummaryMessage(kept[0])).toBe(true)
   })
 })
+
+describe('the keepLast window never cuts a tool exchange in half', () => {
+  const caller = { role: 'assistant', content: '', tool_calls: [{ function: { name: 'fetch_url', arguments: { url: 'https://x' } } }] }
+  const result = { role: 'tool', tool_name: 'fetch_url', content: 'P'.repeat(400) }
+
+  it('keeps the assistant that made the call together with its result', () => {
+    const kept = compactMessages([msg('user', 10), caller, result], { keepLast: 1, maxPerMsg: 6_000 })
+    expect(kept.map(message => message.role)).toEqual(['assistant', 'tool'])
+    expect(kept[0].tool_calls).toEqual(caller.tool_calls)
+  })
+
+  it('pulls in the exchange the trailing nudge refers to', () => {
+    const nudge = msg('user', 20)
+    const kept = compactMessages([msg('user', 10), caller, result, nudge], { keepLast: 1, maxPerMsg: 6_000 })
+    expect(kept.map(message => message.role)).toEqual(['assistant', 'tool', 'user'])
+  })
+
+  it('keeps every result of a multi-call round with its caller', () => {
+    const second = { role: 'tool', tool_name: 'web_search', content: 'S'.repeat(100) }
+    const kept = compactMessages([msg('assistant', 10), caller, result, second], { keepLast: 1, maxPerMsg: 6_000 })
+    expect(kept.map(message => message.role)).toEqual(['assistant', 'tool', 'tool'])
+    expect(kept[0].tool_calls).toEqual(caller.tool_calls)
+  })
+
+  it('leaves a window with no tool messages exactly where it was', () => {
+    const kept = compactMessages([msg('user', 10), msg('assistant', 10), msg('user', 10)], { keepLast: 1, maxPerMsg: 6_000 })
+    expect(kept).toHaveLength(1)
+    expect(kept[0].role).toBe('user')
+  })
+
+  it('withdraws the tool size exemption when the retry asks for it', () => {
+    Web.configure({ pageBlockKb: 64 })
+    const big = { role: 'tool', tool_name: 'fetch_url', content: 'P'.repeat(Web.maxToolResultChars()) }
+
+    const [, keptWhole] = compactMessages([caller, big], { keepLast: 1, maxPerMsg: 6_000 })
+    expect(keptWhole.content).toBe(big.content)
+
+    const [, trimmed] = compactMessages([caller, big], { keepLast: 1, maxPerMsg: 6_000, trimToolResults: true })
+    expect(trimmed.content.length).toBe(6_000)
+    expect(trimmed.content).toContain('[truncated for context]')
+    Web.configure({ pageBlockKb: 16 })
+  })
+})

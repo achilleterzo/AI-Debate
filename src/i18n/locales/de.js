@@ -6,6 +6,7 @@ export default {
   responseLengths: { short: 'Kurz', medium: 'Mittel', detailed: 'Detailliert', default: 'Frei' },
   moodIntensity: ['Niedrig', 'Leicht', 'Ausgeglichen', 'Stark', 'Extrem'],
   modes: { free: 'Frei', brainstorm: 'Brainstorming', fact_check: 'Faktencheck', design_review: 'Design-Review', decision: 'Entscheidung', negotiation: 'Verhandlung', red_team: 'Red Team', socratic: 'Sokratisch', peer_review: 'Peer-Review', consensus: 'Konsens', role_play: 'Rollenspiel' },
+  conclusionTypes: { summary: 'Zusammenfassung', considerations: 'Überlegungen', contradictions: 'Widersprüche', blindspot: 'Blinde Flecken', verdict: 'Urteil', next_steps: 'Nächste Schritte', custom: 'Prompt' },
   common: {
     debateMode: 'Debattenmodus',
     cancel: 'Abbrechen',
@@ -199,10 +200,6 @@ export default {
     moderatorFacilitationIntervalTitle: 'Runden zwischen zwei geplanten Fazilitationsbeiträgen, letzte Runde eingeschlossen. Angriffe werden ohnehin behandelt.',
     moderatorDynamicAffinityTitle: 'Dynamische Affinität für den Moderator',
     moderatorDynamicAffinity: 'Dynamische Affinität des Moderators',
-    moderatorFactCheckTitle: 'Faktenprüfung',
-    moderatorFactCheck: 'Faktenprüfung',
-    enforceTopicTitle: 'Die Einhaltung des Themas durchsetzen',
-    enforceTopic: 'Thema einhalten',
     editConstraint: 'Vorgabe bearbeiten',
     removeConstraint: 'Vorgabe entfernen',
     addConstraint: 'Vorgabe hinzufügen',

@@ -11,8 +11,10 @@ import {
   buildParticipantPrompt,
   buildParticipantSystemPrompt,
   buildSuggestionSystemPrompt,
+  buildTopicProposalPrompt,
   parseParticipantDrafts,
   parseSuggestions,
+  parseTopicProposal,
 } from '../services/Suggestions'
 
 export const WIZARD_STATUS = { IDLE: 'idle', RUNNING: 'running', ERROR: 'error' }
@@ -21,7 +23,7 @@ export const WIZARD_STATUS = { IDLE: 'idle', RUNNING: 'running', ERROR: 'error' 
 const GLOBAL_RULES_COUNT = 3
 
 export const WIZARD_MIN_PARTICIPANTS = 2
-export const WIZARD_MAX_PARTICIPANTS = 6
+export const WIZARD_MAX_PARTICIPANTS = 9
 
 /** Keeps the first persona holding a name, case- and spacing-insensitively. */
 export function dropDuplicateNames(drafts = []) {
@@ -102,7 +104,7 @@ export function useDebateWizard({
     const selectedMode = DEBATE_MODES.find(entry => entry.id === debateMode) ?? DEBATE_MODES[0]
     const modeContext = {
       debateMode: selectedMode.id,
-      debateModeLabel: selectedMode.id,
+      debateModeLabel: selectedMode.label,
       debateModeInstruction: selectedMode.instruction || '',
     }
 
@@ -187,10 +189,35 @@ export function useDebateWizard({
         isModerator: !!moderatorDraft && index === 0,
       }))
 
+      // Written last, so it can be addressed to the table that was just built.
+      // A failure here does not cost the run: the wizard's own product is the
+      // table, and the topic is a proposal the user is going to read anyway.
+      setStep('topic')
+      let topic = ''
+      try {
+        const topicRaw = await ask(
+          buildSuggestionSystemPrompt({ languageNamed }),
+          buildTopicProposalPrompt({
+            ...modeContext,
+            purpose,
+            languageNamed,
+            participants: ordered.map((draft, index) => ({
+              name: draft.name,
+              traits: draft.traits,
+              isModerator: !!moderatorDraft && index === 0,
+            })),
+          }),
+        )
+        if (controller.signal.aborted) return null
+        topic = parseTopicProposal(topicRaw)
+      } catch (err) {
+        console.warn('[wizard] topic proposal failed:', err?.message || err)
+      }
+
       inFlightRef.current = null
       setStatus(WIZARD_STATUS.IDLE)
       setStep(null)
-      return { participants: nextParticipants, globalConstraints }
+      return { participants: nextParticipants, globalConstraints, topic }
     } catch (err) {
       if (controller.signal.aborted) return null
       inFlightRef.current = null

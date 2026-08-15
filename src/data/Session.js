@@ -38,8 +38,6 @@ export class Session {
       moderatorPermissiveness: normalizeModeratorPermissiveness(p.moderatorPermissiveness),
       moderatorFacilitationInterval: normalizeModeratorFacilitationInterval(p.moderatorFacilitationInterval),
       moderatorDynamicAffinity: !!p.moderatorDynamicAffinity,
-      moderatorFactCheck: !!p.moderatorFactCheck,
-      moderatorEnforceTopic: !!p.moderatorEnforceTopic,
       mood: p.mood === 'moderator' ? DEFAULT_MOOD : p.mood,
       moodIntensity: p.moodIntensity ?? DEFAULT_MOOD_INTENSITY,
       reasoningLang: p.reasoningLang ?? '',
@@ -70,8 +68,6 @@ export class Session {
       moderatorPermissiveness: normalizeModeratorPermissiveness(p.moderatorPermissiveness),
       moderatorFacilitationInterval: normalizeModeratorFacilitationInterval(p.moderatorFacilitationInterval),
       moderatorDynamicAffinity: !!p.moderatorDynamicAffinity,
-      moderatorFactCheck: !!p.moderatorFactCheck,
-      moderatorEnforceTopic: !!p.moderatorEnforceTopic,
       mood: p.mood === 'moderator' ? DEFAULT_MOOD : (p.mood ?? DEFAULT_MOOD),
       moodIntensity: p.moodIntensity ?? DEFAULT_MOOD_INTENSITY,
       reasoningLang: p.reasoningLang ?? '',
@@ -132,7 +128,7 @@ export class Session {
       .filter(message => Session.KEPT_WITHOUT_CONTENT.has(message.role) || String(message.content ?? '').trim())
   }
 
-  static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, debateMode, customConclusionPrompt, standardConclusionPrompt, maxTurns, timeoutSec, baseUrl, moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, memory, constants }) {
+  static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, debateMode, customConclusionPrompt, standardConclusionPrompts, maxTurns, timeoutSec, baseUrl, moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, memory, constants }) {
     return {
       version: 2,
       savedAt: new Date().toISOString(),
@@ -141,7 +137,7 @@ export class Session {
       generalPersonalityInstructions,
       debateMode,
       customConclusionPrompt,
-      standardConclusionPrompt,
+      standardConclusionPrompts,
       maxTurns,
       timeoutSec,
       baseUrl,

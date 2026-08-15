@@ -28,6 +28,7 @@ import {
 } from '../settings/Settings'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from '../prompts/DefaultGeneralPersonalityInstructions'
 import { DEFAULT_DEBATE_MODE, normalizeDebateMode } from '../prompts/Modes'
+import { normalizeStandardConclusionPrompts } from '../prompts/ConclusionTypes'
 import { DEFAULT_ENABLED_TOOLS, normalizeEnabledTools } from '../tools/ToolSettings'
 
 export function useAppSettings() {
@@ -103,7 +104,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     searchApiKey,
     pageBlockKb,
   } = settings
-  const { conclusionModel, customConclusionPrompt, standardConclusionPrompt } = conclusions
+  const { conclusionModel, customConclusionPrompt, standardConclusionPrompts } = conclusions
 
   // The web service is a static class reached from non-React code, so the
   // settings have to be pushed into it rather than read out of a context.
@@ -121,7 +122,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       defaultThinkingLevel: Debate.normalizeThinkingLevel(defaultThinkingLevel),
       conclusionModel,
       customConclusionPrompt: customConclusionPrompt ?? '',
-      standardConclusionPrompt: standardConclusionPrompt ?? '',
+      standardConclusionPrompts: normalizeStandardConclusionPrompts(standardConclusionPrompts),
       globalConstraints: globalConstraints ?? [],
       generalPersonalityInstructions: generalPersonalityInstructions ?? DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS,
       debateMode: normalizeDebateMode(debateMode),
@@ -130,5 +131,5 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       pageBlockKb: normalizePageBlockKb(pageBlockKb),
       debugPayloadTurns: normalizeDebugPayloadTurns(debugPayloadTurns),
     })
-  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, defaultThinkingLevel, conclusionModel, customConclusionPrompt, standardConclusionPrompt, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
+  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, defaultThinkingLevel, conclusionModel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
 }

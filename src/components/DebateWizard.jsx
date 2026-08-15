@@ -397,7 +397,8 @@ export default function DebateWizard({
                 <div style={{ fontSize: 12, color: '#c4b5fd' }}>
                   {wizard.step === 'participants' ? ui.progressParticipants
                     : wizard.step === 'moderator' ? ui.progressModerator
-                      : ui.progressRules}
+                      : wizard.step === 'topic' ? ui.progressTopic
+                        : ui.progressRules}
                 </div>
               )}
               {wizard.status === WIZARD_STATUS.ERROR && !running && (

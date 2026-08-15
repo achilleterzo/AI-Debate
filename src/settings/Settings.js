@@ -104,9 +104,9 @@ export const MIN_MODERATOR_FACILITATION_INTERVAL = 1
 export const MAX_MODERATOR_FACILITATION_INTERVAL = 6
 export const MIN_MODERATION_COOLING = 0.01
 export const MAX_MODERATION_COOLING = 1
-export const MODERATION_COOLING_STEPS = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]
+export const MODERATION_COOLING_STEPS = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5]
 
-export const SUMMARY_ACCUMULATE_STEPS = [2, 4, 8, 16, 32, 64, 128, 256]
+export const SUMMARY_ACCUMULATE_STEPS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
 
 /**
  * The context setting as a number of characters.
@@ -125,7 +125,7 @@ export function contextBudgetChars(thresholdKb) {
 // truncated — the rest stays reachable through the block number — so this is a
 // context budget per call rather than a limit on what can be read.
 export const DEFAULT_PAGE_BLOCK_KB = 16
-export const PAGE_BLOCK_STEPS = [8, 16, 32, 64, 128, 256]
+export const PAGE_BLOCK_STEPS = [8, 16, 32, 64, 128, 256, 512, 1024]
 export const MIN_PAGE_BLOCK_KB = PAGE_BLOCK_STEPS[0]
 export const MAX_PAGE_BLOCK_KB = PAGE_BLOCK_STEPS[PAGE_BLOCK_STEPS.length - 1]
 

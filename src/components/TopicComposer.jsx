@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { SUGGESTION_MODE } from '../services/Suggestions'
+import { autoGrowTextarea } from '../utils/Textarea'
 import MagicWand from './MagicWand'
+import RemoveButton from './RemoveButton'
 import { styles } from './Style'
 
 export default function TopicComposer({
@@ -35,6 +37,9 @@ export default function TopicComposer({
   // reads the ref outside render, where a ref may be read.
   useEffect(() => {
     if (textareaRef.current && topicRef.current) textareaRef.current.value = topicRef.current
+    // A restored multi-line topic has to arrive at its full height, not at one
+    // row: nothing types into the field on a remount, so no input event comes.
+    autoGrowTextarea(textareaRef.current)
   }, [textareaRef, topicRef])
 
   return (
@@ -44,6 +49,7 @@ export default function TopicComposer({
         style={{ ...styles.textarea, flex: 1, ...(wand && (hasTopic || messages.length > 0 || attachedDocs.length > 0) ? { paddingRight: 42 } : {}) }}
         onChange={event => {
           topicRef.current = event.target.value
+          autoGrowTextarea(event.target)
           // The Start/Continue buttons derive their enabled state from whether
           // the field is empty, so that flag is updated on every keystroke and
           // never deferred to blur — it just costs a render only when it flips.
@@ -90,7 +96,7 @@ export default function TopicComposer({
           {topicHistory.map((entry, index) => (
             <div key={entry} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: index < topicHistory.length - 1 ? '1px solid #2a2a2a' : 'none', cursor: 'pointer' }} onMouseEnter={event => { event.currentTarget.style.background = '#2a2a2a' }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}>
               <span style={{ flex: 1, fontSize: 13, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => { setTopicValue(entry); setTopicDropOpen(false) }}>{entry}</span>
-              <button onClick={event => { event.stopPropagation(); removeHistoryEntry(index) }} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }} title={ui.removeHistoryItem}>x</button>
+              <RemoveButton onClick={event => { event.stopPropagation(); removeHistoryEntry(index) }} title={ui.removeHistoryItem} color="#666" size={13} />
             </div>
           ))}
         </div>
