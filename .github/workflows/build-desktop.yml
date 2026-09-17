@@ -4,18 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'Release type. "auto" never bumps major; choose major explicitly when you want it.'
+        description: 'Manual release type. Normal releases should be created as tags from the app.'
         type: choice
         required: true
-        default: auto
+        default: patch
         options:
-          - auto
           - patch
           - minor
           - major
   push:
-    branches:
-      - main
     tags:
       - 'v*'
 
@@ -23,24 +20,22 @@ permissions:
   contents: write
 
 jobs:
-  # Decides whether this run should produce a release, and for which tag.
-  # - A direct push of a `v*` tag always releases that tag.
-  # - A push to main only releases if there is at least one `fix:`/`feat:`
-  #   commit since the last tag; in that case it bumps package.json,
-  #   commits it as `chore(release): vX.Y.Z`, and tags it.
-  # - Automatic bumps are capped at `minor`: a `!` / `BREAKING CHANGE:` commit
-  #   produces a minor release, never a major one. Major releases only happen
-  #   when you run the workflow manually with release_type=major (or push a
-  #   `vX.0.0` tag yourself).
+  # Tags are the normal release trigger. Keep package.json synchronized on
+  # main without listening to main pushes and starting a second release.
   version:
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.decide.outputs.release_tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
 
       - name: Determine release tag
         id: decide
@@ -48,48 +43,29 @@ jobs:
           set -euo pipefail
 
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "release_tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            release_tag="${{ github.ref_name }}"
+            version="${release_tag#v}"
+
+            git fetch origin main
+            git switch --force-create main origin/main
+            npm version "$version" --no-git-tag-version --no-commit-hooks >/dev/null
+
+            if ! git diff --quiet -- package.json package-lock.json; then
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add package.json package-lock.json
+              git commit -m "chore(release): $release_tag"
+              git push origin main
+            fi
+
+            echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          requested="${{ inputs.release_type || 'auto' }}"
-
-          if [ "$requested" != "auto" ]; then
-            # Explicit manual release: honour exactly what was asked for.
-            bump="$requested"
-            echo "Manual release requested: $bump"
-          else
-            if git log -1 --pretty=%s | grep -q '^chore(release):'; then
-              echo "HEAD is already a release commit, nothing to do."
-              echo "release_tag=" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-
-            last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-            range="${last_tag:+refs/tags/$last_tag..}HEAD"
-            subjects=$(git log "$range" --format=%s)
-            bodies=$(git log "$range" --format=%B)
-
-            bump=""
-            if echo "$subjects" | grep -qE '^feat(\([^)]*\))?:'; then
-              bump="minor"
-            elif echo "$subjects" | grep -qE '^fix(\([^)]*\))?:'; then
-              bump="patch"
-            fi
-
-            # Breaking-change markers never trigger a major automatically: they
-            # are treated as at least a minor. Run the workflow manually with
-            # release_type=major when you decide it is time for the major bump.
-            if echo "$subjects" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:' || echo "$bodies" | grep -qE '^BREAKING[ -]CHANGE:'; then
-              bump="minor"
-              echo "::notice::Breaking-change commits found; automatic releases are capped at 'minor'. Re-run this workflow with release_type=major when you want the major bump."
-            fi
-
-            if [ -z "$bump" ]; then
-              echo "No fix/feat commits since ${last_tag:-the beginning}, skipping release."
-              echo "release_tag=" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
+          bump="${{ inputs.release_type || '' }}"
+          if [ -z "$bump" ]; then
+            echo "release_tag=" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           npm version "$bump" --no-git-tag-version --no-commit-hooks >/dev/null
@@ -134,15 +110,21 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.version.outputs.release_tag }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
+
+      - name: Align package version with release tag
+        shell: bash
+        run: |
+          release_tag="${{ needs.version.outputs.release_tag }}"
+          npm version "${release_tag#v}" --no-git-tag-version --no-commit-hooks
 
       - name: Install dependencies
         run: npm ci
@@ -157,18 +139,41 @@ jobs:
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:desktop:ci -- ${{ matrix.build_args }}
+        run: |
+          rm -rf release
+          npm run build:desktop:ci -- ${{ matrix.build_args }} --publish never
 
       - name: Upload desktop artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
 
-      - name: Upload release assets
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows asset
+        uses: actions/download-artifact@v6
+        with:
+          name: ai-debate-windows
+          path: release-assets/windows
+      - name: Download Linux asset
+        uses: actions/download-artifact@v6
+        with:
+          name: ai-debate-linux
+          path: release-assets/linux
+      - name: Download macOS asset
+        uses: actions/download-artifact@v6
+        with:
+          name: ai-debate-macos
+          path: release-assets/macos
+      - name: Publish release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version.outputs.release_tag }}
-          files: ${{ matrix.artifact_path }}
+          files: |
+            release-assets/windows/*.exe
+            release-assets/linux/*.AppImage
+            release-assets/macos/*.dmg
