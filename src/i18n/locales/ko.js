@@ -112,7 +112,7 @@ export default {
     description: '모든 참가자에게 시스템 페이로드로 전송되는 일반 지침',
     resetDefault: '기본값으로 재설정',
     tabMain: '기본',
-    tabOllama: 'Ollama',
+    tabOllama: 'AI 제공업체',
     tabPromptRules: '프롬프트 규칙',
     tabAdvanced: '고급',
     ollamaEndpointTitle: '엔드포인트',

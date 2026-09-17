@@ -108,7 +108,7 @@ export default {
     description: '发送给所有参与者系统请求中的通用指令',
     resetDefault: '恢复默认',
     tabMain: '主要',
-    tabOllama: 'Ollama',
+    tabOllama: 'AI 提供商',
     tabPromptRules: '提示词规则',
     tabAdvanced: '高级',
     ollamaEndpointTitle: '端点',

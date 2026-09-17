@@ -112,7 +112,7 @@ export default {
     description: 'Allgemeine Anweisungen, die im System-Payload an alle Teilnehmer gesendet werden',
     resetDefault: 'Standard wiederherstellen',
     tabMain: 'Allgemein',
-    tabOllama: 'Ollama',
+    tabOllama: 'KI-Anbieter',
     tabPromptRules: 'Prompt-Regeln',
     tabAdvanced: 'Erweitert',
     ollamaEndpointTitle: 'Endpunkt',

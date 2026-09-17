@@ -108,7 +108,7 @@ export default {
     description: 'すべての参加者へのシステムペイロードに含まれる全体指示',
     resetDefault: '既定値に戻す',
     tabMain: 'メイン',
-    tabOllama: 'Ollama',
+    tabOllama: 'AIプロバイダー',
     tabPromptRules: 'プロンプトルール',
     tabAdvanced: '詳細',
     ollamaEndpointTitle: 'エンドポイント',

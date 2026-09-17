@@ -183,7 +183,7 @@ export const UI_STRINGS = {
     description: 'General instructions sent in the system payload to all participants',
     resetDefault: 'Reset default',
     tabMain: 'Main',
-    tabOllama: 'Ollama',
+    tabOllama: 'AI Providers',
     tabPromptRules: 'Prompt Rules',
     tabAdvanced: 'Advanced',
     ollamaEndpointTitle: 'Endpoint',

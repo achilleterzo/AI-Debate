@@ -113,7 +113,7 @@ export default {
       'Instrucciones generales enviadas en el payload del sistema a todos los participantes',
     resetDefault: 'Restaurar valor predeterminado',
     tabMain: 'Principal',
-    tabOllama: 'Ollama',
+    tabOllama: 'Proveedores de IA',
     tabPromptRules: 'Reglas del prompt',
     tabAdvanced: 'Avanzado',
     ollamaEndpointTitle: 'Endpoint',

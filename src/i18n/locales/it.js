@@ -125,7 +125,7 @@ export default {
     description: 'Istruzioni generali inviate nel payload di sistema a tutti i partecipanti',
     resetDefault: 'Ripristina predefinito',
     tabMain: 'Principale',
-    tabOllama: 'Ollama',
+    tabOllama: 'Provider AI',
     tabPromptRules: 'Regole prompt',
     tabAdvanced: 'Avanzate',
     ollamaEndpointTitle: 'Endpoint',

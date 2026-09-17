@@ -112,7 +112,7 @@ export default {
     description: 'Instructions générales envoyées dans le payload système à tous les participants',
     resetDefault: 'Réinitialiser',
     tabMain: 'Principal',
-    tabOllama: 'Ollama',
+    tabOllama: 'Fournisseurs IA',
     tabPromptRules: 'Règles du prompt',
     tabAdvanced: 'Avancé',
     ollamaEndpointTitle: 'Endpoint',
