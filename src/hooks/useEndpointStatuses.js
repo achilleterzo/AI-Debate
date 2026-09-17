@@ -14,17 +14,17 @@ const NO_EXTRA_ENDPOINTS = []
  * Reachability of every custom endpoint in play, keyed by participant id plus
  * whatever `extraEndpoints` adds — pass it a memoized `[{ id, url }]` list.
  */
-export function useEndpointStatuses(participants, extraEndpoints = NO_EXTRA_ENDPOINTS) {
+export function useEndpointStatuses(participants, extraEndpoints = NO_EXTRA_ENDPOINTS, defaultProviderId = 'ollama') {
   const [results, setResults] = useState({})
 
   const targets = useMemo(() => [
     ...participants
-      .filter(participant => !participant.localUser && participant.model !== Debate.USER_MODEL && participant.endpointOverride?.trim())
+      .filter(participant => !participant.localUser && participant.model !== Debate.USER_MODEL && (participant.providerId || defaultProviderId) === 'ollama' && participant.endpointOverride?.trim())
       .map(participant => ({ id: participant.id, url: participant.endpointOverride.trim().replace(/\/$/, '') })),
     ...extraEndpoints
       .filter(endpoint => endpoint?.url?.trim())
       .map(endpoint => ({ id: endpoint.id, url: endpoint.url.trim().replace(/\/$/, '') })),
-  ], [participants, extraEndpoints])
+  ], [participants, extraEndpoints, defaultProviderId])
 
   const signature = useMemo(() => targets.map(target => `${target.id}|${target.url}`).join('::'), [targets])
 
@@ -44,7 +44,7 @@ export function useEndpointStatuses(participants, extraEndpoints = NO_EXTRA_ENDP
           next[endpoint.id] = { state: 'err' }
           return
         }
-        const reachable = await getProvider().health(endpoint.url)
+        const reachable = await getProvider('ollama').health(endpoint.url)
         next[endpoint.id] = { state: reachable ? 'ok' : 'err' }
       }))
       if (!cancelled) setResults(next)

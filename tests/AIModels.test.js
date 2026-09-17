@@ -28,13 +28,14 @@ describe('AI.keepEnabledModels', () => {
 describe('AI.firstEnabledModel', () => {
   const catalogue = ['zeta:latest', 'alpha:latest', 'beta-cloud', 'alpha-cloud']
 
-  it('follows the listing order, cloud first and each group alphabetical', () => {
-    expect(AI.orderModels(catalogue)).toEqual(['alpha-cloud', 'beta-cloud', 'alpha:latest', 'zeta:latest'])
+  it('sorts the catalogue alphabetically and can pin the selected default first', () => {
+    expect(AI.orderModels(catalogue)).toEqual(['alpha-cloud', 'alpha:latest', 'beta-cloud', 'zeta:latest'])
+    expect(AI.orderModels(catalogue, { defaultModel: 'zeta:latest' })).toEqual(['zeta:latest', 'alpha-cloud', 'alpha:latest', 'beta-cloud'])
     expect(AI.firstEnabledModel(catalogue)).toBe('alpha-cloud')
   })
 
   it('skips whatever is disabled', () => {
-    expect(AI.firstEnabledModel(catalogue, ['alpha-cloud'])).toBe('beta-cloud')
+    expect(AI.firstEnabledModel(catalogue, ['alpha-cloud'])).toBe('alpha:latest')
     expect(AI.firstEnabledModel(catalogue, ['alpha-cloud', 'beta-cloud'])).toBe('alpha:latest')
   })
 

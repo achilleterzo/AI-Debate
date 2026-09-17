@@ -224,6 +224,7 @@ export class Debate {
   static mkParticipant(idx, model = '') {
     return {
       id: idx,
+      providerId: '',
       model,
       localUser: false,
       endpointOverride: '',
@@ -478,6 +479,7 @@ export class Debate {
   static reindexParticipants(participants = []) {
     return participants.map((participant, index) => ({
       ...Debate.mkParticipant(index, participant.model),
+      providerId: participant.providerId ?? '',
       endpointOverride: participant.endpointOverride ?? '',
       name: participant.name,
       isModerator: !!participant.isModerator || participant.mood === 'moderator',
@@ -797,11 +799,13 @@ export class Debate {
    * places downstream that read the actor — the prompt builder, the request,
    * the capability checks — which would otherwise each need to know about it.
    */
-  static withRunDefaults(participant, { defaultModel = '', defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL } = {}) {
+  static withRunDefaults(participant, { defaultProviderId = 'ollama', defaultModel = '', defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL } = {}) {
     if (!participant) return participant
+    const providerId = participant.providerId || defaultProviderId
     return {
       ...participant,
-      model: participant.model || defaultModel || '',
+      providerId,
+      model: participant.model || (providerId === defaultProviderId ? defaultModel : '') || '',
       thinkingLevel: Debate.resolveThinkingLevel(participant, defaultThinkingLevel),
     }
   }
@@ -826,8 +830,9 @@ export class Debate {
     return parts.find(participant => participant.model && !participant.localUser && participant.model !== Debate.USER_MODEL)?.model ?? ''
   }
 
-  static hasConfiguredModel(participant, defaultModel = '') {
-    return Boolean(participant?.localUser || participant?.model === Debate.USER_MODEL || participant?.model || defaultModel)
+  static hasConfiguredModel(participant, defaultModel = '', defaultProviderId = 'ollama') {
+    if (participant?.localUser || participant?.model === Debate.USER_MODEL) return true
+    return participant?.providerId && participant.providerId !== defaultProviderId ? Boolean(participant.model) : Boolean(participant?.model || defaultModel)
   }
 
   static buildLanguageLabel(uiLang, languages = []) {
@@ -917,6 +922,7 @@ export class Debate {
       await streamChat({
         baseUrl,
         model: actor.model,
+        provider: getProvider(actor.providerId || undefined),
         messages: [{ role: 'user', content: userMsg }],
         systemPrompt,
         useTools: false,
@@ -1189,6 +1195,7 @@ export class Debate {
       maxTurnsRef,
       timeoutSecRef,
       baseUrlRef,
+      defaultProviderId,
       defaultModel,
       defaultThinkingLevel,
       useSummaryRef,
@@ -1288,7 +1295,7 @@ export class Debate {
       ? parts.find(participant => !resumedRoundSpeakers.has(participant.tag))
       : parts[firstActorIndex]) || parts[firstActorIndex] || parts[0]
     const firstActor = firstRawActor
-      ? Debate.withRunDefaults(firstRawActor, { defaultModel, defaultThinkingLevel })
+      ? Debate.withRunDefaults(firstRawActor, { defaultProviderId, defaultModel, defaultThinkingLevel })
       : null
     if (firstActor) {
       const lifecycleMessages = Debate.buildParticipantLifecycleMessages({
@@ -1545,7 +1552,7 @@ export class Debate {
         // Already heard in this round before the reload interrupted it. Their
         // message is in the transcript and speaking again would double it.
         if (resumedRoundSpeakers && !extraModeratorTurn && resumedRoundSpeakers.has(rawActor.tag)) continue
-        const actor = Debate.withRunDefaults(rawActor, { defaultModel, defaultThinkingLevel })
+        const actor = Debate.withRunDefaults(rawActor, { defaultProviderId, defaultModel, defaultThinkingLevel })
         const actorBaseUrl = actor.endpointOverride?.trim() || baseUrl
         const turnLabel = round + 1
 
@@ -1728,7 +1735,7 @@ export class Debate {
           ...(actor.isModerator ? MODERATOR_TOOLS : []),
         ].filter(tool => enabledTools?.[tool.function.name] !== false)
         const toolsAvailable = availableTools.length > 0
-          && await getProvider().supportsTools(actor.model, { baseUrl: actorBaseUrl })
+          && await getProvider(actor.providerId).supportsTools(actor.model, { baseUrl: actorBaseUrl })
         const quoteToolAvailable = availableTools.some(tool => tool.function.name === QUOTE_MESSAGE_TOOL.function.name)
         let systemPrompt = buildSystemPrompt({
           actor,
@@ -1898,6 +1905,7 @@ export class Debate {
             purpose: `turn of ${actor.name || actor.tag}`,
             baseUrl: actorBaseUrl,
             model: actor.model,
+            provider: getProvider(actor.providerId),
             messages: contextMessages,
             // The turn is the one call that carries the conversation, so it is
             // the one whose transport guard is sized on the context setting
@@ -1995,6 +2003,7 @@ export class Debate {
               await streamChat({
                 baseUrl: actorBaseUrl,
                 model: actor.model,
+                provider: getProvider(actor.providerId),
                 messages: [
                   ...contextMessages,
                   { role: 'user', content: 'You did not emit the required apply_moderation tool call. Emit exactly one apply_moderation tool call now, with a concise reason/directive. Do not write any visible text.' },
@@ -2102,6 +2111,7 @@ export class Debate {
               await streamChat({
                 baseUrl: actorBaseUrl,
                 model: actor.model,
+                provider: getProvider(actor.providerId),
                 useTools: false,
                 timeoutMs,
                 onEstimate: handlePromptEstimate,

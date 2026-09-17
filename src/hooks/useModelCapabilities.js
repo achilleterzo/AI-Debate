@@ -14,7 +14,7 @@ import { getProvider } from '../providers/index.js'
  * An endpoint that cannot answer leaves the entry `null`: unknown, not
  * unsupported. A control shown for a model we could not ask stays enabled.
  */
-export function useModelCapabilities(participants = [], baseUrl = '', defaultModel = '') {
+export function useModelCapabilities(participants = [], baseUrl = '', defaultModel = '', defaultProviderId = 'ollama') {
   const [known, setKnown] = useState({})
 
   // What the turn would actually run, the way the debate loop resolves it: a
@@ -22,10 +22,11 @@ export function useModelCapabilities(participants = [], baseUrl = '', defaultMod
   // the empty string would leave its controls unchecked forever.
   const targetOf = participant => {
     if (!participant || participant.localUser || participant.model === Debate.USER_MODEL) return null
-    const model = String(participant.model || '').trim() || String(defaultModel || '').trim()
+    const providerId = participant.providerId || defaultProviderId
+    const model = String(participant.model || '').trim() || (providerId === defaultProviderId ? String(defaultModel || '').trim() : '')
     const endpoint = (participant.endpointOverride?.trim() || baseUrl || '').replace(/\/$/, '')
     if (!model || !endpoint) return null
-    return { key: `${endpoint} ${model}`, endpoint, model }
+    return { key: `${providerId} ${endpoint} ${model}`, providerId, endpoint, model }
   }
 
   const targets = useMemo(() => {
@@ -36,7 +37,7 @@ export function useModelCapabilities(participants = [], baseUrl = '', defaultMod
     }
     return [...seen.values()]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants, baseUrl, defaultModel])
+  }, [participants, baseUrl, defaultModel, defaultProviderId])
 
   const signature = useMemo(() => targets.map(target => target.key).join('::'), [targets])
 
@@ -45,10 +46,9 @@ export function useModelCapabilities(participants = [], baseUrl = '', defaultMod
     if (targets.length === 0) return
 
     ;(async () => {
-      const provider = getProvider()
       const resolved = await Promise.all(targets.map(async target => [
         target.key,
-        await provider.capabilities(target.endpoint, target.model),
+        await getProvider(target.providerId).capabilities(target.endpoint, target.model),
       ]))
       if (!cancelled) {
         setKnown(previous => ({ ...previous, ...Object.fromEntries(resolved) }))
@@ -73,5 +73,5 @@ export function useModelCapabilities(participants = [], baseUrl = '', defaultMod
     }
     return byParticipant
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants, baseUrl, defaultModel, known])
+  }, [participants, baseUrl, defaultModel, defaultProviderId, known])
 }

@@ -31,6 +31,8 @@ export default function ParticipantsPanel({
   ageGroups,
   defaultAgeGroup,
   models,
+  providerModels = {},
+  defaultProviderId = 'ollama',
   palette,
   mkParticipant,
   running,
@@ -337,10 +339,12 @@ export default function ParticipantsPanel({
                 />
               )}
               <EndpointModelGroup
-                models={models}
+                models={providerModels[p.providerId || defaultProviderId] || models}
+                providerId={p.providerId || ''}
+                defaultProviderId={defaultProviderId}
                 model={p.model && p.model !== userModel ? p.model : ''}
                 onModelChange={value => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, model: value } : x))}
-                defaultModel={defaultModel}
+                defaultModel={p.providerId && p.providerId !== defaultProviderId ? '' : defaultModel}
                 endpointOverride={p.endpointOverride}
                 endpointState={endpointStatuses?.[p.id]?.state ?? ''}
                 onConfigureEndpoint={() => onConfigureEndpoint?.(idx)}

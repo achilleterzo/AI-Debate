@@ -396,11 +396,15 @@ export async function streamChat({
       tools: wantsTools && tools?.length ? tools : null,
       think: thinkLevel,
     })
+    const debugHeaders = Object.fromEntries(Object.entries(request.headers || {}).map(([name, value]) => [
+      name,
+      name.toLowerCase() === 'authorization' ? '[redacted]' : value,
+    ]))
     const debugRequest = {
       provider: provider.id,
       url: request.url,
       method: 'POST',
-      headers: request.headers,
+      headers: debugHeaders,
       body: request.body,
     }
     console.log('→ payload', debugRequest)
@@ -408,18 +412,20 @@ export async function streamChat({
 
     let res
     try {
-      res = await fetch(request.url, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: request.headers,
-        body: JSON.stringify(request.body),
-      })
+      res = provider.sendChat
+        ? await provider.sendChat(request, { signal: controller.signal })
+        : await fetch(request.url, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: request.headers,
+            body: JSON.stringify(request.body),
+          })
     } catch (err) {
       releaseRequest()
       onResponse?.({ request: debugRequest, response: { error: err.message } })
       console.error(`${label} fetch error:`, err)
       console.groupEnd()
-      throw err.name === 'AbortError' ? abortReason() : err
+      throw err.name === 'AbortError' || controller.signal.aborted ? abortReason() : err
     }
 
     if (!res.ok) {

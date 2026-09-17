@@ -59,6 +59,7 @@ export function useSnapshots({
           actions.setBaseUrl(data.baseUrl)
           actions.setEndpointInput(data.baseUrl)
         }
+        if (['ollama', 'ollama-cloud', 'openai', 'claude'].includes(data.providerId)) actions.setProviderId?.(data.providerId)
         if (data.version !== 2) return
 
         if (data.topic) setTopicValue(data.topic)

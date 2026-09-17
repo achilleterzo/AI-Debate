@@ -7,6 +7,7 @@ import { autoGrowTextarea } from '../utils/Textarea'
 export function useTopicComposer({
   participants,
   defaultModel,
+  defaultProviderId,
   messages,
   maxTurns,
   useSummary,
@@ -87,7 +88,7 @@ export function useTopicComposer({
 
   const handleStart = useCallback((topicInput = topicRef.current) => {
     const topicText = topicInput.trim()
-    if (!topicText || participants.some(participant => !Debate.hasConfiguredModel(participant, defaultModel))) return
+    if (!topicText || participants.some(participant => !Debate.hasConfiguredModel(participant, defaultModel, defaultProviderId))) return
     logLaunchEstimate('start')
     Storage.saveTopicToHistory(topicText)
     setTopicHistory(Storage.loadTopics())
@@ -132,7 +133,7 @@ export function useTopicComposer({
       preserveContext: forked,
     })
     setTopicValue('')
-  }, [defaultModel, forkedRef, interjectRef, logLaunchEstimate, messages, participants, setHeaderOpen, setMessages, setSummary, setSummaryDebug, setSummaryInProgress, setTopicValue, startDebate, summaryRef, turnRef])
+  }, [defaultModel, defaultProviderId, forkedRef, interjectRef, logLaunchEstimate, messages, participants, setHeaderOpen, setMessages, setSummary, setSummaryDebug, setSummaryInProgress, setTopicValue, startDebate, summaryRef, turnRef])
 
   const handleResume = useCallback((topicInput = topicRef.current) => {
     if (messages.length === 0) return

@@ -7,6 +7,23 @@ describe('Debate participant domain rules', () => {
     expect(Debate.hasConfiguredModel({ model: '' }, '')).toBe(false)
   })
 
+  it('requires an individual model when a participant overrides the default provider', () => {
+    expect(Debate.hasConfiguredModel({ providerId: 'claude', model: '' }, 'gpt-default', 'openai')).toBe(false)
+    expect(Debate.hasConfiguredModel({ providerId: 'claude', model: 'claude-sonnet' }, 'gpt-default', 'openai')).toBe(true)
+  })
+
+  it('inherits the model only from the matching default provider', () => {
+    expect(Debate.withRunDefaults(
+      { providerId: '', model: '' },
+      { defaultProviderId: 'openai', defaultModel: 'gpt-default' },
+    )).toMatchObject({ providerId: 'openai', model: 'gpt-default' })
+
+    expect(Debate.withRunDefaults(
+      { providerId: 'claude', model: '' },
+      { defaultProviderId: 'openai', defaultModel: 'gpt-default' },
+    )).toMatchObject({ providerId: 'claude', model: '' })
+  })
+
   it('normalizes affinity maps, removing invalid and neutral entries', () => {
     expect(Debate.normalizeAffinity({ 1: '1.234', 2: -2, three: 0.5, 4: 0 })).toEqual({ 1: 1, 2: -1 })
     expect(Debate.normalizeAffinity(['2', 'invalid', 3])).toEqual({ 2: 1, 3: 1 })
@@ -34,6 +51,7 @@ describe('Debate participant domain rules', () => {
   it('reindexes participants while retaining normalized settings', () => {
     const participants = [{
       ...Debate.mkParticipant(5, 'model-a'),
+      providerId: 'claude',
       name: 'Ada',
       endpointOverride: 'http://remote',
       affinity: { 1: 0.2 },
@@ -43,6 +61,7 @@ describe('Debate participant domain rules', () => {
 
     expect(Debate.reindexParticipants(participants)[0]).toMatchObject({
       id: 0,
+      providerId: 'claude',
       model: 'model-a',
       name: 'Ada',
       endpointOverride: 'http://remote',

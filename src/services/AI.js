@@ -19,12 +19,13 @@ export class AI {
   }
 
   /** The order the Ollama tab lists models in: cloud first, each group A–Z. */
-  static orderModels(models) {
+  static orderModels(models, { defaultModel = '' } = {}) {
     if (!Array.isArray(models)) return []
-    return [
-      ...models.filter(model => model.endsWith('cloud')).sort(),
-      ...models.filter(model => !model.endsWith('cloud')).sort(),
-    ]
+    return [...models].sort((left, right) => {
+      const defaultDifference = Number(right === defaultModel) - Number(left === defaultModel)
+      if (defaultDifference) return defaultDifference
+      return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' })
+    })
   }
 
   /**
@@ -43,6 +44,8 @@ export class AI {
 }
 
 export function useAIModels({
+  providerId,
+  providerAuth = '',
   defaultUrl,
   noLocalModelsMessage,
   setConnecting,
@@ -52,12 +55,12 @@ export function useAIModels({
   setOllamaOk,
 }) {
   /** Resolves to the model list once it is on screen, or to null if the endpoint did not answer. */
-  const fetchModels = useCallback(async (url) => {
+  const fetchModels = useCallback(async (url, selectedProvider = providerId) => {
     setConnecting(true)
     setConnectError(null)
     try {
-      const list = await AI.fetchModels(url)
-      setModels(list)
+      const list = await AI.fetchModels(url, { providerId: selectedProvider })
+      setModels(AI.orderModels(list))
       setBaseUrl(url)
       setOllamaOk(true)
       setConnectError(list.length === 0 ? noLocalModelsMessage : null)
@@ -70,15 +73,15 @@ export function useAIModels({
     } finally {
       setConnecting(false)
     }
-  }, [noLocalModelsMessage, setBaseUrl, setConnectError, setConnecting, setModels, setOllamaOk])
+  }, [noLocalModelsMessage, providerId, setBaseUrl, setConnectError, setConnecting, setModels, setOllamaOk])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      fetchModels(defaultUrl)
+      fetchModels(defaultUrl, providerId)
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [defaultUrl, fetchModels])
+  }, [defaultUrl, fetchModels, providerAuth, providerId])
 
   return { fetchModels }
 }
