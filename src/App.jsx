@@ -54,6 +54,8 @@ import { useTopicComposer } from './hooks/useTopicComposer'
 import { useAppSettings, usePersistedAppSettings } from './hooks/useAppSettings'
 import { useAttachments } from './hooks/useAttachments'
 import { CONCLUSION_TYPES } from './prompts/ConclusionTypes'
+import { setActiveProviderId } from './providers/index.js'
+import { configureOllamaCloud } from './providers/ollamaCloud.js'
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
@@ -140,6 +142,7 @@ function AppInner({ settings }) {
   // Everything the endpoint serves. The app runs off `models` below, which is
   // this list minus what the Ollama settings tab switched off.
   const [availableModels, setAvailableModels] = useState([])
+  const [providerModels, setProviderModels] = useState({})
   const [headerOpen, setHeaderOpen] = useState(true)
 
   // ── conversation ──
@@ -147,7 +150,7 @@ function AppInner({ settings }) {
   const [endpointHistory, setEndpointHistory] = useState(Storage.loadEndpointHistory)
   const { attachedDocs, inputRef: docInputRef, addFiles, removeAttachment } = useAttachments()
   const {
-    saved, endpointInput, setEndpointInput, baseUrl, setBaseUrl, participants, setParticipants,
+    saved, endpointInput, setEndpointInput, baseUrl, setBaseUrl, providerId, setProviderId, participants, setParticipants,
     globalConstraints, setGlobalConstraints, generalPersonalityInstructions, setGeneralPersonalityInstructions, debateMode, setDebateMode,
     maxTurns, setMaxTurns, useSummary, setUseSummary,
     dynamicAffinity, setDynamicAffinity, randomTurnOrder, setRandomTurnOrder,
@@ -161,11 +164,15 @@ function AppInner({ settings }) {
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     disabledModels, setDisabledModels,
+    providerModelSettings, setProviderModelSettings,
     defaultThinkingLevel, setDefaultThinkingLevel,
     enabledTools, setEnabledTools,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
   } = settings
-  const models = useMemo(() => AI.keepEnabledModels(availableModels, disabledModels), [availableModels, disabledModels])
+  const models = useMemo(() => AI.orderModels(AI.keepEnabledModels(availableModels, disabledModels), { defaultModel }), [availableModels, defaultModel, disabledModels])
+  useEffect(() => {
+    if (availableModels.length > 0 && !models.includes(defaultModel)) setDefaultModel(models[0] ?? '')
+  }, [availableModels, defaultModel, models, setDefaultModel])
   // The overrides stay stored while the switch is off, so turning it back on
   // restores the previous choice; what the operations see is the gated value.
   const effectiveSummaryModelOverride = summaryModelEnabled ? summaryModelOverride : ''
@@ -195,6 +202,18 @@ function AppInner({ settings }) {
   const [lastRequest, setLastRequest] = useState(null)
   const [userInputPending, setUserInputPending] = useState(null) // { resolve, tag }
   const userInputRef = useRef('')
+  const [ollamaCloudHasSavedKey, setOllamaCloudHasSavedKey] = useState(false)
+
+  useEffect(() => { setActiveProviderId(providerId) }, [providerId])
+  useEffect(() => {
+    let cancelled = false
+    window.desktop?.hasOllamaCloudApiKey?.().then(stored => {
+      if (cancelled) return
+      configureOllamaCloud({ stored })
+      setOllamaCloudHasSavedKey(stored)
+    }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [])
 
   const {
     contextEstimate,
@@ -220,6 +239,7 @@ function AppInner({ settings }) {
     maxTurns,
     timeoutSec,
     baseUrl,
+    defaultProviderId: providerId,
     defaultModel,
     defaultThinkingLevel,
     useSummary,
@@ -273,6 +293,7 @@ function AppInner({ settings }) {
   } = useTopicComposer({
     participants,
     defaultModel,
+    defaultProviderId: providerId,
     messages,
     maxTurns,
     useSummary,
@@ -391,7 +412,7 @@ function AppInner({ settings }) {
   // badge as the only clue. Derived rather than opened by an effect, and it
   // stays away once dismissed and while the welcome screen is up.
   const [connectionPromptDismissed, setConnectionPromptDismissed] = useState(false)
-  const needsConnectionPrompt = ollamaOk === false && !connecting && !splash.visible && !connectionPromptDismissed
+  const needsConnectionPrompt = providerId === 'ollama' && ollamaOk === false && !connecting && !splash.visible && !connectionPromptDismissed
   const activeEndpointModal = endpointModal ?? (needsConnectionPrompt ? { target: 'main', initialValue: endpointInput ?? '' } : null)
 
   const handleCloseEndpointModal = () => {
@@ -404,8 +425,8 @@ function AppInner({ settings }) {
     () => [{ id: SUMMARY_ENDPOINT_ID, url: effectiveSummaryEndpointOverride }],
     [effectiveSummaryEndpointOverride],
   )
-  const endpointStatuses = useEndpointStatuses(participants, summaryEndpointTargets)
-  const modelCapabilities = useModelCapabilities(participants, baseUrl, defaultModel)
+  const endpointStatuses = useEndpointStatuses(participants, summaryEndpointTargets, providerId)
+  const modelCapabilities = useModelCapabilities(participants, baseUrl, defaultModel, providerId)
   const {
     bottomRef,
     chatRef,
@@ -420,6 +441,8 @@ function AppInner({ settings }) {
   } = useAppLayout({ messages, conclusions, streamingRole, headerOpen })
 
   const { fetchModels } = useAIModels({
+    providerId,
+    providerAuth: providerId === 'ollama-cloud' ? String(ollamaCloudHasSavedKey) : '',
     defaultUrl: DEFAULT_URL,
     noLocalModelsMessage: ui.noLocalModels,
     setConnecting,
@@ -428,6 +451,38 @@ function AppInner({ settings }) {
     setBaseUrl,
     setOllamaOk,
   })
+  useEffect(() => {
+    const timer = window.setTimeout(() => setProviderModels(previous => ({ ...previous, [providerId]: availableModels })), 0)
+    return () => window.clearTimeout(timer)
+  }, [availableModels, providerId])
+
+  const loadProviderModels = useCallback(async (selectedProvider, force = false, endpoint = baseUrl) => {
+    if (!force && providerModels[selectedProvider]?.length) return providerModels[selectedProvider]
+    try {
+      const list = AI.orderModels(await AI.fetchModels(endpoint, { providerId: selectedProvider }))
+      setProviderModels(previous => ({ ...previous, [selectedProvider]: list }))
+      if (selectedProvider === providerId) setAvailableModels(list)
+      return list
+    } catch (error) {
+      console.warn(`Unable to load ${selectedProvider} models:`, error.message)
+      throw error
+    }
+  }, [baseUrl, providerId, providerModels])
+  const participantProviderModels = useMemo(() => Object.fromEntries(Object.entries(providerModels).map(([selectedProvider, catalogue]) => {
+    const config = providerModelSettings[selectedProvider] ?? {}
+    return [selectedProvider, AI.orderModels(AI.keepEnabledModels(catalogue, config.disabledModels), { defaultModel: config.defaultModel })]
+  })), [providerModelSettings, providerModels])
+  const participantProviderSignature = useMemo(
+    () => [...new Set(participants.map(participant => participant.providerId).filter(Boolean))].sort().join('|'),
+    [participants],
+  )
+  useEffect(() => {
+    if (!participantProviderSignature) return undefined
+    const timer = window.setTimeout(() => {
+      for (const selectedProvider of participantProviderSignature.split('|')) void loadProviderModels(selectedProvider).catch(() => undefined)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadProviderModels, participantProviderSignature])
 
   /**
    * A model switched off in the Ollama tab is dropped from the list the app
@@ -443,13 +498,24 @@ function AppInner({ settings }) {
     if (!enabled && defaultModel === model) {
       setDefaultModel(AI.firstEnabledModel(availableModels, nextDisabled))
     }
-  }, [availableModels, defaultModel, disabledModels, setDefaultModel, setDisabledModels])
+    if (!enabled) {
+      const fallback = AI.firstEnabledModel(availableModels, nextDisabled)
+      setParticipants(current => current.map(participant => (participant.providerId || providerId) === providerId && participant.model === model
+        ? { ...participant, model: participant.providerId ? fallback : '' }
+        : participant))
+    }
+  }, [availableModels, defaultModel, disabledModels, providerId, setDefaultModel, setDisabledModels, setParticipants])
 
   const handleSetAllModelsEnabled = useCallback(enabled => {
     setDisabledModels(enabled ? [] : [...availableModels])
     // Switching everything off leaves nothing to fall back to.
-    if (!enabled) setDefaultModel('')
-  }, [availableModels, setDefaultModel, setDisabledModels])
+    if (!enabled) {
+      setDefaultModel('')
+      setParticipants(current => current.map(participant => !participant.localUser && participant.model !== Debate.USER_MODEL && (participant.providerId || providerId) === providerId && participant.model
+        ? { ...participant, model: '' }
+        : participant))
+    }
+  }, [availableModels, providerId, setDefaultModel, setDisabledModels, setParticipants])
 
   const handleStop = () => stopDebate()
   const handleForceStop = () => forceStopDebate()
@@ -496,7 +562,9 @@ function AppInner({ settings }) {
     const p = participants[idx]
     if (!p) return
     const label = p.name?.trim() ? `${p.name} (${p.tag})` : p.tag
-    setEndpointModal({ target: 'participant', idx, initialValue: p.endpointOverride ?? '', participantLabel: label })
+    const selectedProvider = p.providerId || providerId
+    setEndpointModal({ target: 'participant-provider', idx, providerId: selectedProvider, participantLabel: label })
+    void loadProviderModels(selectedProvider).catch(() => undefined)
   }
 
   const handleConfigureCustomLang = idx => {
@@ -768,13 +836,99 @@ function AppInner({ settings }) {
     )
   }
 
-  const allModelsSet = participants.length >= 2 && participants.every(p => Debate.hasConfiguredModel(p, defaultModel))
+  const allModelsSet = participants.length >= 2 && participants.every(p => Debate.hasConfiguredModel(p, defaultModel, providerId))
   const canStart  = hasTopic && allModelsSet && !running && ollamaOk
   const canResume = messages.length > 0 && allModelsSet && !running && ollamaOk
 
   const handleOpenPromptSettings = () => {
     setPromptSettingsModal(true)
   }
+
+  const handleProviderChange = useCallback(nextProvider => {
+    if (nextProvider === providerId || running) return
+    setProviderId(nextProvider)
+    setAvailableModels([])
+    setParticipants(current => current.map(participant => participant.localUser || participant.providerId
+      ? participant
+      : { ...participant, model: '', endpointOverride: '' }))
+    setSummaryModelOverride('')
+    setSummaryEndpointOverride('')
+  }, [providerId, running, setParticipants, setProviderId, setSummaryEndpointOverride, setSummaryModelOverride])
+
+  const handleOllamaCloudConnect = useCallback(async apiKey => {
+    const normalized = String(apiKey || '').trim()
+    configureOllamaCloud(normalized ? { apiKey: normalized } : { stored: ollamaCloudHasSavedKey })
+    const models = await fetchModels(baseUrl, 'ollama-cloud')
+    if (models !== null && normalized) {
+      try {
+        if (window.desktop?.saveOllamaCloudApiKey) {
+          await window.desktop.saveOllamaCloudApiKey(normalized)
+          configureOllamaCloud({ stored: true })
+          setOllamaCloudHasSavedKey(true)
+        }
+      } catch (error) { console.warn('Ollama Cloud key could not be persisted securely:', error.message) }
+    } else if (ollamaCloudHasSavedKey) {
+      configureOllamaCloud({ stored: true })
+    }
+    return models
+  }, [baseUrl, fetchModels, ollamaCloudHasSavedKey])
+
+  const updateProviderModelConfig = useCallback((selectedProvider, updater) => {
+    setProviderModelSettings(previous => {
+      const current = previous[selectedProvider] ?? { defaultModel: '', disabledModels: [] }
+      return { ...previous, [selectedProvider]: updater(current) }
+    })
+  }, [setProviderModelSettings])
+
+  const handleParticipantDialogProviderChange = useCallback(async selectedProvider => {
+    if (!selectedProvider || endpointModal?.target !== 'participant-provider') return
+    const idx = endpointModal.idx
+    setEndpointModal(current => current?.target === 'participant-provider' ? { ...current, providerId: selectedProvider } : current)
+    setParticipants(current => current.map((participant, index) => index === idx
+      ? { ...participant, providerId: selectedProvider, model: '', endpointOverride: '' }
+      : participant))
+    try { await loadProviderModels(selectedProvider) } catch (error) { setConnectError(error.message) }
+  }, [endpointModal, loadProviderModels, setParticipants])
+
+  const handleParticipantDialogModelChange = useCallback(model => {
+    if (endpointModal?.target !== 'participant-provider') return
+    const idx = endpointModal.idx
+    const selectedProvider = endpointModal.providerId
+    setParticipants(current => current.map((participant, index) => index === idx
+      ? { ...participant, providerId: selectedProvider, model }
+      : participant))
+  }, [endpointModal, setParticipants])
+
+  const handleParticipantProviderConnect = useCallback(async rawValue => {
+    const normalized = String(rawValue || '').trim().replace(/\/$/, '')
+    if (!normalized) return []
+    setConnecting(true)
+    setConnectError(null)
+    try {
+      const list = await loadProviderModels('ollama', true, normalized)
+      setEndpointHistory(Storage.saveEndpointToHistory(normalized))
+      setEndpointInput(normalized)
+      setBaseUrl(normalized)
+      setOllamaOk(true)
+      return list
+    } catch (error) {
+      setOllamaOk(false)
+      setConnectError(error.message)
+      throw error
+    } finally { setConnecting(false) }
+  }, [loadProviderModels, setBaseUrl, setEndpointInput])
+
+  const handleParticipantCloudConnect = useCallback(async apiKey => {
+    const normalized = String(apiKey || '').trim()
+    configureOllamaCloud(normalized ? { apiKey: normalized } : { stored: ollamaCloudHasSavedKey })
+    const list = await loadProviderModels('ollama-cloud', true)
+    if (normalized && window.desktop?.saveOllamaCloudApiKey) {
+      await window.desktop.saveOllamaCloudApiKey(normalized)
+      configureOllamaCloud({ stored: true })
+      setOllamaCloudHasSavedKey(true)
+    }
+    return list
+  }, [loadProviderModels, ollamaCloudHasSavedKey])
 
   const handleSavePromptSettings = (text) => {
     setGeneralPersonalityInstructions(String(text || '').trim())
@@ -811,6 +965,7 @@ function AppInner({ settings }) {
       maxTurns,
         timeoutSec,
       baseUrl,
+      providerId,
       moderationCooling,
       summarizeAttachments,
       messages,
@@ -832,6 +987,7 @@ function AppInner({ settings }) {
       setSummarizeAttachments,
       setBaseUrl,
       setEndpointInput,
+      setProviderId,
       setMessages,
       setConclusions,
       setMemory,
@@ -890,6 +1046,53 @@ function AppInner({ settings }) {
       },
     })
   }, [openConfirm, ui.clearSettingsTitle, ui.clearSettingsMessage, common.delete])
+
+  const participantProviderModal = activeEndpointModal?.target === 'participant-provider' ? activeEndpointModal : null
+  const participantModalProviderId = participantProviderModal?.providerId || providerId
+  const participantModalConfig = providerModelSettings[participantModalProviderId] ?? { defaultModel: '', disabledModels: [] }
+  const participantModalModels = participantModalProviderId === providerId ? availableModels : (providerModels[participantModalProviderId] ?? [])
+  const participantModalSelectedModel = participantProviderModal ? participants[participantProviderModal.idx]?.model ?? '' : ''
+  const participantProviderSettings = participantProviderModal ? {
+    title: `AI Providers · ${participantProviderModal.participantLabel}`,
+    providerId: participantModalProviderId,
+    onProviderChange: handleParticipantDialogProviderChange,
+    onRefreshProvider: () => { void loadProviderModels(participantModalProviderId, true).catch(error => setConnectError(error.message)) },
+    ollamaCloudHasSavedKey,
+    onOllamaCloudConnect: handleParticipantCloudConnect,
+    endpoint: endpointInput,
+    onConnect: handleParticipantProviderConnect,
+    connecting,
+    connectError,
+    ollamaOk,
+    history: endpointHistory,
+    onDeleteHistoryEntry: entry => setEndpointHistory(Storage.deleteEndpointFromHistory(entry)),
+    models: participantModalModels,
+    disabledModels: participantModalConfig.disabledModels,
+    onToggleModel: (model, enabled) => {
+      updateProviderModelConfig(participantModalProviderId, current => {
+        const rest = current.disabledModels.filter(entry => entry !== model)
+        const nextDisabled = enabled ? rest : [...rest, model]
+        return {
+          defaultModel: !enabled && current.defaultModel === model ? AI.firstEnabledModel(participantModalModels, nextDisabled) : current.defaultModel,
+          disabledModels: nextDisabled,
+        }
+      })
+      if (!enabled && participantModalSelectedModel === model) handleParticipantDialogModelChange('')
+    },
+    onSetAllModelsEnabled: enabled => {
+      updateProviderModelConfig(participantModalProviderId, current => ({
+        ...current,
+        defaultModel: enabled ? current.defaultModel : '',
+        disabledModels: enabled ? [] : [...participantModalModels],
+      }))
+      if (!enabled) handleParticipantDialogModelChange('')
+    },
+    defaultModel: participantModalConfig.defaultModel,
+    onDefaultModelChange: model => updateProviderModelConfig(participantModalProviderId, current => ({ ...current, defaultModel: model })),
+    selectedModel: participantModalSelectedModel,
+    onSelectedModelChange: handleParticipantDialogModelChange,
+    disabled: running,
+  } : null
 
   return (
     <div className="h-screen w-full items-stretch 2xl:flex 2xl:flex-row" style={{ ...styles.app, flexDirection: isWideLayout ? 'row' : 'column', alignItems: 'stretch' }}>
@@ -1032,6 +1235,8 @@ function AppInner({ settings }) {
           ageGroups={localizedAgeGroups}
           defaultAgeGroup={Debate.DEFAULT_AGE_GROUP}
           models={models}
+          providerModels={{ ...participantProviderModels, [providerId]: models }}
+          defaultProviderId={providerId}
           palette={PALETTE}
           mkParticipant={Debate.mkParticipant}
           onResetAffinities={handleResetAffinities}
@@ -1231,6 +1436,7 @@ function AppInner({ settings }) {
         onDeleteGlobalSuggestion={handleDeleteGlobalSuggestion}
         wand={wand}
         endpointModal={activeEndpointModal}
+        participantProviderSettings={participantProviderSettings}
         onCloseEndpointModal={handleCloseEndpointModal}
         onConfirmEndpoint={handleSaveEndpoint}
         customLangModal={customLangModal}
@@ -1273,6 +1479,11 @@ function AppInner({ settings }) {
         pageBlockKb={pageBlockKb}
         onPageBlockKbChange={setPageBlockKb}
         endpointInput={endpointInput}
+        providerId={providerId}
+        onProviderChange={handleProviderChange}
+        onRefreshProvider={() => fetchModels(baseUrl, providerId)}
+        ollamaCloudHasSavedKey={ollamaCloudHasSavedKey}
+        onOllamaCloudConnect={handleOllamaCloudConnect}
         onConnectEndpoint={connectMainEndpoint}
         availableModels={availableModels}
         disabledModels={disabledModels}

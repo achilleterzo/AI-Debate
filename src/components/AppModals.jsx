@@ -4,6 +4,7 @@ import EndpointModalView from './EndpointModal'
 import CustomLanguageModalView from './CustomLanguageModal'
 import PromptSettingsModalView from './PromptSettingsModal'
 import ConfirmModalView from './ConfirmModal'
+import ProviderSettingsDialog from './ProviderSettingsDialog'
 import { modelSelectStyles, moodSelectStyles } from './Style'
 
 export default function AppModals({
@@ -63,6 +64,12 @@ export default function AppModals({
   disabledModels = [],
   onToggleModelEnabled,
   onSetAllModelsEnabled,
+  providerId,
+  onProviderChange,
+  onRefreshProvider,
+  ollamaCloudHasSavedKey,
+  onOllamaCloudConnect,
+  participantProviderSettings,
 }) {
   return (
     <>
@@ -86,7 +93,37 @@ export default function AppModals({
           wand={wand}
         />
       )}
-      {endpointModal && (
+      {endpointModal?.target === 'main' && (
+        <ProviderSettingsDialog
+          onClose={onCloseEndpointModal}
+          providerId={providerId}
+          onProviderChange={onProviderChange}
+          onRefreshProvider={onRefreshProvider}
+          ollamaCloudHasSavedKey={ollamaCloudHasSavedKey}
+          onOllamaCloudConnect={onOllamaCloudConnect}
+          endpoint={endpointInput}
+          onConnect={onConnectEndpoint}
+          connecting={connecting}
+          connectError={connectError}
+          ollamaOk={ollamaOk}
+          history={endpointHistory}
+          onDeleteHistoryEntry={onDeleteEndpointHistoryEntry}
+          models={availableModels}
+          disabledModels={disabledModels}
+          onToggleModel={onToggleModelEnabled}
+          onSetAllModelsEnabled={onSetAllModelsEnabled}
+          defaultModel={defaultModel}
+          onDefaultModelChange={onDefaultModelChange}
+          disabled={running}
+        />
+      )}
+      {endpointModal?.target === 'participant-provider' && participantProviderSettings && (
+        <ProviderSettingsDialog
+          onClose={onCloseEndpointModal}
+          {...participantProviderSettings}
+        />
+      )}
+      {endpointModal && endpointModal.target !== 'main' && endpointModal.target !== 'participant-provider' && (
         <EndpointModalView
           state={endpointModal}
           onClose={onCloseEndpointModal}
@@ -140,6 +177,11 @@ export default function AppModals({
           disabledModels={disabledModels}
           onToggleModelEnabled={onToggleModelEnabled}
           onSetAllModelsEnabled={onSetAllModelsEnabled}
+          providerId={providerId}
+          onProviderChange={onProviderChange}
+          onRefreshProvider={onRefreshProvider}
+          ollamaCloudHasSavedKey={ollamaCloudHasSavedKey}
+          onOllamaCloudConnect={onOllamaCloudConnect}
           defaultModel={defaultModel}
           onDefaultModelChange={onDefaultModelChange}
         />

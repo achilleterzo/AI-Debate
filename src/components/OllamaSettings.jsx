@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { styles } from './Style'
+import { AI } from '../services/AI'
 
 /**
  * The Ollama tab of the settings modal: which server the app talks to, and
@@ -25,6 +26,8 @@ export default function OllamaSettings({
   onSetAllModelsEnabled,
   defaultModel = '',
   onSelectDefaultModel,
+  selectedModel,
+  onSelectModel,
   disabled = false,
 }) {
   const UI_STRINGS = useUiStrings()
@@ -39,22 +42,24 @@ export default function OllamaSettings({
 
   const disabledSet = new Set(disabledModels)
   const enabledCount = models.filter(model => !disabledSet.has(model)).length
-  const cloud = models.filter(model => model.endsWith('cloud')).sort()
-  const local = models.filter(model => !model.endsWith('cloud')).sort()
+  const orderedModels = AI.orderModels(models, { defaultModel })
+  const cloud = orderedModels.filter(model => model.endsWith('cloud'))
+  const local = orderedModels.filter(model => !model.endsWith('cloud'))
   const groups = [
     ...(cloud.length ? [{ label: common.cloud, models: cloud }] : []),
     ...(local.length ? [{ label: common.local, models: local }] : []),
-  ]
+  ].sort((left, right) => Number(right.models.includes(defaultModel)) - Number(left.models.includes(defaultModel)))
 
   const renderRow = (model) => {
     const enabled = !disabledSet.has(model)
     const isDefault = model === defaultModel
+    const selected = onSelectModel ? model === selectedModel : isDefault
     return (
       <div
         key={model}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          border: `1px solid ${isDefault ? '#3f5a8a' : '#252525'}`, borderRadius: 7, background: '#101010', padding: '7px 9px',
+          border: `1px solid ${selected ? '#3f5a8a' : '#252525'}`, borderRadius: 7, background: '#101010', padding: '7px 9px',
           opacity: disabled ? 0.55 : 1,
         }}
       >
@@ -63,9 +68,9 @@ export default function OllamaSettings({
               with it — picking one would contradict the toggle next to it. */}
           <input
             type="radio"
-            name="ollamaDefaultModel"
-            checked={isDefault}
-            onChange={() => onSelectDefaultModel?.(model)}
+            name={onSelectModel ? 'ollamaSelectedModel' : 'ollamaDefaultModel'}
+            checked={selected}
+            onChange={() => onSelectModel ? onSelectModel(model) : onSelectDefaultModel?.(model)}
             disabled={disabled || !enabled}
             title={ui.ollamaDefaultRadio}
             aria-label={`${ui.ollamaDefaultRadio}: ${model}`}

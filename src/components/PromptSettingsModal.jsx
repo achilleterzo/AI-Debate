@@ -6,7 +6,7 @@ import { TRANSLATED_LANGUAGE_CODES } from '../i18n/locales'
 import { UPDATE_ERROR, UPDATE_STATUS } from '../services/Updates'
 import { TOOL_SETTINGS } from '../tools/ToolSettings'
 import { MAX_DEBUG_PAYLOAD_TURNS, MIN_DEBUG_PAYLOAD_TURNS, PAGE_BLOCK_STEPS, normalizeDebugPayloadTurns } from '../settings/Settings'
-import OllamaSettings from './OllamaSettings'
+import ProviderSettings from './ProviderSettings'
 
 const TABS = ['main', 'ollama', 'promptRules', 'advanced']
 
@@ -47,6 +47,11 @@ export default function PromptSettingsModal({
   onSetAllModelsEnabled,
   defaultModel,
   onDefaultModelChange,
+  providerId,
+  onProviderChange,
+  onRefreshProvider,
+  ollamaCloudHasSavedKey,
+  onOllamaCloudConnect,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.promptSettingsModal
@@ -171,7 +176,12 @@ export default function PromptSettingsModal({
             )}
 
             {activeTab === 'ollama' && (
-              <OllamaSettings
+              <ProviderSettings
+                providerId={providerId}
+                onProviderChange={onProviderChange}
+                onRefreshProvider={onRefreshProvider}
+                ollamaCloudHasSavedKey={ollamaCloudHasSavedKey}
+                onOllamaCloudConnect={onOllamaCloudConnect}
                 endpoint={endpoint}
                 onConnect={onConnectEndpoint}
                 connecting={connecting}
@@ -184,7 +194,7 @@ export default function PromptSettingsModal({
                 onToggleModel={onToggleModelEnabled}
                 onSetAllModelsEnabled={onSetAllModelsEnabled}
                 defaultModel={defaultModel}
-                onSelectDefaultModel={onDefaultModelChange}
+                onDefaultModelChange={onDefaultModelChange}
                 disabled={running}
               />
             )}

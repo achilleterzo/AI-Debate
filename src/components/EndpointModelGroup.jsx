@@ -1,20 +1,26 @@
 import ReactSelect from 'react-select'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { modelSelectStyles } from './Style'
+import { AI } from '../services/AI'
+import ollamaLogo from '../assets/provider-logos/ollama.svg'
+import openaiLogo from '../assets/provider-logos/codex.svg'
+import claudeLogo from '../assets/provider-logos/claude-code.svg'
 
 const ENDPOINT_STATE_COLORS = { ok: '#4ade80', err: '#f87171', checking: '#f59e0b' }
+const PROVIDER_ICONS = { ollama: ollamaLogo, 'ollama-cloud': ollamaLogo, openai: openaiLogo, claude: claudeLogo }
 
 /**
- * Endpoint button and model select joined into one input group: the button is
+ * Provider button and model select joined into one input group: the button is
  * the left cap of the select rather than a control of its own.
  *
- * The button is active (blue) only when a custom endpoint is set, and only
- * then does it carry the reachability badge — green reachable, red
- * unreachable, amber while checking. With no endpoint it stays grey and shows
- * no dot at all, so the badge always means something.
+ * The provider icon opens the shared connection/settings dialog scoped to the
+ * participant. A custom local endpoint can still carry its reachability badge
+ * — green reachable, red unreachable, amber while checking.
  */
 export default function EndpointModelGroup({
   models = [],
+  providerId = '',
+  defaultProviderId = 'ollama',
   model = '',
   onModelChange,
   defaultModel = '',
@@ -28,6 +34,8 @@ export default function EndpointModelGroup({
   const UI_STRINGS = useUiStrings()
   const common = UI_STRINGS.common
   const participantsUi = UI_STRINGS.participants
+  const effectiveProviderId = providerId || defaultProviderId
+  const providerLabel = effectiveProviderId === 'ollama-cloud' ? 'Ollama Cloud' : effectiveProviderId === 'openai' ? 'OpenAI' : effectiveProviderId === 'claude' ? 'Claude' : 'Ollama'
 
   // An empty model already means "fall back to the default"; this makes that
   // state an explicit choice instead of something reachable only by clearing.
@@ -38,8 +46,9 @@ export default function EndpointModelGroup({
       : participantsUi.useDefaultModelUnset,
   }
 
-  const cloud = models.filter(entry => entry.endsWith('cloud')).sort()
-  const local = models.filter(entry => !entry.endsWith('cloud')).sort()
+  const orderedModels = AI.orderModels(models, { defaultModel })
+  const cloud = orderedModels.filter(entry => entry.endsWith('cloud'))
+  const local = orderedModels.filter(entry => !entry.endsWith('cloud'))
   const options = [
     defaultModelOption,
     ...(cloud.length ? [{ label: common.cloud, options: cloud.map(entry => ({ value: entry, label: entry })) }] : []),
@@ -66,7 +75,7 @@ export default function EndpointModelGroup({
         disabled={disabled}
         title={hasOverride
           ? participantsUi.customEndpointTitle(endpointOverride, endpointState ? { state: endpointState } : null)
-          : participantsUi.configureCustomEndpoint}
+          : `${providerLabel} · AI Providers`}
         style={{
           width: 28,
           minHeight: 28,
@@ -77,9 +86,9 @@ export default function EndpointModelGroup({
           // line instead of two stacked ones.
           borderWidth: '1px 0 1px 1px',
           borderStyle: 'solid',
-          borderColor: hasOverride ? '#2f4f6f' : '#2e2e2e',
-          background: hasOverride ? '#152131' : '#161616',
-          color: hasOverride ? '#9ac8ff' : '#666',
+          borderColor: providerId || hasOverride ? '#2f4f6f' : '#2e2e2e',
+          background: providerId || hasOverride ? '#152131' : '#161616',
+          color: providerId || hasOverride ? '#9ac8ff' : '#666',
           cursor: disabled ? 'default' : 'pointer',
           opacity: disabled ? 0.5 : 1,
           display: 'flex',
@@ -89,11 +98,8 @@ export default function EndpointModelGroup({
           flexShrink: 0,
         }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M2 12h20" />
-          <path d="M12 2c3 3 4 6 4 10s-1 7-4 10c-3-3-4-6-4-10s1-7 4-10z" />
-        </svg>
+        <img src={PROVIDER_ICONS[effectiveProviderId]} alt="" aria-hidden="true" style={{ width: 21, height: 21, boxSizing: 'border-box', objectFit: 'contain', padding: effectiveProviderId === 'claude' ? 3 : '2px 4px', borderRadius: 4, background: '#f4f4f0' }} />
+        {effectiveProviderId === 'ollama-cloud' && <span aria-hidden="true" style={{ position: 'absolute', right: 1, bottom: 0, fontSize: 8, lineHeight: 1, color: '#9ac8ff', textShadow: '0 0 2px #000' }}>☁</span>}
         {badgeColor && (
           <span style={{ position: 'absolute', right: 2, top: 2, width: 6, height: 6, borderRadius: '50%', background: badgeColor, boxShadow: '0 0 0 1px #111' }} />
         )}
