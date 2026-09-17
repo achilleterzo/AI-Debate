@@ -10,6 +10,7 @@ import {
   normalizeModerationCooling,
   normalizeModeratorPermissiveness,
   normalizeDisabledModels,
+  normalizeProviderModelSettings,
 } from '../src/settings/Settings'
 
 describe('normalizeDisabledModels', () => {
@@ -22,6 +23,24 @@ describe('normalizeDisabledModels', () => {
     expect(normalizeDisabledModels()).toEqual([])
     expect(normalizeDisabledModels(null)).toEqual([])
     expect(normalizeDisabledModels('a:latest')).toEqual([])
+  })
+})
+
+describe('normalizeProviderModelSettings', () => {
+  it('keeps separate defaults and disabled models for every supported provider', () => {
+    expect(normalizeProviderModelSettings({
+      ollama: { defaultModel: ' llama3 ', disabledModels: ['old', 'old'] },
+      openai: { defaultModel: 'gpt-5', disabledModels: ['mini'] },
+      unsupported: { defaultModel: 'ignored', disabledModels: [] },
+    })).toEqual({
+      ollama: { defaultModel: 'llama3', disabledModels: ['old'] },
+      openai: { defaultModel: 'gpt-5', disabledModels: ['mini'] },
+    })
+  })
+
+  it('rejects malformed provider settings', () => {
+    expect(normalizeProviderModelSettings(null)).toEqual({})
+    expect(normalizeProviderModelSettings([])).toEqual({})
   })
 })
 

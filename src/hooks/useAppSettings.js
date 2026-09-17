@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Storage } from '../data/Storage'
 import { Debate } from '../debate/Debate'
 import { Web } from '../services/Web'
@@ -16,6 +16,7 @@ import {
   DEFAULT_SUMMARY_MODEL_OVERRIDE,
   DEFAULT_SUMMARIZE_ATTACHMENTS,
   DEFAULT_PAGE_BLOCK_KB,
+  DEFAULT_PROVIDER_ID,
   DEFAULT_SEARCH_API_KEY,
   DEFAULT_TIMEOUT_SEC,
   DEFAULT_DEBUG_PAYLOAD_TURNS,
@@ -23,6 +24,7 @@ import {
   DEFAULT_USE_SUMMARY,
   normalizeDebugPayloadTurns,
   normalizeDisabledModels,
+  normalizeProviderModelSettings,
   normalizeModerationCooling,
   normalizePageBlockKb,
 } from '../settings/Settings'
@@ -35,6 +37,7 @@ export function useAppSettings() {
   const saved = Storage.loadSettings()
   const [endpointInput, setEndpointInput] = useState(saved?.baseUrl ?? DEFAULT_URL)
   const [baseUrl, setBaseUrl] = useState(saved?.baseUrl ?? DEFAULT_URL)
+  const [providerId, setProviderId] = useState(['ollama', 'ollama-cloud', 'openai', 'claude'].includes(saved?.providerId) ? saved.providerId : DEFAULT_PROVIDER_ID)
   const [participants, setParticipants] = useState(() => saved?.participants?.length >= 2
     ? Debate.hydrateParticipantsFromSession(saved.participants)
     : [Debate.mkParticipant(0, ''), Debate.mkParticipant(1, '')])
@@ -59,8 +62,34 @@ export function useAppSettings() {
   const [uiLang, setUiLang] = useState(saved?.uiLang ?? Debate.detectBrowserLang())
   const [interfaceLang, setInterfaceLang] = useState(saved?.interfaceLang ?? Debate.detectBrowserLang())
   const [timeoutSec, setTimeoutSec] = useState(saved?.timeoutSec ?? DEFAULT_TIMEOUT_SEC)
-  const [defaultModel, setDefaultModel] = useState(saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL)
-  const [disabledModels, setDisabledModels] = useState(() => normalizeDisabledModels(saved?.disabledModels ?? DEFAULT_DISABLED_MODELS))
+  const [providerModelSettings, setProviderModelSettings] = useState(() => {
+    const normalized = normalizeProviderModelSettings(saved?.providerModelSettings)
+    const legacyProviderId = ['ollama', 'ollama-cloud', 'openai', 'claude'].includes(saved?.providerId) ? saved.providerId : DEFAULT_PROVIDER_ID
+    if (!normalized[legacyProviderId]) {
+      normalized[legacyProviderId] = {
+        defaultModel: saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL,
+        disabledModels: normalizeDisabledModels(saved?.disabledModels ?? DEFAULT_DISABLED_MODELS),
+      }
+    }
+    return normalized
+  })
+  const currentProviderModelSettings = providerModelSettings[providerId] ?? { defaultModel: DEFAULT_FALLBACK_MODEL, disabledModels: DEFAULT_DISABLED_MODELS }
+  const defaultModel = currentProviderModelSettings.defaultModel
+  const disabledModels = currentProviderModelSettings.disabledModels
+  const setDefaultModel = useCallback(value => {
+    setProviderModelSettings(previous => {
+      const current = previous[providerId] ?? { defaultModel: DEFAULT_FALLBACK_MODEL, disabledModels: DEFAULT_DISABLED_MODELS }
+      const next = typeof value === 'function' ? value(current.defaultModel) : value
+      return { ...previous, [providerId]: { ...current, defaultModel: String(next ?? '').trim() } }
+    })
+  }, [providerId])
+  const setDisabledModels = useCallback(value => {
+    setProviderModelSettings(previous => {
+      const current = previous[providerId] ?? { defaultModel: DEFAULT_FALLBACK_MODEL, disabledModels: DEFAULT_DISABLED_MODELS }
+      const next = typeof value === 'function' ? value(current.disabledModels) : value
+      return { ...previous, [providerId]: { ...current, disabledModels: normalizeDisabledModels(next) } }
+    })
+  }, [providerId])
   // The level participants follow unless they picked one of their own.
   const [defaultThinkingLevel, setDefaultThinkingLevel] = useState(() => Debate.normalizeThinkingLevel(saved?.defaultThinkingLevel ?? Debate.DEFAULT_THINKING_LEVEL))
   const [debateMode, setDebateMode] = useState(() => normalizeDebateMode(saved?.debateMode ?? DEFAULT_DEBATE_MODE))
@@ -70,7 +99,7 @@ export function useAppSettings() {
 
   return {
     saved,
-    endpointInput, setEndpointInput, baseUrl, setBaseUrl,
+    endpointInput, setEndpointInput, baseUrl, setBaseUrl, providerId, setProviderId,
     participants, setParticipants,
     globalConstraints, setGlobalConstraints,
     generalPersonalityInstructions, setGeneralPersonalityInstructions,
@@ -86,6 +115,7 @@ export function useAppSettings() {
     interfaceLang, setInterfaceLang,
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     disabledModels, setDisabledModels,
+    providerModelSettings, setProviderModelSettings,
     defaultThinkingLevel, setDefaultThinkingLevel,
     debateMode, setDebateMode, enabledTools, setEnabledTools,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
@@ -94,10 +124,10 @@ export function useAppSettings() {
 
 export function usePersistedAppSettings({ settings, conclusions }) {
   const {
-    participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder,
+    participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder,
     moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride,
     summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, globalConstraints,
-    generalPersonalityInstructions, defaultModel, disabledModels, defaultThinkingLevel,
+    generalPersonalityInstructions, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel,
     debugPayloadTurns,
     debateMode,
     enabledTools,
@@ -115,10 +145,11 @@ export function usePersistedAppSettings({ settings, conclusions }) {
   useEffect(() => {
     Storage.saveSettings({
       participants: Debate.serializeParticipantsForSession(participants),
-      maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling,
+      maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling,
       summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold,
       summarizeAttachments, uiLang, interfaceLang, defaultModel,
       disabledModels: normalizeDisabledModels(disabledModels),
+      providerModelSettings: normalizeProviderModelSettings(providerModelSettings),
       defaultThinkingLevel: Debate.normalizeThinkingLevel(defaultThinkingLevel),
       conclusionModel,
       customConclusionPrompt: customConclusionPrompt ?? '',
@@ -131,5 +162,5 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       pageBlockKb: normalizePageBlockKb(pageBlockKb),
       debugPayloadTurns: normalizeDebugPayloadTurns(debugPayloadTurns),
     })
-  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, defaultThinkingLevel, conclusionModel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
+  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel, conclusionModel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
 }

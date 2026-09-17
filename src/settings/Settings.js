@@ -1,4 +1,5 @@
 export const DEFAULT_URL = 'http://localhost:11434'
+export const DEFAULT_PROVIDER_ID = 'ollama'
 
 /**
  * Below this width the settings column collapses into the accordion and the
@@ -34,6 +35,7 @@ export const DEBUG_MODE_STORAGE_KEY = 'debugMode'
  * later is available without having to be enabled first.
  */
 export const DEFAULT_DISABLED_MODELS = []
+export const MODEL_PROVIDER_IDS = ['ollama', 'ollama-cloud', 'openai', 'claude']
 
 export function normalizeDisabledModels(raw) {
   if (!Array.isArray(raw)) return []
@@ -43,6 +45,18 @@ export function normalizeDisabledModels(raw) {
     if (name) names.add(name)
   }
   return [...names]
+}
+
+export function normalizeProviderModelSettings(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  return Object.fromEntries(MODEL_PROVIDER_IDS.flatMap(providerId => {
+    const entry = raw[providerId]
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    return [[providerId, {
+      defaultModel: String(entry.defaultModel ?? '').trim(),
+      disabledModels: normalizeDisabledModels(entry.disabledModels),
+    }]]
+  }))
 }
 
 // The splash lives outside the settings blob so that clearing the saved

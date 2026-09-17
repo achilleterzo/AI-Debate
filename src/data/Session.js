@@ -29,6 +29,7 @@ export class Session {
   static serializeParticipant(p, { DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, INHERIT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevelChoice }) {
     return {
       id: p.id,
+      providerId: p.providerId ?? '',
       model: p.model === '__user__' ? '' : p.model,
       localUser: !!p.localUser || p.model === '__user__',
       endpointOverride: p.endpointOverride ?? '',
@@ -59,6 +60,7 @@ export class Session {
   static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, INHERIT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevelChoice }) {
     return {
       ...mkParticipant(i, p.model === '__user__' ? '' : p.model),
+      providerId: p.providerId ?? '',
       model: p.model === '__user__' ? '' : (p.model ?? ''),
       localUser: !!p.localUser || p.model === '__user__',
       endpointOverride: p.endpointOverride ?? '',
@@ -128,7 +130,7 @@ export class Session {
       .filter(message => Session.KEPT_WITHOUT_CONTENT.has(message.role) || String(message.content ?? '').trim())
   }
 
-  static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, debateMode, customConclusionPrompt, standardConclusionPrompts, maxTurns, timeoutSec, baseUrl, moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, memory, constants }) {
+  static buildSnapshotData({ participants, globalConstraints, generalPersonalityInstructions, debateMode, customConclusionPrompt, standardConclusionPrompts, maxTurns, timeoutSec, baseUrl, providerId = 'ollama', moderationCooling, summarizeAttachments, topic, messages, summary, turn, conclusions, memory, constants }) {
     return {
       version: 2,
       savedAt: new Date().toISOString(),
@@ -141,6 +143,7 @@ export class Session {
       maxTurns,
       timeoutSec,
       baseUrl,
+      providerId,
       moderationCooling,
       summarizeAttachments,
       topic,
