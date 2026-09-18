@@ -5,7 +5,12 @@ contextBridge.exposeInMainWorld('desktop', {
   aiStatus: provider => ipcRenderer.invoke('ai-status', provider),
   aiLogin: provider => ipcRenderer.invoke('ai-login', provider),
   aiListModels: provider => ipcRenderer.invoke('ai-list-models', provider),
-  aiChat: request => ipcRenderer.invoke('ai-chat', request),
+  aiChatStream: (request, onEvent) => {
+    const channel = `ai-chat-stream:${String(request?.requestId || '')}`
+    ipcRenderer.on(channel, (_, message) => onEvent(message))
+    ipcRenderer.send('ai-chat-stream', request)
+  },
+  aiChatStreamCleanup: requestId => ipcRenderer.removeAllListeners(`ai-chat-stream:${String(requestId || '')}`),
   aiCancel: requestId => ipcRenderer.invoke('ai-cancel', requestId),
   hasOllamaCloudApiKey: () => ipcRenderer.invoke('ollama-cloud-key-get'),
   saveOllamaCloudApiKey: value => ipcRenderer.invoke('ollama-cloud-key-save', value),
