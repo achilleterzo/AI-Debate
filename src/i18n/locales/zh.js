@@ -1,11 +1,11 @@
 export default {
-  moods: { none: '中立', cooperative: '合作', socratic: '苏格拉底式', diplomatic: '外交', devil: '魔鬼代言人', antagonist: '对抗', frivolous: '轻浮', flirt: '调情', liar: '说谎者', denialist: '否认主义者', analytical: '分析', factchecker: '事实核查者', therapist: '治疗师', curious: '好奇', skeptical: '怀疑', pragmatic: '务实', creative: '富有创意', cautious: '谨慎', competitive: '竞争性' },
+  moods: { none: '中立', cooperative: '合作', socratic: '苏格拉底式', diplomatic: '外交', devil: '魔鬼代言人', antagonist: '对抗', frivolous: '轻浮', flirt: '调情', liar: '说谎者', denialist: '否认主义者', analytical: '分析', factchecker: '事实核查者', investigator: '调查员', therapist: '治疗师', curious: '好奇', skeptical: '怀疑', pragmatic: '务实', creative: '富有创意', cautious: '谨慎', competitive: '竞争性' },
   educationLevels: { default: '模型默认', street: '实用经验', primary: '小学', proficient: '熟练', academic: '学术', expert: '专家' },
   ageGroups: ['儿童', '青少年', '成年人', '成熟成年人', '老年人'],
   characterTypes: { default: '人物', historical: '历史人物', public: '公众人物', fictional: '虚构角色' },
   responseLengths: { short: '简短', medium: '中等', detailed: '详细', default: '自由' },
   moodIntensity: ['低', '轻微', '平衡', '强烈', '极端'],
-  modes: { free: '自由', brainstorm: '头脑风暴', fact_check: '事实核查', design_review: '设计评审', decision: '决策', negotiation: '谈判', red_team: '红队', socratic: '苏格拉底式', peer_review: '同行评审', consensus: '共识', role_play: '角色扮演' },
+  modes: { free: '自由', brainstorm: '头脑风暴', fact_check: '事实核查', investigation: '调查', design_review: '设计评审', decision: '决策', negotiation: '谈判', red_team: '红队', socratic: '苏格拉底式', peer_review: '同行评审', consensus: '共识', role_play: '角色扮演' },
   conclusionTypes: { summary: '摘要', considerations: '要点分析', contradictions: '矛盾', blindspot: '盲点', verdict: '裁定', next_steps: '后续步骤', custom: '提示词' },
   common: {
     debateMode: '辩论模式',
@@ -147,6 +147,7 @@ export default {
   },
   participants: {
     resetAffinities: '重置好感度',
+    resetProviders: '重置提供方',
     expandAll: '全部展开',
     collapseAll: '全部折叠',
     person: '人物',
@@ -221,6 +222,9 @@ export default {
     resetAffinitiesTitle: '重置好感度',
     resetAffinitiesMessage: '重置所有好感度？',
     resetAffinitiesConfirm: '重置',
+    resetProvidersTitle: '重置参与者的提供方',
+    resetProvidersMessage: '清除为每位参与者选择的提供方、模型和端点，让所有参与者恢复为通用默认设置？',
+    resetProvidersConfirm: '重置',
     invalidJsonFile: '无效的 JSON 文件',
     clearSettingsTitle: '清除已保存的设置？',
     clearSettingsMessage: '此操作不可撤销，将重置本地配置。',

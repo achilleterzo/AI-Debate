@@ -1,11 +1,11 @@
 export default {
-  moods: { none: 'Neutral', cooperative: 'Kooperativ', socratic: 'Sokratisch', diplomatic: 'Diplomatisch', devil: 'Advokat des Teufels', antagonist: 'Antagonist', frivolous: 'Leichtfertig', flirt: 'Flirt', liar: 'Lügner', denialist: 'Leugner', analytical: 'Analytisch', factchecker: 'Faktenprüfer', therapist: 'Therapeut', curious: 'Neugierig', skeptical: 'Skeptisch', pragmatic: 'Pragmatisch', creative: 'Kreativ', cautious: 'Vorsichtig', competitive: 'Wettbewerbsorientiert' },
+  moods: { none: 'Neutral', cooperative: 'Kooperativ', socratic: 'Sokratisch', diplomatic: 'Diplomatisch', devil: 'Advokat des Teufels', antagonist: 'Antagonist', frivolous: 'Leichtfertig', flirt: 'Flirt', liar: 'Lügner', denialist: 'Leugner', analytical: 'Analytisch', factchecker: 'Faktenprüfer', investigator: 'Ermittler', therapist: 'Therapeut', curious: 'Neugierig', skeptical: 'Skeptisch', pragmatic: 'Pragmatisch', creative: 'Kreativ', cautious: 'Vorsichtig', competitive: 'Wettbewerbsorientiert' },
   educationLevels: { default: 'Modellstandard', street: 'Lebenserfahrung', primary: 'Grundschule', proficient: 'Fortgeschritten', academic: 'Akademisch', expert: 'Experte' },
   ageGroups: ['Kind', 'Jugendlicher', 'Erwachsener', 'Reif', 'Senior'],
   characterTypes: { default: 'Person', historical: 'Historische Figur', public: 'Öffentliche Person', fictional: 'Fiktive Figur' },
   responseLengths: { short: 'Kurz', medium: 'Mittel', detailed: 'Detailliert', default: 'Frei' },
   moodIntensity: ['Niedrig', 'Leicht', 'Ausgeglichen', 'Stark', 'Extrem'],
-  modes: { free: 'Frei', brainstorm: 'Brainstorming', fact_check: 'Faktencheck', design_review: 'Design-Review', decision: 'Entscheidung', negotiation: 'Verhandlung', red_team: 'Red Team', socratic: 'Sokratisch', peer_review: 'Peer-Review', consensus: 'Konsens', role_play: 'Rollenspiel' },
+  modes: { free: 'Frei', brainstorm: 'Brainstorming', fact_check: 'Faktencheck', investigation: 'Ermittlung', design_review: 'Design-Review', decision: 'Entscheidung', negotiation: 'Verhandlung', red_team: 'Red Team', socratic: 'Sokratisch', peer_review: 'Peer-Review', consensus: 'Konsens', role_play: 'Rollenspiel' },
   conclusionTypes: { summary: 'Zusammenfassung', considerations: 'Überlegungen', contradictions: 'Widersprüche', blindspot: 'Blinde Flecken', verdict: 'Urteil', next_steps: 'Nächste Schritte', custom: 'Prompt' },
   common: {
     debateMode: 'Debattenmodus',
@@ -151,6 +151,7 @@ export default {
   },
   participants: {
     resetAffinities: 'Affinitäten zurücksetzen',
+    resetProviders: 'Anbieter zurücksetzen',
     expandAll: 'Alle ausklappen',
     collapseAll: 'Alle einklappen',
     person: 'Person',
@@ -228,6 +229,9 @@ export default {
     resetAffinitiesTitle: 'Affinitäten zurücksetzen',
     resetAffinitiesMessage: 'Alle Affinitäten zurücksetzen?',
     resetAffinitiesConfirm: 'Zurücksetzen',
+    resetProvidersTitle: 'Anbieter der Teilnehmer zurücksetzen',
+    resetProvidersMessage: 'Alle Teilnehmer auf die allgemeine Vorgabe zurücksetzen und den jeweils gewählten Anbieter, das Modell und den Endpunkt entfernen?',
+    resetProvidersConfirm: 'Zurücksetzen',
     invalidJsonFile: 'Ungültige JSON-Datei',
     clearSettingsTitle: 'Gespeicherte Einstellungen löschen?',
     clearSettingsMessage:

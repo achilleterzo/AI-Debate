@@ -1,11 +1,11 @@
 export default {
-  moods: { none: 'Neutral', cooperative: 'Cooperativo', socratic: 'Socrático', diplomatic: 'Diplomático', devil: 'Abogado del diablo', antagonist: 'Antagonista', frivolous: 'Frívolo', flirt: 'Coqueto', liar: 'Mentiroso', denialist: 'Negacionista', analytical: 'Analítico', factchecker: 'Verificador de hechos', therapist: 'Terapeuta', curious: 'Curioso', skeptical: 'Escéptico', pragmatic: 'Pragmático', creative: 'Creativo', cautious: 'Cauteloso', competitive: 'Competitivo' },
+  moods: { none: 'Neutral', cooperative: 'Cooperativo', socratic: 'Socrático', diplomatic: 'Diplomático', devil: 'Abogado del diablo', antagonist: 'Antagonista', frivolous: 'Frívolo', flirt: 'Coqueto', liar: 'Mentiroso', denialist: 'Negacionista', analytical: 'Analítico', factchecker: 'Verificador de hechos', investigator: 'Investigador', therapist: 'Terapeuta', curious: 'Curioso', skeptical: 'Escéptico', pragmatic: 'Pragmático', creative: 'Creativo', cautious: 'Cauteloso', competitive: 'Competitivo' },
   educationLevels: { default: 'Predeterminado del modelo', street: 'De la calle', primary: 'Educación primaria', proficient: 'Competente', academic: 'Académico', expert: 'Experto' },
   ageGroups: ['Niño', 'Adolescente', 'Adulto', 'Maduro', 'Anciano'],
   characterTypes: { default: 'Persona', historical: 'Figura histórica', public: 'Figura pública', fictional: 'Personaje ficticio' },
   responseLengths: { short: 'Breve', medium: 'Media', detailed: 'Detallada', default: 'Libre' },
   moodIntensity: ['Baja', 'Ligera', 'Equilibrada', 'Fuerte', 'Extrema'],
-  modes: { free: 'Libre', brainstorm: 'Lluvia de ideas', fact_check: 'Verificación de hechos', design_review: 'Revisión de diseño', decision: 'Decisión', negotiation: 'Negociación', red_team: 'Red Team', socratic: 'Socrático', peer_review: 'Revisión por pares', consensus: 'Consenso', role_play: 'Juego de rol' },
+  modes: { free: 'Libre', brainstorm: 'Lluvia de ideas', fact_check: 'Verificación de hechos', investigation: 'Investigación', design_review: 'Revisión de diseño', decision: 'Decisión', negotiation: 'Negociación', red_team: 'Red Team', socratic: 'Socrático', peer_review: 'Revisión por pares', consensus: 'Consenso', role_play: 'Juego de rol' },
   conclusionTypes: { summary: 'Síntesis', considerations: 'Consideraciones', contradictions: 'Contradicciones', blindspot: 'Puntos ciegos', verdict: 'Veredicto', next_steps: 'Próximos pasos', custom: 'Prompt' },
   common: {
     debateMode: 'Modo de debate',
@@ -152,6 +152,7 @@ export default {
   },
   participants: {
     resetAffinities: 'Restablecer afinidades',
+    resetProviders: 'Restablecer proveedores',
     expandAll: 'Expandir todo',
     collapseAll: 'Contraer todo',
     person: 'Persona',
@@ -229,6 +230,9 @@ export default {
     resetAffinitiesTitle: 'Restablecer afinidades',
     resetAffinitiesMessage: '¿Restablecer todas las afinidades?',
     resetAffinitiesConfirm: 'Restablecer',
+    resetProvidersTitle: 'Restablecer los proveedores de los participantes',
+    resetProvidersMessage: '¿Devolver a todos los participantes al valor predeterminado general, eliminando el proveedor, el modelo y el endpoint elegidos para cada uno?',
+    resetProvidersConfirm: 'Restablecer',
     invalidJsonFile: 'Archivo JSON no válido',
     clearSettingsTitle: '¿Borrar los ajustes guardados?',
     clearSettingsMessage: 'Esta operación es irreversible y restablece la configuración local.',
