@@ -64,3 +64,23 @@ describe('a participant through a saved session', () => {
     expect(serialized.thinkingLevel).toBe('medium')
   })
 })
+
+describe('reasoning defaults per provider', () => {
+  const providerThinkingLevels = { ollama: 'none', claude: 'high', openai: 'medium' }
+
+  it('gives an inheriting participant the default of its own provider', () => {
+    const onClaude = { ...Debate.mkParticipant(0), providerId: 'claude', model: 'sonnet' }
+    const actor = Debate.withRunDefaults(onClaude, { defaultProviderId: 'ollama', defaultThinkingLevel: 'none', providerThinkingLevels })
+    expect(actor.thinkingLevel).toBe('high')
+  })
+
+  it('uses the default provider for a participant without one', () => {
+    const actor = Debate.withRunDefaults(Debate.mkParticipant(0), { defaultProviderId: 'openai', defaultModel: 'gpt-test', providerThinkingLevels })
+    expect(actor).toMatchObject({ providerId: 'openai', model: 'gpt-test', thinkingLevel: 'medium' })
+  })
+
+  it('still lets the participant choice win', () => {
+    const participant = { ...Debate.mkParticipant(0), providerId: 'claude', model: 'sonnet', thinkingLevel: 'low' }
+    expect(Debate.withRunDefaults(participant, { providerThinkingLevels }).thinkingLevel).toBe('low')
+  })
+})

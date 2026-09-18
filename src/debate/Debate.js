@@ -795,19 +795,26 @@ export class Debate {
    * The participant as the turn actually runs them.
    *
    * Model and thinking level are stored as choices, and "no choice" means the
-   * general default. Resolving both here keeps that fallback out of the many
+   * general default — for the level, the default of the participant's own
+   * provider, since each provider keeps one. Resolving both here keeps that fallback out of the many
    * places downstream that read the actor — the prompt builder, the request,
    * the capability checks — which would otherwise each need to know about it.
    */
-  static withRunDefaults(participant, { defaultProviderId = 'ollama', defaultModel = '', defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL } = {}) {
+  static withRunDefaults(participant, { defaultProviderId = 'ollama', defaultModel = '', defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL, providerThinkingLevels = {} } = {}) {
     if (!participant) return participant
     const providerId = participant.providerId || defaultProviderId
     return {
       ...participant,
       providerId,
       model: participant.model || (providerId === defaultProviderId ? defaultModel : '') || '',
-      thinkingLevel: Debate.resolveThinkingLevel(participant, defaultThinkingLevel),
+      thinkingLevel: Debate.resolveThinkingLevel(participant, Debate.providerThinkingLevel(providerId, { defaultProviderId, defaultThinkingLevel, providerThinkingLevels })),
     }
+  }
+
+  /** The level a participant on this provider inherits when it picked none. */
+  static providerThinkingLevel(providerId, { defaultProviderId = 'ollama', defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL, providerThinkingLevels = {} } = {}) {
+    const own = providerThinkingLevels?.[providerId || defaultProviderId]
+    return Debate.normalizeThinkingLevel(own ?? defaultThinkingLevel)
   }
 
   static shouldRewriteConclusionResult(result, uiLang) {
@@ -1198,10 +1205,12 @@ export class Debate {
       defaultProviderId,
       defaultModel,
       defaultThinkingLevel,
+      providerThinkingLevels,
       useSummaryRef,
       attachedDocs,
       summarizeAttachments,
       summaryModelOverride,
+      summaryProviderId,
       summaryEndpointOverride,
       uiLang,
       handlePromptEstimate,
@@ -1251,6 +1260,9 @@ export class Debate {
     // Summaries may run on their own backend; falling back to the general one
     // keeps the setting optional.
     const summaryBaseUrl = summaryEndpointOverride?.trim() || baseUrl
+    // The summary model is picked on a provider of its own, like a
+    // participant's; with no model of its own it runs where the debate runs.
+    const summaryProvider = getProvider(summaryModelOverride && summaryProviderId ? summaryProviderId : defaultProviderId)
     const useSummary = useSummaryRef.current
     const docs = attachedDocs
     let docsForPrompt = docs
@@ -1295,7 +1307,7 @@ export class Debate {
       ? parts.find(participant => !resumedRoundSpeakers.has(participant.tag))
       : parts[firstActorIndex]) || parts[firstActorIndex] || parts[0]
     const firstActor = firstRawActor
-      ? Debate.withRunDefaults(firstRawActor, { defaultProviderId, defaultModel, defaultThinkingLevel })
+      ? Debate.withRunDefaults(firstRawActor, { defaultProviderId, defaultModel, defaultThinkingLevel, providerThinkingLevels })
       : null
     if (firstActor) {
       const lifecycleMessages = Debate.buildParticipantLifecycleMessages({
@@ -1335,6 +1347,7 @@ export class Debate {
               purpose: 'attachment summary',
               baseUrl: summaryBaseUrl,
               model: summaryModel,
+              provider: summaryProvider,
               useTools: false,
               timeoutMs,
               onEstimate: handlePromptEstimate,
@@ -1457,6 +1470,7 @@ export class Debate {
               purpose: `round ${round + 1} summary`,
               baseUrl: summaryBaseUrl,
               model: summaryModel,
+              provider: summaryProvider,
                messages: [{ role: 'user', content: prompt }],
               // The round's turns and the summary they extend travel in this
               // one message, so it is sized on the context setting like the
@@ -1552,7 +1566,7 @@ export class Debate {
         // Already heard in this round before the reload interrupted it. Their
         // message is in the transcript and speaking again would double it.
         if (resumedRoundSpeakers && !extraModeratorTurn && resumedRoundSpeakers.has(rawActor.tag)) continue
-        const actor = Debate.withRunDefaults(rawActor, { defaultProviderId, defaultModel, defaultThinkingLevel })
+        const actor = Debate.withRunDefaults(rawActor, { defaultProviderId, defaultModel, defaultThinkingLevel, providerThinkingLevels })
         const actorBaseUrl = actor.endpointOverride?.trim() || baseUrl
         const turnLabel = round + 1
 
