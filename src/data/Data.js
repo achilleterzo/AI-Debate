@@ -56,6 +56,29 @@ export class Data {
     return msg.participantSnapshot || participants.find(p => p.tag === msg.role) || null
   }
 
+  /**
+   * Provider, model and endpoint a participant actually uses.
+   *
+   * Empty participant fields mean "inherit the general provider", but an
+   * export used to print those empty stored choices as if they were the run
+   * configuration. Conversely, a participant on another provider must never
+   * inherit the general provider's model. Keep this identical to
+   * Debate.withRunDefaults without coupling the export layer to the engine.
+   */
+  static resolveParticipantRuntime(participant, {
+    defaultProviderId = 'ollama',
+    defaultModel = '',
+    baseUrl = '',
+  } = {}) {
+    if (!participant || participant.localUser || participant.model === '__user__') {
+      return { providerId: null, model: null, endpoint: null, localUser: true }
+    }
+    const providerId = participant.providerId || defaultProviderId
+    const model = participant.model || (providerId === defaultProviderId ? defaultModel : '')
+    const endpoint = String(participant.endpointOverride || baseUrl || '').trim()
+    return { providerId, model, endpoint, localUser: false }
+  }
+
   /** The export document, as a string — kept separate so it can be inspected. */
   static buildHTML({
     messages,
@@ -64,6 +87,8 @@ export class Data {
     conclusions = [],
     debateMode = DEFAULT_DEBATE_MODE,
     uiLang = '',
+    defaultProviderId = 'ollama',
+    defaultModel = '',
     constants,
   }) {
     const {
@@ -96,6 +121,7 @@ export class Data {
     }
 
     const partRows = participants.map(p => {
+      const runtime = Data.resolveParticipantRuntime(p, { defaultProviderId, defaultModel, baseUrl })
       const name = p.name ? ` (${esc(p.name)})` : ''
       const moderatorStr = p.isModerator ? ' · Moderator' : ''
       const char = CHARACTER_TYPES.find(c => c.value === (p.characterType ?? null))
@@ -110,8 +136,10 @@ export class Data {
       const ageStr = ` · ${age?.value ?? '-'}`
       const edu = EDUCATION_LEVELS.find(e => e.value === (p.educationLevel ?? null))
       const eduStr = edu?.constraints?.default ? ` · ${edu.value ?? 'education'}` : ''
-      const epStr = p.endpointOverride?.trim() ? ' · EP' : ''
-      return `<div class="part-row"><span style="color:${p.label};font-weight:700">${p.tag}</span>${name}${charStr}${respStr}${moodStr}${intensityStr}${eduStr}${ageStr}${epStr}${moderatorStr}</div>`
+      const runtimeStr = runtime.localUser
+        ? ' · Local user'
+        : ` · Provider: ${esc(runtime.providerId || '-')} · Model: ${esc(runtime.model || '-')}${runtime.endpoint ? ` · Endpoint: ${esc(runtime.endpoint)}` : ''}`
+      return `<div class="part-row"><span style="color:${p.label};font-weight:700">${p.tag}</span>${name}${charStr}${respStr}${moodStr}${intensityStr}${eduStr}${ageStr}${runtimeStr}${moderatorStr}</div>`
     }).join('')
 
     const items = buildOrderedItems(messages.filter(msg => msg.role !== 'error'), conclusions)
@@ -321,7 +349,7 @@ ${CHAT_CSS}
 <body>
   <h1>AI Debate — Chat Export</h1>
   <div class="meta"><strong>Debate mode:</strong> ${esc(mode.label)}${language ? ` &nbsp;·&nbsp; <strong>Language:</strong> ${esc(language)}` : ''}</div>
-  <div class="meta">AI Debate v${esc(APP_VERSION)} &nbsp;·&nbsp; Endpoint: ${esc(baseUrl)} &nbsp;·&nbsp; ${esc(now)}<br>${partRows}</div>
+  <div class="meta">AI Debate v${esc(APP_VERSION)} &nbsp;·&nbsp; Default provider: ${esc(defaultProviderId)} &nbsp;·&nbsp; Default model: ${esc(defaultModel || '-')} &nbsp;·&nbsp; Default endpoint: ${esc(baseUrl)} &nbsp;·&nbsp; ${esc(now)}<br>${partRows}</div>
   <div class="msgs">
   ${body}
   </div>
@@ -337,7 +365,7 @@ ${CHAT_CSS}
     Data.triggerDownload(html, filename, 'text/html;charset=utf-8')
   }
 
-  static exportMD({ messages, participants, baseUrl, conclusions = [], topic = '', debateMode = DEFAULT_DEBATE_MODE, uiLang = '', constants }) {
+  static exportMD({ messages, participants, baseUrl, conclusions = [], topic = '', debateMode = DEFAULT_DEBATE_MODE, uiLang = '', defaultProviderId = 'ollama', defaultModel = '', constants }) {
     const {
       MOODS,
       MOOD_INTENSITY,
@@ -364,6 +392,7 @@ ${CHAT_CSS}
     }
 
     const partList = participants.map(p => {
+      const runtime = Data.resolveParticipantRuntime(p, { defaultProviderId, defaultModel, baseUrl })
       const name = p.name ? ` (${p.name})` : ''
       const moderatorStr = p.isModerator ? ' · Moderator' : ''
       const char = CHARACTER_TYPES.find(c => c.value === (p.characterType ?? null))
@@ -378,13 +407,15 @@ ${CHAT_CSS}
       const ageStr = ` · ${age?.value ?? '-'}`
       const edu = EDUCATION_LEVELS.find(e => e.value === (p.educationLevel ?? null))
       const eduStr = edu?.constraints?.default ? ` · ${edu.value ?? 'education'}` : ''
-      const epStr = p.endpointOverride?.trim() ? ' · EP' : ''
-      return `- **${p.tag}**${name}${charStr}${respStr}${moodStr}${intensityStr}${eduStr}${ageStr}${epStr}${moderatorStr}`
+      const runtimeStr = runtime.localUser
+        ? ' · Local user'
+        : ` · Provider: ${runtime.providerId || '-'} · Model: ${runtime.model || '-'}${runtime.endpoint ? ` · Endpoint: ${runtime.endpoint}` : ''}`
+      return `- **${p.tag}**${name}${charStr}${respStr}${moodStr}${intensityStr}${eduStr}${ageStr}${runtimeStr}${moderatorStr}`
     }).join('\n')
 
     let out = '# AI Debate — Export\n\n'
     out += `**Debate mode:** ${mode.label}${language ? ` · **Language:** ${language}` : ''}\n\n`
-    out += `**Data:** ${now}  \n**Endpoint:** ${baseUrl}  \n**App version:** ${APP_VERSION}\n\n`
+    out += `**Data:** ${now}  \n**Default provider:** ${defaultProviderId}  \n**Default model:** ${defaultModel || '-'}  \n**Default endpoint:** ${baseUrl}  \n**App version:** ${APP_VERSION}\n\n`
     out += `## Participants\n${partList}\n\n---\n\n`
 
     const items = buildOrderedItems(messages.filter(msg => msg.role !== 'error'), conclusions)
@@ -442,7 +473,7 @@ ${CHAT_CSS}
     Data.triggerDownload(out, `${slug}.md`, 'text/markdown;charset=utf-8')
   }
 
-  static exportJSON({ messages, participants, baseUrl, conclusions = [], summary = '', topic = '', debateMode = DEFAULT_DEBATE_MODE, uiLang = '', constants }) {
+  static exportJSON({ messages, participants, baseUrl, conclusions = [], summary = '', topic = '', debateMode = DEFAULT_DEBATE_MODE, uiLang = '', defaultProviderId = 'ollama', defaultModel = '', constants }) {
     const {
       MOODS,
       MOOD_INTENSITY,
@@ -464,8 +495,11 @@ ${CHAT_CSS}
       language: uiLang || null,
       languageLabel: debateLanguageLabel(uiLang) || null,
       baseUrl,
+      providerId: defaultProviderId,
+      defaultModel: defaultModel || null,
       summary: summary || null,
       participants: participants.map(p => {
+        const runtime = Data.resolveParticipantRuntime(p, { defaultProviderId, defaultModel, baseUrl })
         const moodObj = MOODS.find(m => m.id === p.mood)
         const intensity = MOOD_INTENSITY[p.moodIntensity ?? DEFAULT_MOOD_INTENSITY]
         const age = AGE_GROUPS[p.ageGroup ?? DEFAULT_AGE_GROUP]
@@ -476,6 +510,10 @@ ${CHAT_CSS}
           tag: p.tag,
           name: p.name || null,
           isModerator: !!p.isModerator,
+          providerId: runtime.providerId,
+          model: runtime.model || null,
+          endpoint: runtime.endpoint || null,
+          localUser: runtime.localUser,
           characterType: char?.value ?? 'person',
           responseLength: `Verbosity: ${resp?.value ?? 'free'}`,
           mood: moodObj?.id ?? null,
@@ -487,6 +525,7 @@ ${CHAT_CSS}
       }),
       messages: messages.filter(m => m.role !== 'error').map(m => {
         const actor = Data.resolveActor(m, participants)
+        const runtime = Data.resolveParticipantRuntime(actor, { defaultProviderId, defaultModel, baseUrl })
         return {
           id: m.seq ?? null,
           role: m.role,
@@ -494,6 +533,8 @@ ${CHAT_CSS}
           content: m.content,
           actor: actor ? (actor.name || actor.tag) : null,
           actorIsModerator: !!actor?.isModerator,
+          actorProviderId: actor ? runtime.providerId : null,
+          actorModel: actor ? (runtime.model || null) : null,
           messageType: m.messageType ?? null,
           kind: actor?.isModerator && m.messageType === 'moderation' ? 'moderation' : 'message',
           dice: m.dice ?? null,

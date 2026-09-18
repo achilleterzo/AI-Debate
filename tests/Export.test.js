@@ -64,4 +64,55 @@ describe('export header', () => {
     expect(data.language).toBeNull()
     expect(data.languageLabel).toBeNull()
   })
+
+  it('resolves inherited and overridden provider/model pairs per participant', () => {
+    const mixedParticipants = [
+      { id: 0, tag: 'A', name: 'Alice', mood: 'none', providerId: '', model: '' },
+      { id: 1, tag: 'B', name: 'Bob', mood: 'none', providerId: 'claude', model: 'claude-sonnet', endpointOverride: 'https://claude.example' },
+    ]
+    const extra = {
+      participants: mixedParticipants,
+      defaultProviderId: 'openai',
+      defaultModel: 'gpt-default',
+      baseUrl: 'https://openai.example',
+    }
+
+    const html = Data.buildHTML({ messages, constants, ...extra })
+    expect(html).toContain('Default provider: openai')
+    expect(html).toContain('Provider: openai · Model: gpt-default · Endpoint: https://openai.example')
+    expect(html).toContain('Provider: claude · Model: claude-sonnet · Endpoint: https://claude.example')
+
+    const markdown = exported(Data.exportMD, extra)
+    expect(markdown).toContain('**Default provider:** openai')
+    expect(markdown).toContain('Provider: openai · Model: gpt-default')
+    expect(markdown).toContain('Provider: claude · Model: claude-sonnet')
+
+    const data = JSON.parse(exported(Data.exportJSON, extra))
+    expect(data).toMatchObject({ providerId: 'openai', defaultModel: 'gpt-default' })
+    expect(data.participants[0]).toMatchObject({ providerId: 'openai', model: 'gpt-default', endpoint: 'https://openai.example' })
+    expect(data.participants[1]).toMatchObject({ providerId: 'claude', model: 'claude-sonnet', endpoint: 'https://claude.example' })
+  })
+
+  it('keeps the provider/model that generated each historical message', () => {
+    const historicalMessages = [
+      messages[0],
+      {
+        ...messages[1],
+        participantSnapshot: {
+          id: 0,
+          tag: 'A',
+          name: 'Alice',
+          providerId: 'claude',
+          model: 'claude-opus',
+        },
+      },
+    ]
+    const data = JSON.parse(exported(Data.exportJSON, {
+      messages: historicalMessages,
+      defaultProviderId: 'openai',
+      defaultModel: 'gpt-default',
+    }))
+
+    expect(data.messages[1]).toMatchObject({ actorProviderId: 'claude', actorModel: 'claude-opus' })
+  })
 })
