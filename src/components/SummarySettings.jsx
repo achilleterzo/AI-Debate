@@ -25,6 +25,8 @@ export default function SummarySettings({
   onSummaryModelOverrideChange,
   models,
   running,
+  providerId = '',
+  defaultProviderId = 'ollama',
   defaultModel = '',
   summaryEndpointOverride = '',
   summaryEndpointState = '',
@@ -103,6 +105,8 @@ export default function SummarySettings({
         {summaryModelEnabled && (
           <EndpointModelGroup
             models={models}
+            providerId={providerId}
+            defaultProviderId={defaultProviderId}
             model={summaryModelOverride}
             onModelChange={onSummaryModelOverrideChange}
             defaultModel={defaultModel}

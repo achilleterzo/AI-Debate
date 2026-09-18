@@ -47,6 +47,22 @@ export function normalizeDisabledModels(raw) {
   return [...names]
 }
 
+/**
+ * The reasoning levels a provider default may hold. Same list as
+ * `Debate.THINKING_LEVELS`, repeated because the debate imports this module.
+ */
+export const PROVIDER_THINKING_LEVELS = ['none', 'low', 'medium', 'high', 'max']
+
+/**
+ * Per provider: the default model, the models switched off, and the reasoning
+ * level participants on that provider follow unless they picked their own.
+ *
+ * The level is per provider because a sensible default is not portable: "max"
+ * on a local 8B model and "max" on a hosted frontier model are different
+ * requests, and switching the default provider must not carry one over to the
+ * other. A missing level is left out rather than invented, so the caller can
+ * fall back to the level saved before providers had their own.
+ */
 export function normalizeProviderModelSettings(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
   return Object.fromEntries(MODEL_PROVIDER_IDS.flatMap(providerId => {
@@ -55,7 +71,35 @@ export function normalizeProviderModelSettings(raw) {
     return [[providerId, {
       defaultModel: String(entry.defaultModel ?? '').trim(),
       disabledModels: normalizeDisabledModels(entry.disabledModels),
+      ...(PROVIDER_THINKING_LEVELS.includes(entry.defaultThinkingLevel) ? { defaultThinkingLevel: entry.defaultThinkingLevel } : {}),
     }]]
+  }))
+}
+
+/** Each provider's default reasoning level, for resolving participants on any provider. */
+export function providerThinkingLevels(providerModelSettings, fallback) {
+  return Object.fromEntries(MODEL_PROVIDER_IDS.map(providerId => [
+    providerId,
+    providerModelSettings?.[providerId]?.defaultThinkingLevel ?? fallback,
+  ]))
+}
+
+/**
+ * The model lists last retrieved per provider.
+ *
+ * Listing is a request — for the desktop clients a process spawn that can take
+ * seconds — so without a cache every reload left the pickers of participants on
+ * other providers empty until that provider answered again. The cache is only
+ * what is shown meanwhile: every provider in use is still listed afresh.
+ */
+export const PROVIDER_MODEL_CACHE_STORAGE_KEY = 'providerModelCache'
+
+export function normalizeProviderModelCache(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  return Object.fromEntries(MODEL_PROVIDER_IDS.flatMap(providerId => {
+    const list = raw[providerId]
+    if (!Array.isArray(list)) return []
+    return [[providerId, [...new Set(list.map(entry => String(entry ?? '').trim()).filter(Boolean))]]]
   }))
 }
 

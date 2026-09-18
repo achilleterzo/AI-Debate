@@ -1,6 +1,40 @@
 import { useEffect, useState } from 'react'
+import ReactSelect from 'react-select'
 import OllamaSettings from './OllamaSettings'
 import { AI } from '../services/AI'
+import { Debate } from '../debate/Debate'
+import { useUiStrings } from '../i18n/UiStringsContext'
+import { modelSelectStyles } from './Style'
+import { thinkingLevelOptions } from './ThinkingLevels'
+
+// How long the dialog keeps asking the client whether the login went through.
+const LOGIN_WAIT_MS = 3 * 60 * 1000
+
+// The dialog clips its body, so the menu is portalled above the overlay.
+const portalledSelectStyles = { ...modelSelectStyles, menuPortal: base => ({ ...base, zIndex: 1200 }) }
+
+/**
+ * The reasoning level participants on this provider follow unless they picked
+ * their own. It sits with the provider because it belongs to it: the level
+ * that suits a hosted model is rarely the one that suits a local one.
+ */
+function DefaultThinkingLevel({ value, onChange, disabled }) {
+  const UI_STRINGS = useUiStrings()
+  const options = thinkingLevelOptions(UI_STRINGS.participants)
+  const selected = Debate.normalizeThinkingLevel(value)
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ color: '#888', fontSize: 12 }} title={UI_STRINGS.app.defaultThinkingLevelTitle}>{UI_STRINGS.app.defaultThinkingLevel}</span>
+    <ReactSelect
+      styles={portalledSelectStyles}
+      menuPortalTarget={document.body}
+      options={options}
+      value={options.find(option => option.value === selected)}
+      onChange={option => onChange?.(option?.value ?? Debate.DEFAULT_THINKING_LEVEL)}
+      isDisabled={disabled}
+      menuPlacement="auto"
+    />
+  </div>
+}
 
 const PROVIDERS = [
   { id: 'ollama', label: 'Ollama', detail: 'Local HTTP' },
@@ -45,11 +79,14 @@ function ModelList({ providerId, models, defaultModel, onDefaultModelChange, sel
   </div>
 }
 
-export default function ProviderSettings({ providerId, onProviderChange, onRefreshProvider, ollamaCloudHasSavedKey = false, onOllamaCloudConnect, models = [], defaultModel, onDefaultModelChange, selectedModel, onSelectedModelChange, disabled, ...ollamaProps }) {
+export default function ProviderSettings({ providerId, onProviderChange, onRefreshProvider, ollamaCloudHasSavedKey = false, onOllamaCloudConnect, models = [], defaultModel, onDefaultModelChange, defaultThinkingLevel, onDefaultThinkingLevelChange, selectedModel, onSelectedModelChange, disabled, ...ollamaProps }) {
   const [status, setStatus] = useState(null)
   const [busy, setBusy] = useState(false)
   const [cloudKey, setCloudKey] = useState('')
   const [actionError, setActionError] = useState('')
+  // Which provider is mid-login, so switching tab drops the wait by itself.
+  const [loginPending, setLoginPending] = useState('')
+  const waitingForLogin = loginPending === providerId
   const native = providerId === 'openai' || providerId === 'claude'
   const cloud = providerId === 'ollama-cloud'
 
@@ -68,10 +105,36 @@ export default function ProviderSettings({ providerId, onProviderChange, onRefre
     return () => window.clearTimeout(timer)
   }, [providerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * The login happens in a terminal of its own, so there is nothing to await:
+   * the client is asked how it went until it says it is logged in. A single
+   * check a second later always landed before the user had finished.
+   */
   const login = async () => {
+    setActionError('')
     setBusy(true)
-    try { await window.desktop?.aiLogin?.(providerId); window.setTimeout(() => { void refresh(); onRefreshProvider?.() }, 1500) } finally { setBusy(false) }
+    try {
+      await window.desktop?.aiLogin?.(providerId)
+      setLoginPending(providerId)
+    } catch (error) {
+      setActionError(error?.message || String(error))
+    } finally { setBusy(false) }
   }
+  useEffect(() => {
+    if (!waitingForLogin) return undefined
+    const started = Date.now()
+    const timer = window.setInterval(async () => {
+      const next = await window.desktop?.aiStatus?.(providerId).catch(() => null)
+      if (next) setStatus(next)
+      if (next?.authenticated) {
+        setLoginPending('')
+        onRefreshProvider?.()
+      } else if (Date.now() - started > LOGIN_WAIT_MS) {
+        setLoginPending('')
+      }
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [waitingForLogin, providerId]) // eslint-disable-line react-hooks/exhaustive-deps
   const connectCloud = async () => {
     setBusy(true)
     setActionError('')
@@ -84,6 +147,8 @@ export default function ProviderSettings({ providerId, onProviderChange, onRefre
         <strong style={{ display: 'block', fontSize: 12 }}>{provider.label}</strong><span style={{ fontSize: 10, color: '#777' }}>{provider.detail}</span>
       </button>)}
     </div>
+
+    {onDefaultThinkingLevelChange && <DefaultThinkingLevel value={defaultThinkingLevel} onChange={onDefaultThinkingLevelChange} disabled={disabled} />}
 
     {providerId === 'ollama' && <OllamaSettings {...ollamaProps} models={models} defaultModel={defaultModel} onSelectDefaultModel={onDefaultModelChange} selectedModel={selectedModel} onSelectModel={onSelectedModelChange} disabled={disabled} />}
 
@@ -102,9 +167,10 @@ export default function ProviderSettings({ providerId, onProviderChange, onRefre
 
     {native && <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ border: '1px solid #2e2e2e', borderRadius: 7, padding: 12, background: '#101010', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-        <div><strong style={{ color: '#ddd', fontSize: 12 }}>{PROVIDERS.find(item => item.id === providerId)?.label} client</strong><div style={{ color: status?.authenticated ? '#4ade80' : '#888', fontSize: 11, marginTop: 4 }}>{status?.authenticated ? 'Connected through OAuth' : status?.installed === false ? 'Client not found' : 'Login required'}</div><small style={{ color: '#666' }}>AI Debate does not store or handle OAuth tokens.</small></div>
-        <div style={{ display: 'flex', gap: 6 }}><button onClick={() => { void refresh().then(next => { if (next?.authenticated) onRefreshProvider?.() }) }} disabled={busy} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#aaa', borderRadius: 6, padding: '5px 9px' }}>{busy ? 'Checking…' : 'Refresh'}</button>{!status?.authenticated && <button onClick={login} disabled={busy || status?.installed === false} style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '5px 9px' }}>Login</button>}</div>
+        <div><strong style={{ color: '#ddd', fontSize: 12 }}>{PROVIDERS.find(item => item.id === providerId)?.label} client</strong><div style={{ color: status?.authenticated ? '#4ade80' : '#888', fontSize: 11, marginTop: 4 }}>{status?.authenticated ? 'Connected through OAuth' : status?.installed === false ? 'Client not found' : waitingForLogin ? 'Finish the login in the terminal window…' : 'Login required'}</div><small style={{ color: '#666' }}>AI Debate does not store or handle OAuth tokens.</small></div>
+        <div style={{ display: 'flex', gap: 6 }}><button onClick={() => { void refresh().then(next => { if (next?.authenticated) onRefreshProvider?.() }) }} disabled={busy} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#aaa', borderRadius: 6, padding: '5px 9px' }}>{busy ? 'Checking…' : 'Refresh'}</button>{!status?.authenticated && <button onClick={login} disabled={busy || waitingForLogin || status?.installed === false} style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '5px 9px' }}>{waitingForLogin ? 'Waiting…' : 'Login'}</button>}</div>
       </div>
+      {!!actionError && native && <span style={{ color: '#f87171', fontSize: 11 }}>{actionError}</span>}
       <ModelList providerId={providerId} models={models} defaultModel={defaultModel} onDefaultModelChange={onDefaultModelChange} selectedModel={selectedModel} onSelectedModelChange={onSelectedModelChange} disabledModels={ollamaProps.disabledModels} onToggleModel={ollamaProps.onToggleModel} onSetAllModelsEnabled={ollamaProps.onSetAllModelsEnabled} disabled={disabled} empty={status?.authenticated ? 'Refresh to load the available models.' : 'Log in to load models.'} />
     </div>}
   </div>

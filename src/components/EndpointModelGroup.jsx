@@ -39,12 +39,19 @@ export default function EndpointModelGroup({
 
   // An empty model already means "fall back to the default"; this makes that
   // state an explicit choice instead of something reachable only by clearing.
+  // The default named here is always the general one — a participant that took
+  // a provider of its own left the general default behind, and choosing it
+  // again means coming back to it, provider included.
   const defaultModelOption = {
     value: '',
     label: defaultModel
       ? `${participantsUi.useDefaultModel} · ${defaultModel}`
       : participantsUi.useDefaultModelUnset,
   }
+  // On a provider of its own, no model is not "the default": that participant
+  // has nothing to run and the debate will not start, so the control says so
+  // instead of showing a default that belongs to another provider.
+  const onOwnProvider = !!providerId && providerId !== defaultProviderId
 
   const orderedModels = AI.orderModels(models, { defaultModel })
   const cloud = orderedModels.filter(entry => entry.endsWith('cloud'))
@@ -107,7 +114,7 @@ export default function EndpointModelGroup({
       <ReactSelect
         styles={groupedModelSelectStyles}
         options={options}
-        value={model ? { value: model, label: model } : defaultModelOption}
+        value={model ? { value: model, label: model } : onOwnProvider ? null : defaultModelOption}
         onChange={opt => onModelChange?.(opt?.value ?? '')}
         placeholder={common.chooseModel}
         isDisabled={disabled}

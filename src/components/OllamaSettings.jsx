@@ -72,8 +72,10 @@ export default function OllamaSettings({
             checked={selected}
             onChange={() => onSelectModel ? onSelectModel(model) : onSelectDefaultModel?.(model)}
             disabled={disabled || !enabled}
-            title={ui.ollamaDefaultRadio}
-            aria-label={`${ui.ollamaDefaultRadio}: ${model}`}
+            // In a scoped dialog the radio picks the model for that one
+            // participant or summary, not the provider's default.
+            title={onSelectModel ? common.chooseModel : ui.ollamaDefaultRadio}
+            aria-label={`${onSelectModel ? common.chooseModel : ui.ollamaDefaultRadio}: ${model}`}
             style={{ width: 13, height: 13, margin: 0, flexShrink: 0, accentColor: '#3f5a8a', cursor: disabled || !enabled ? 'default' : 'pointer' }}
           />
           <span style={{ fontSize: 12, color: enabled ? (isDefault ? '#9fc2ff' : '#ccc') : '#666', fontFamily: 'var(--mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model}</span>

@@ -1,4 +1,4 @@
-import { DEFAULT_SHOW_IMPORT_NOTICE, DEFAULT_SHOW_SPLASH, DISMISSIBLE_NOTICE_KEYS, IMPORT_NOTICE_STORAGE_KEY, SPLASH_STORAGE_KEY } from '../settings/Settings'
+import { DEFAULT_SHOW_IMPORT_NOTICE, DEFAULT_SHOW_SPLASH, DISMISSIBLE_NOTICE_KEYS, IMPORT_NOTICE_STORAGE_KEY, PROVIDER_MODEL_CACHE_STORAGE_KEY, SPLASH_STORAGE_KEY, normalizeProviderModelCache } from '../settings/Settings'
 
 export class Storage {
   static LS_KEY = 'pap_settings'
@@ -99,6 +99,23 @@ export class Storage {
 
   static clearSettings() {
     localStorage.removeItem(Storage.LS_KEY)
+    localStorage.removeItem(PROVIDER_MODEL_CACHE_STORAGE_KEY)
+  }
+
+  static loadProviderModelCache() {
+    try {
+      return normalizeProviderModelCache(JSON.parse(localStorage.getItem(PROVIDER_MODEL_CACHE_STORAGE_KEY) || '{}'))
+    } catch {
+      return {}
+    }
+  }
+
+  static saveProviderModelCache(cache) {
+    try {
+      localStorage.setItem(PROVIDER_MODEL_CACHE_STORAGE_KEY, JSON.stringify(normalizeProviderModelCache(cache)))
+    } catch {
+      // A full quota costs the cache, not the session.
+    }
   }
 
   /**

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Storage } from '../data/Storage'
 import { Debate } from '../debate/Debate'
 import { Web } from '../services/Web'
@@ -24,7 +24,9 @@ import {
   DEFAULT_USE_SUMMARY,
   normalizeDebugPayloadTurns,
   normalizeDisabledModels,
+  MODEL_PROVIDER_IDS,
   normalizeProviderModelSettings,
+  providerThinkingLevels,
   normalizeModerationCooling,
   normalizePageBlockKb,
 } from '../settings/Settings'
@@ -54,6 +56,8 @@ export function useAppSettings() {
   const [summaryModelEnabled, setSummaryModelEnabled] = useState(() => saved?.summaryModelEnabled
     ?? (saved ? !!(saved.summaryModelOverride || saved.summaryEndpointOverride) : DEFAULT_SUMMARY_MODEL_ENABLED))
   const [summaryModelOverride, setSummaryModelOverride] = useState(saved?.summaryModelOverride ?? DEFAULT_SUMMARY_MODEL_OVERRIDE)
+  // Empty means the general provider, exactly as it does for a participant.
+  const [summaryProviderId, setSummaryProviderId] = useState(MODEL_PROVIDER_IDS.includes(saved?.summaryProviderId) ? saved.summaryProviderId : '')
   const [summaryEndpointOverride, setSummaryEndpointOverride] = useState(saved?.summaryEndpointOverride ?? '')
   const [summaryAccumulateThreshold, setSummaryAccumulateThreshold] = useState(saved?.summaryAccumulateThreshold ?? DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD)
   const [summarizeAttachments, setSummarizeAttachments] = useState(saved?.summarizeAttachments ?? DEFAULT_SUMMARIZE_ATTACHMENTS)
@@ -70,6 +74,14 @@ export function useAppSettings() {
         defaultModel: saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL,
         disabledModels: normalizeDisabledModels(saved?.disabledModels ?? DEFAULT_DISABLED_MODELS),
       }
+    }
+    // Settings saved before providers had their own reasoning level carry one
+    // shared level. Every provider starts from it, written down once, so that
+    // changing one provider's level later cannot move the others with it.
+    const sharedLevel = Debate.normalizeThinkingLevel(saved?.defaultThinkingLevel ?? Debate.DEFAULT_THINKING_LEVEL)
+    for (const id of MODEL_PROVIDER_IDS) {
+      const current = normalized[id] ?? { defaultModel: DEFAULT_FALLBACK_MODEL, disabledModels: DEFAULT_DISABLED_MODELS }
+      normalized[id] = { ...current, defaultThinkingLevel: current.defaultThinkingLevel ?? sharedLevel }
     }
     return normalized
   })
@@ -90,8 +102,18 @@ export function useAppSettings() {
       return { ...previous, [providerId]: { ...current, disabledModels: normalizeDisabledModels(next) } }
     })
   }, [providerId])
-  // The level participants follow unless they picked one of their own.
-  const [defaultThinkingLevel, setDefaultThinkingLevel] = useState(() => Debate.normalizeThinkingLevel(saved?.defaultThinkingLevel ?? Debate.DEFAULT_THINKING_LEVEL))
+  // The level participants follow unless they picked one of their own. Each
+  // provider keeps its own; the single level saved before that existed is what
+  // a provider without one inherits.
+  const legacyThinkingLevel = Debate.normalizeThinkingLevel(saved?.defaultThinkingLevel ?? Debate.DEFAULT_THINKING_LEVEL)
+  const defaultThinkingLevel = currentProviderModelSettings.defaultThinkingLevel ?? legacyThinkingLevel
+  const setDefaultThinkingLevel = useCallback(value => {
+    setProviderModelSettings(previous => {
+      const current = previous[providerId] ?? { defaultModel: DEFAULT_FALLBACK_MODEL, disabledModels: DEFAULT_DISABLED_MODELS }
+      return { ...previous, [providerId]: { ...current, defaultThinkingLevel: Debate.normalizeThinkingLevel(value) } }
+    })
+  }, [providerId])
+  const providerDefaultThinkingLevels = useMemo(() => providerThinkingLevels(providerModelSettings, legacyThinkingLevel), [providerModelSettings, legacyThinkingLevel])
   const [debateMode, setDebateMode] = useState(() => normalizeDebateMode(saved?.debateMode ?? DEFAULT_DEBATE_MODE))
   const [enabledTools, setEnabledTools] = useState(() => normalizeEnabledTools(saved?.enabledTools ?? DEFAULT_ENABLED_TOOLS))
   const [searchApiKey, setSearchApiKey] = useState(saved?.searchApiKey ?? DEFAULT_SEARCH_API_KEY)
@@ -108,6 +130,7 @@ export function useAppSettings() {
     moderationCooling, setModerationCooling,
     summaryModelEnabled, setSummaryModelEnabled,
     summaryModelOverride, setSummaryModelOverride,
+    summaryProviderId, setSummaryProviderId,
     summaryEndpointOverride, setSummaryEndpointOverride,
     summaryAccumulateThreshold, setSummaryAccumulateThreshold,
     summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode,
@@ -116,7 +139,7 @@ export function useAppSettings() {
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     disabledModels, setDisabledModels,
     providerModelSettings, setProviderModelSettings,
-    defaultThinkingLevel, setDefaultThinkingLevel,
+    defaultThinkingLevel, setDefaultThinkingLevel, providerDefaultThinkingLevels,
     debateMode, setDebateMode, enabledTools, setEnabledTools,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
   }
@@ -125,7 +148,7 @@ export function useAppSettings() {
 export function usePersistedAppSettings({ settings, conclusions }) {
   const {
     participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder,
-    moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride,
+    moderationCooling, summaryModelEnabled, summaryModelOverride, summaryProviderId, summaryEndpointOverride,
     summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, globalConstraints,
     generalPersonalityInstructions, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel,
     debugPayloadTurns,
@@ -134,7 +157,7 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     searchApiKey,
     pageBlockKb,
   } = settings
-  const { conclusionModel, customConclusionPrompt, standardConclusionPrompts } = conclusions
+  const { customConclusionPrompt, standardConclusionPrompts } = conclusions
 
   // The web service is a static class reached from non-React code, so the
   // settings have to be pushed into it rather than read out of a context.
@@ -146,12 +169,11 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     Storage.saveSettings({
       participants: Debate.serializeParticipantsForSession(participants),
       maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling,
-      summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold,
+      summaryModelEnabled, summaryModelOverride, summaryProviderId, summaryEndpointOverride, summaryAccumulateThreshold,
       summarizeAttachments, uiLang, interfaceLang, defaultModel,
       disabledModels: normalizeDisabledModels(disabledModels),
       providerModelSettings: normalizeProviderModelSettings(providerModelSettings),
       defaultThinkingLevel: Debate.normalizeThinkingLevel(defaultThinkingLevel),
-      conclusionModel,
       customConclusionPrompt: customConclusionPrompt ?? '',
       standardConclusionPrompts: normalizeStandardConclusionPrompts(standardConclusionPrompts),
       globalConstraints: globalConstraints ?? [],
@@ -162,5 +184,5 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       pageBlockKb: normalizePageBlockKb(pageBlockKb),
       debugPayloadTurns: normalizeDebugPayloadTurns(debugPayloadTurns),
     })
-  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel, conclusionModel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
+  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryProviderId, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
 }

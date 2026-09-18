@@ -11,6 +11,8 @@ import {
   normalizeModeratorPermissiveness,
   normalizeDisabledModels,
   normalizeProviderModelSettings,
+  normalizeProviderModelCache,
+  providerThinkingLevels,
 } from '../src/settings/Settings'
 
 describe('normalizeDisabledModels', () => {
@@ -78,5 +80,29 @@ describe('debug payload retention', () => {
     expect(normalizeDebugPayloadTurns('nonsense')).toBe(DEFAULT_DEBUG_PAYLOAD_TURNS)
     expect(normalizeDebugPayloadTurns(undefined)).toBe(DEFAULT_DEBUG_PAYLOAD_TURNS)
     expect(normalizeDebugPayloadTurns(9999)).toBe(MAX_DEBUG_PAYLOAD_TURNS)
+  })
+})
+
+describe('per-provider reasoning defaults', () => {
+  it('keeps a valid level per provider and drops an invalid one', () => {
+    const normalized = normalizeProviderModelSettings({
+      openai: { defaultModel: 'gpt-test', disabledModels: [], defaultThinkingLevel: 'high' },
+      claude: { defaultModel: 'sonnet', disabledModels: [], defaultThinkingLevel: 'extreme' },
+    })
+    expect(normalized.openai.defaultThinkingLevel).toBe('high')
+    expect(normalized.claude).not.toHaveProperty('defaultThinkingLevel')
+  })
+
+  it('fills providers without a level from the fallback', () => {
+    const levels = providerThinkingLevels({ openai: { defaultThinkingLevel: 'max' } }, 'low')
+    expect(levels).toMatchObject({ openai: 'max', claude: 'low', ollama: 'low', 'ollama-cloud': 'low' })
+  })
+})
+
+describe('normalizeProviderModelCache', () => {
+  it('keeps known providers with clean, unique model names', () => {
+    expect(normalizeProviderModelCache({ openai: ['gpt-a', ' gpt-a ', '', 'gpt-b'], nope: ['x'], claude: 'sonnet' }))
+      .toEqual({ openai: ['gpt-a', 'gpt-b'] })
+    expect(normalizeProviderModelCache(null)).toEqual({})
   })
 })
