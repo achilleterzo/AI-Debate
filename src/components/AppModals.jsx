@@ -69,7 +69,7 @@ export default function AppModals({
   onRefreshProvider,
   ollamaCloudHasSavedKey,
   onOllamaCloudConnect,
-  participantProviderSettings,
+  scopedProviderSettings,
 }) {
   return (
     <>
@@ -114,16 +114,20 @@ export default function AppModals({
           onSetAllModelsEnabled={onSetAllModelsEnabled}
           defaultModel={defaultModel}
           onDefaultModelChange={onDefaultModelChange}
+          defaultThinkingLevel={defaultThinkingLevel}
+          onDefaultThinkingLevelChange={onDefaultThinkingLevelChange}
           disabled={running}
         />
       )}
-      {endpointModal?.target === 'participant-provider' && participantProviderSettings && (
+      {/* Everything that picks a model through a provider — a participant, the
+          round summary — opens the same dialog, scoped to itself. */}
+      {scopedProviderSettings && (
         <ProviderSettingsDialog
           onClose={onCloseEndpointModal}
-          {...participantProviderSettings}
+          {...scopedProviderSettings}
         />
       )}
-      {endpointModal && endpointModal.target !== 'main' && endpointModal.target !== 'participant-provider' && (
+      {endpointModal && !scopedProviderSettings && endpointModal.target !== 'main' && (
         <EndpointModalView
           state={endpointModal}
           onClose={onCloseEndpointModal}

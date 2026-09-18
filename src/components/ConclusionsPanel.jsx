@@ -1,24 +1,15 @@
-import { useMemo, useState } from 'react'
-import ReactSelect from 'react-select'
+import { useState } from 'react'
 import { CONCLUSION_TYPES, conclusionTypeLabel } from '../prompts/ConclusionTypes'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { SUGGESTION_MODE } from '../services/Suggestions'
 import MagicWand from './MagicWand'
 import { styles } from './Style'
 
-// Names the portalled menu so the scroll guard below can tell the option list
-// apart from the page scrolling underneath it.
-const MENU_CLASS_PREFIX = 'conclusion-model'
-
-// Above the panel and the chat, below the modal overlay layer.
-const MENU_PORTAL_Z_INDEX = 1000
-
-export default function ConclusionsPanel({ running, messages, models, modelSelectStyles, conclusions, wand }) {
+export default function ConclusionsPanel({ running, messages, conclusions, wand }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
   const common = UI_STRINGS.common
   const {
-    setConclusionModel,
     conclusionType,
     customConclusionPrompt,
     standardConclusionPrompts,
@@ -37,11 +28,6 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
   const [hasCustomPrompt, setHasCustomPrompt] = useState(() => !!customConclusionPrompt.trim())
   const [draftConclusionType, setDraftConclusionType] = useState(conclusionType)
   const standardPrompt = standardConclusionPrompts?.[draftConclusionType] ?? ''
-  const selectStyles = useMemo(
-    () => ({ ...modelSelectStyles, menuPortal: base => ({ ...base, zIndex: MENU_PORTAL_Z_INDEX }) }),
-    [modelSelectStyles],
-  )
-  const [draftConclusionModel, setDraftConclusionModel] = useState(effectiveConclusionModel)
   const conclusionTypeDefinition = CONCLUSION_TYPES.find(entry => entry.id === draftConclusionType) || { color: '#888' }
   const conclusionTypeName = conclusionTypeDefinition.id
     ? conclusionTypeLabel(UI_STRINGS, conclusionTypeDefinition)
@@ -49,12 +35,6 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
   const hasConversation = messages.some(message => !['topic', 'interjection', 'error'].includes(message.role) && message.content?.trim())
   const isCustomPromptMissing = draftConclusionType === 'custom' && !hasCustomPrompt
   const isDisabled = !effectiveConclusionModel || conclusionRunning || isCustomPromptMissing
-  const cloudModels = models.filter(model => model.endsWith('cloud')).sort()
-  const localModels = models.filter(model => !model.endsWith('cloud')).sort()
-  const options = [
-    ...(cloudModels.length ? [{ label: common.cloud, options: cloudModels.map(model => ({ value: model, label: model })) }] : []),
-    ...(localModels.length ? [{ label: common.local, options: localModels.map(model => ({ value: model, label: model })) }] : []),
-  ]
 
   return (
     <>
@@ -108,29 +88,14 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
                   }}
                 />
               )}
-              <div style={{ flex: 1 }}>
-                <ReactSelect
-                  styles={selectStyles}
-                  classNamePrefix={MENU_CLASS_PREFIX}
-                  options={options}
-                  value={draftConclusionModel ? { value: draftConclusionModel, label: draftConclusionModel } : null}
-                  onChange={option => setDraftConclusionModel(option?.value ?? '')}
-                  placeholder={common.chooseModel}
-                  isClearable
-                  menuPlacement="top"
-                  // The panel lives inside the chat scroller, and the menu opens
-                  // upward over it. Rendered inline it was positioned against a
-                  // container that scrolls out from under it, which is what left
-                  // it drawn across the panel until a scroll forced a repaint.
-                  // Every other select in a clipping container is portalled the
-                  // same way.
-                  menuPortalTarget={typeof document === 'undefined' ? null : document.body}
-                  // A portalled menu keeps the position it was given, so it has
-                  // to close when the page moves under it — but not when the
-                  // scrolling is the option list itself.
-                  closeMenuOnScroll={event => !(event.target instanceof Element) || !event.target.closest(`.${MENU_CLASS_PREFIX}__menu`)}
-                  noOptionsMessage={() => common.noModels}
-                />
+              {/* The model is the one the settings name — the summary model
+                  when one is configured, the general default otherwise — so
+                  this says which it is rather than offering a third choice. */}
+              <div
+                style={{ flex: 1, minWidth: 0, fontSize: 11, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                title={effectiveConclusionModel || common.noModels}
+              >
+                {effectiveConclusionModel || common.noModels}
               </div>
               <button disabled={isDisabled} onClick={() => {
                 // Only the textarea for the selected type is mounted, so the
@@ -139,12 +104,10 @@ export default function ConclusionsPanel({ running, messages, models, modelSelec
                 // for a Summary erased the custom prompt, and the other way round.
                 const isCustom = draftConclusionType === 'custom'
                 const typed = String((isCustom ? customPromptInput : standardPromptInput).current?.value ?? '')
-                setConclusionModel(draftConclusionModel)
                 if (isCustom) commitCustomPrompt(typed)
                 else commitStandardPrompt(draftConclusionType, typed)
                 generateConclusion({
                   type: draftConclusionType,
-                  model: draftConclusionModel,
                   customPrompt: isCustom ? typed : customConclusionPrompt,
                   standardPrompt: isCustom ? '' : typed,
                 })

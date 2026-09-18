@@ -37,6 +37,7 @@ export default function ParticipantsPanel({
   mkParticipant,
   running,
   onResetAffinities,
+  onResetProviders,
   onAddConstraint,
   onEditConstraint,
   onDeleteConstraint,
@@ -48,6 +49,7 @@ export default function ParticipantsPanel({
   wand = null,
   defaultModel = '',
   defaultThinkingLevel = Debate.DEFAULT_THINKING_LEVEL,
+  providerThinkingLevels = {},
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.participants
@@ -57,13 +59,15 @@ export default function ParticipantsPanel({
     { value: Debate.REASONING_LANG_CUSTOM, label: ui.reasoningLangCustom },
     ...UI_LANGUAGE_OPTIONS.map(language => ({ value: language.code, label: language.label, code: language.code })),
   ]
-  // Same shape as the model picker: the first entry is the general default,
-  // so following it is a choice on the list rather than the absence of one.
-  const useDefaultThinkingOption = {
-    value: Debate.INHERIT_THINKING_LEVEL,
-    label: `${ui.useDefaultThinking} · ${thinkingLevelLabel(ui, defaultThinkingLevel)}`,
+  // Same shape as the model picker: the first entry is the default, so
+  // following it is a choice on the list rather than the absence of one. The
+  // default shown is the one of the participant's own provider, which is the
+  // one the turn will actually run with.
+  const thinkingChoicesFor = participant => {
+    const level = Debate.providerThinkingLevel(participant?.providerId, { defaultProviderId, defaultThinkingLevel, providerThinkingLevels })
+    const inherit = { value: Debate.INHERIT_THINKING_LEVEL, label: `${ui.useDefaultThinking} · ${thinkingLevelLabel(ui, level)}` }
+    return { inherit, choices: [inherit, ...thinkingLevelOptions(ui)] }
   }
-  const thinkingLevelChoices = [useDefaultThinkingOption, ...thinkingLevelOptions(ui)]
   // "No level" is stored as null and travels as '' here, the way it did when
   // this was a native select whose first option had an empty value.
   const educationOptions = educationLevels.map(level => ({ value: level.value ?? '', label: level.label }))
@@ -155,13 +159,25 @@ export default function ParticipantsPanel({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ borderTop: '1px solid #242424', margin: '2px 0 0' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0 4px', gap: 8 }}>
-        <button
-          style={{ ...styles.connectBtn(running), padding: '3px 10px', fontSize: 11 }}
-          onClick={onResetAffinities}
-          disabled={running}
-        >
-          {ui.resetAffinities}
-        </button>
+        {/* The two resets are one pair and stay side by side; only the
+            expand/collapse toggle sits at the far end of the row. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            style={{ ...styles.connectBtn(running), padding: '3px 10px', fontSize: 11 }}
+            onClick={onResetAffinities}
+            disabled={running}
+          >
+            {ui.resetAffinities}
+          </button>
+          <button
+            style={{ ...styles.connectBtn(running || !participants.some(participant => participant.providerId || participant.endpointOverride)), padding: '3px 10px', fontSize: 11 }}
+            onClick={onResetProviders}
+            disabled={running || !participants.some(participant => participant.providerId || participant.endpointOverride)}
+            title={ui.resetProvidersTitle}
+          >
+            {ui.resetProviders}
+          </button>
+        </div>
         <button
           style={{ ...styles.connectBtn(false), padding: '3px 10px', fontSize: 11 }}
           onClick={toggleAllParticipants}
@@ -343,8 +359,15 @@ export default function ParticipantsPanel({
                 providerId={p.providerId || ''}
                 defaultProviderId={defaultProviderId}
                 model={p.model && p.model !== userModel ? p.model : ''}
-                onModelChange={value => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, model: value } : x))}
-                defaultModel={p.providerId && p.providerId !== defaultProviderId ? '' : defaultModel}
+                // Picking the general default is picking it whole: the model a
+                // participant had on a provider of its own is not the general
+                // default of anything, so the provider and its endpoint go with
+                // it. Without this the only way back was a model list that no
+                // longer contained the general default at all.
+                onModelChange={value => setParticipants(prev => prev.map((x, i) => i === idx
+                  ? (value ? { ...x, model: value } : { ...x, model: '', providerId: '', endpointOverride: '' })
+                  : x))}
+                defaultModel={defaultModel}
                 endpointOverride={p.endpointOverride}
                 endpointState={endpointStatuses?.[p.id]?.state ?? ''}
                 onConfigureEndpoint={() => onConfigureEndpoint?.(idx)}
@@ -381,6 +404,7 @@ export default function ParticipantsPanel({
                     not be asked about leaves the control as it was. */}
                 {(() => {
                   const canThink = modelCapabilities[p.id]?.thinking !== false
+                  const thinking = thinkingChoicesFor(p)
                   return (
                     <>
                       <span
@@ -390,11 +414,11 @@ export default function ParticipantsPanel({
                       <div style={{ minWidth: 130 }} title={canThink ? undefined : ui.thinkingUnsupported}>
                         <ReactSelect
                           styles={moodSelectStyles}
-                          options={thinkingLevelChoices}
+                          options={thinking.choices}
                           isDisabled={!canThink}
                           placeholder={ui.thinkingUnsupportedShort}
                           value={canThink
-                            ? (thinkingLevelChoices.find(o => o.value === Debate.normalizeThinkingLevelChoice(p.thinkingLevel)) ?? useDefaultThinkingOption)
+                            ? (thinking.choices.find(o => o.value === Debate.normalizeThinkingLevelChoice(p.thinkingLevel)) ?? thinking.inherit)
                             : null}
                           onChange={opt => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, thinkingLevel: opt?.value ?? Debate.INHERIT_THINKING_LEVEL } : x))}
                           menuPlacement="auto"

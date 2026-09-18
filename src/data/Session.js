@@ -174,11 +174,12 @@ export class Session {
    * An exported participant read back into the shape hydration expects.
    *
    * The export carries what a reader needs to know about a persona, not what
-   * the app needs to run it: there is no model, no endpoint-level thinking
-   * choice, no affinity and — the one that matters most — no constraints, so
-   * the roster comes back as named placeholders rather than as the people who
-   * held the debate. Fields the export omitted are left off entirely so that
-   * hydration applies its own defaults instead of storing a null.
+   * the app needs to run it. Provider and model are descriptive provenance,
+   * not configuration to reconnect automatically; endpoint-level thinking,
+   * affinity and — the one that matters most — constraints are absent. The
+   * roster therefore comes back as named placeholders rather than as the
+   * people who held the debate. Fields the export omitted are left off
+   * entirely so hydration applies its own defaults instead of storing a null.
    */
   static participantFromExport(participant = {}, index = 0) {
     return {

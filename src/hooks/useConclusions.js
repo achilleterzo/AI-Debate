@@ -1,19 +1,20 @@
 import { useCallback, useRef, useState } from 'react'
 import { Debate } from '../debate/Debate'
 import { streamChat } from '../debate/Stream'
+import { getProvider } from '../providers/index.js'
 import { CONCLUSION_TYPES, conclusionTypeLabel, normalizeStandardConclusionPrompts } from '../prompts/ConclusionTypes'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePrompt'
 import { contextBudgetChars } from '../settings/Settings'
 
 export function useConclusions({
-  initialModel,
   initialCustomPrompt,
   // A per-type map, or the single string every version before this stored.
   initialStandardPrompts,
-  models,
   participants,
   summaryModelOverride,
+  summaryProviderId = '',
+  defaultProviderId = 'ollama',
   defaultModel = '',
   attachedDocs,
   messages,
@@ -29,7 +30,6 @@ export function useConclusions({
 }) {
   const UI_STRINGS = useUiStrings()
   const [conclusions, setConclusions] = useState([])
-  const [conclusionModel, setConclusionModel] = useState(initialModel || defaultModel)
   const [conclusionType, setConclusionType] = useState('summary')
   const [customConclusionPrompt, setCustomConclusionPrompt] = useState(initialCustomPrompt)
   const [standardConclusionPrompts, setStandardConclusionPrompts] = useState(() => normalizeStandardConclusionPrompts(initialStandardPrompts))
@@ -72,10 +72,15 @@ export function useConclusions({
     setStandardPromptsVersion(previous => previous + 1)
   }, [])
 
-  const fallbackModel = defaultModel || Debate.pickOperationalModel(participants, summaryModelOverride, defaultModel)
-  const effectiveConclusionModel = conclusionModel && models.includes(conclusionModel)
-    ? conclusionModel
-    : fallbackModel
+  /**
+   * The model a conclusion runs on, decided by the settings rather than by a
+   * picker of its own. A conclusion is the same kind of work as the round
+   * summary — reading the whole transcript back — so it follows the summary
+   * model when one is configured, and the general default otherwise. The panel
+   * used to carry a third selector that silently disagreed with both.
+   */
+  const effectiveConclusionModel = Debate.pickOperationalModel(participants, summaryModelOverride, defaultModel)
+  const conclusionProvider = getProvider(summaryModelOverride && summaryProviderId ? summaryProviderId : defaultProviderId)
 
   const generateConclusion = useCallback(async (overrides = {}) => {
     const model = overrides.model || effectiveConclusionModel
@@ -115,6 +120,7 @@ export function useConclusions({
       await streamChat({
         baseUrl,
         model,
+        provider: conclusionProvider,
         messages: [{ role: 'user', content: prompt }],
         // The transcript travels inside this one message, so the guard is
         // sized on the setting rather than on its own default ceiling.
@@ -133,6 +139,7 @@ export function useConclusions({
         await streamChat({
           baseUrl,
           model,
+          provider: conclusionProvider,
           messages: [{
             role: 'user',
             content: `Rewrite the following text into a clean final answer for "${conclusionTypeDefinition.labelEn}" in ${languageNamed}.\n\nRules:\n- Remove all meta-reasoning, planning, and self-referential commentary.\n- Keep only the final content requested by the conclusion type.\n- No preamble.\n\nText to rewrite:\n${result}`,
@@ -170,13 +177,11 @@ export function useConclusions({
     } finally {
       setConclusionRunning(false)
     }
-  }, [UI_STRINGS, attachedDocs, baseUrl, conclusionRunning, conclusionType, conclusions, debateMode, effectiveConclusionModel, messages, nextSeq, participants, setLastPromptEstimate, setLastRequest, summaryAccumulateThreshold, summaryRef, timeoutSec, uiLang])
+  }, [UI_STRINGS, attachedDocs, baseUrl, conclusionProvider, conclusionRunning, conclusionType, conclusions, debateMode, effectiveConclusionModel, messages, nextSeq, participants, setLastPromptEstimate, setLastRequest, summaryAccumulateThreshold, summaryRef, timeoutSec, uiLang])
 
   return {
     conclusions,
     setConclusions,
-    conclusionModel,
-    setConclusionModel,
     conclusionType,
     setConclusionType,
     customConclusionPrompt,

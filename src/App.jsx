@@ -38,7 +38,7 @@ import { UiStringsProvider } from './i18n/UiStringsProvider'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from './prompts/DefaultGeneralPersonalityInstructions'
 import { isCustomOutputLanguage } from './prompts/LanguagePrompt'
 import { DEFAULT_URL } from './settings/Settings'
-import { formatMoodOption, GlobalStyles, modelSelectStyles, moodSelectStyles, styles } from './components/Style'
+import { formatMoodOption, GlobalStyles, moodSelectStyles, styles } from './components/Style'
 import { Debate } from './debate/Debate'
 import { useDebateController } from './debate/DebateController'
 import { useSnapshots } from './hooks/useSnapshots'
@@ -56,6 +56,9 @@ import { useAttachments } from './hooks/useAttachments'
 import { CONCLUSION_TYPES } from './prompts/ConclusionTypes'
 import { setActiveProviderId } from './providers/index.js'
 import { configureOllamaCloud } from './providers/ollamaCloud.js'
+
+// A provider not listed yet: one shared array, so the memos below stay put.
+const NO_MODELS = []
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
@@ -139,10 +142,12 @@ function AppInner({ settings }) {
   const [ollamaOk, setOllamaOk] = useState(null)
 
   // ── models ──
-  // Everything the endpoint serves. The app runs off `models` below, which is
-  // this list minus what the Ollama settings tab switched off.
-  const [availableModels, setAvailableModels] = useState([])
-  const [providerModels, setProviderModels] = useState({})
+  // Everything each provider serves, keyed by provider. One map rather than a
+  // list for the active provider plus a copy for the others: a listing that
+  // answers after the user switched provider lands under the provider it came
+  // from, instead of posing as the new provider's list and replacing its
+  // default model with one it does not have.
+  const [providerModels, setProviderModels] = useState(Storage.loadProviderModelCache)
   const [headerOpen, setHeaderOpen] = useState(true)
 
   // ── conversation ──
@@ -157,6 +162,7 @@ function AppInner({ settings }) {
     moderationCooling, setModerationCooling,
     summaryModelEnabled, setSummaryModelEnabled,
     summaryModelOverride, setSummaryModelOverride,
+    summaryProviderId, setSummaryProviderId,
     summaryEndpointOverride, setSummaryEndpointOverride,
     summaryAccumulateThreshold, setSummaryAccumulateThreshold,
     summarizeAttachments, setSummarizeAttachments, debugMode, setDebugMode,
@@ -165,10 +171,14 @@ function AppInner({ settings }) {
     timeoutSec, setTimeoutSec, defaultModel, setDefaultModel,
     disabledModels, setDisabledModels,
     providerModelSettings, setProviderModelSettings,
-    defaultThinkingLevel, setDefaultThinkingLevel,
+    defaultThinkingLevel, setDefaultThinkingLevel, providerDefaultThinkingLevels,
     enabledTools, setEnabledTools,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
   } = settings
+  // The app runs off `models` below, which is this list minus what the
+  // provider settings switched off.
+  const availableModels = providerModels[providerId] ?? NO_MODELS
+  useEffect(() => { Storage.saveProviderModelCache(providerModels) }, [providerModels])
   const models = useMemo(() => AI.orderModels(AI.keepEnabledModels(availableModels, disabledModels), { defaultModel }), [availableModels, defaultModel, disabledModels])
   useEffect(() => {
     if (availableModels.length > 0 && !models.includes(defaultModel)) setDefaultModel(models[0] ?? '')
@@ -176,6 +186,7 @@ function AppInner({ settings }) {
   // The overrides stay stored while the switch is off, so turning it back on
   // restores the previous choice; what the operations see is the gated value.
   const effectiveSummaryModelOverride = summaryModelEnabled ? summaryModelOverride : ''
+  const effectiveSummaryProviderId = summaryModelEnabled ? summaryProviderId : ''
   const effectiveSummaryEndpointOverride = summaryModelEnabled ? summaryEndpointOverride : ''
   const [messages, setMessages] = useState([])
   const [running, setRunning] = useState(false)
@@ -242,10 +253,12 @@ function AppInner({ settings }) {
     defaultProviderId: providerId,
     defaultModel,
     defaultThinkingLevel,
+    providerThinkingLevels: providerDefaultThinkingLevels,
     useSummary,
     attachedDocs,
     summarizeAttachments,
     summaryModelOverride: effectiveSummaryModelOverride,
+    summaryProviderId: effectiveSummaryProviderId,
     summaryEndpointOverride: effectiveSummaryEndpointOverride,
     uiLang,
     debugMode,
@@ -313,14 +326,14 @@ function AppInner({ settings }) {
   })
 
   const conclusionsState = useConclusions({
-    initialModel: saved?.conclusionModel ?? '',
     initialCustomPrompt: saved?.customConclusionPrompt ?? '',
     // The singular key is what older settings and snapshots carry: one string
     // shared by every type, which the hook spreads across all of them.
     initialStandardPrompts: saved?.standardConclusionPrompts ?? saved?.standardConclusionPrompt ?? '',
-    models,
     participants,
     summaryModelOverride: effectiveSummaryModelOverride,
+    summaryProviderId: effectiveSummaryProviderId,
+    defaultProviderId: providerId,
     defaultModel,
     attachedDocs,
     messages,
@@ -440,34 +453,36 @@ function AppInner({ settings }) {
     scrollToBottom,
   } = useAppLayout({ messages, conclusions, streamingRole, headerOpen })
 
+  const setProviderModelList = useCallback((list, selectedProvider) => {
+    setProviderModels(previous => ({ ...previous, [selectedProvider]: list }))
+  }, [])
   const { fetchModels } = useAIModels({
     providerId,
     providerAuth: providerId === 'ollama-cloud' ? String(ollamaCloudHasSavedKey) : '',
-    defaultUrl: DEFAULT_URL,
+    baseUrl,
     noLocalModelsMessage: ui.noLocalModels,
     setConnecting,
     setConnectError,
-    setModels: setAvailableModels,
+    setModels: setProviderModelList,
     setBaseUrl,
     setOllamaOk,
   })
-  useEffect(() => {
-    const timer = window.setTimeout(() => setProviderModels(previous => ({ ...previous, [providerId]: availableModels })), 0)
-    return () => window.clearTimeout(timer)
-  }, [availableModels, providerId])
-
+  // Providers listed afresh in this session. The persisted cache fills the
+  // pickers straight after a reload, but it is not an answer from the provider:
+  // the first request for each one still goes out.
+  const [refreshedProviders, setRefreshedProviders] = useState(NO_MODELS)
   const loadProviderModels = useCallback(async (selectedProvider, force = false, endpoint = baseUrl) => {
-    if (!force && providerModels[selectedProvider]?.length) return providerModels[selectedProvider]
+    if (!force && providerModels[selectedProvider]?.length && refreshedProviders.includes(selectedProvider)) return providerModels[selectedProvider]
     try {
       const list = AI.orderModels(await AI.fetchModels(endpoint, { providerId: selectedProvider }))
+      setRefreshedProviders(previous => previous.includes(selectedProvider) ? previous : [...previous, selectedProvider])
       setProviderModels(previous => ({ ...previous, [selectedProvider]: list }))
-      if (selectedProvider === providerId) setAvailableModels(list)
       return list
     } catch (error) {
       console.warn(`Unable to load ${selectedProvider} models:`, error.message)
       throw error
     }
-  }, [baseUrl, providerId, providerModels])
+  }, [baseUrl, providerModels, refreshedProviders])
   const participantProviderModels = useMemo(() => Object.fromEntries(Object.entries(providerModels).map(([selectedProvider, catalogue]) => {
     const config = providerModelSettings[selectedProvider] ?? {}
     return [selectedProvider, AI.orderModels(AI.keepEnabledModels(catalogue, config.disabledModels), { defaultModel: config.defaultModel })]
@@ -630,12 +645,16 @@ function AppInner({ settings }) {
     setEndpointModal({ target: 'main', initialValue: endpointInput ?? '' })
   }
 
-  const handleConfigureSummaryEndpoint = () => {
-    setEndpointModal({
-      target: 'summary',
-      initialValue: summaryEndpointOverride ?? '',
-      participantLabel: ui.contextSummary,
-    })
+  /**
+   * The summary picks its model the way a participant does — provider first,
+   * then one of that provider's models. It used to open the plain endpoint
+   * editor, which only knew about an Ollama address and could not reach the
+   * other providers at all.
+   */
+  const handleConfigureSummaryProvider = () => {
+    const selectedProvider = summaryProviderId || providerId
+    setEndpointModal({ target: 'summary-provider', providerId: selectedProvider })
+    void loadProviderModels(selectedProvider).catch(() => undefined)
   }
 
   /**
@@ -847,7 +866,8 @@ function AppInner({ settings }) {
   const handleProviderChange = useCallback(nextProvider => {
     if (nextProvider === providerId || running) return
     setProviderId(nextProvider)
-    setAvailableModels([])
+    // The error on screen belongs to the provider being left.
+    setConnectError(null)
     setParticipants(current => current.map(participant => participant.localUser || participant.providerId
       ? participant
       : { ...participant, model: '', endpointOverride: '' }))
@@ -952,6 +972,30 @@ function AppInner({ settings }) {
     )
   }
 
+  /**
+   * Every participant back to the general provider.
+   *
+   * A model belongs to the provider it was picked on, and an endpoint override
+   * to the address it was written for, so both go with the provider rather than
+   * being left behind pointing at a provider the participant no longer uses.
+   */
+  const handleResetProviders = () => {
+    if (running) return
+    openConfirm(
+      {
+        title: ui.resetProvidersTitle,
+        message: ui.resetProvidersMessage,
+        confirmLabel: ui.resetProvidersConfirm,
+        danger: false,
+      },
+      () => {
+        setParticipants(prev => prev.map(participant => participant.providerId || participant.endpointOverride
+          ? { ...participant, providerId: '', endpointOverride: '', model: participant.localUser || participant.model === Debate.USER_MODEL ? participant.model : '' }
+          : participant))
+      },
+    )
+  }
+
   const updateCheck = useUpdateCheck()
 
   const { handleSaveSnapshot, handleLoadSnapshot } = useSnapshots({
@@ -1015,12 +1059,14 @@ function AppInner({ settings }) {
     buildArgs: () => ({
       messages,
       participants,
-       baseUrl,
-       debateMode,
-       uiLang,
-       conclusions,
-       summary,
-       topic: (messages.find(m => m.role === 'topic')?.content || '').trim(),
+      baseUrl,
+      defaultProviderId: providerId,
+      defaultModel,
+      debateMode,
+      uiLang,
+      conclusions,
+      summary,
+      topic: (messages.find(m => m.role === 'topic')?.content || '').trim(),
       constants: {
         MOODS,
         MOOD_INTENSITY,
@@ -1033,7 +1079,7 @@ function AppInner({ settings }) {
       },
     }),
     onAfterExport: null,
-  }), [messages, participants, baseUrl, debateMode, uiLang, conclusions, summary, topMenuUi.exportHtml, topMenuUi.exportMarkdown, topMenuUi.exportJson])
+  }), [messages, participants, baseUrl, providerId, defaultModel, debateMode, uiLang, conclusions, summary, topMenuUi.exportHtml, topMenuUi.exportMarkdown, topMenuUi.exportJson])
 
   const handleClearSettings = useCallback(() => {
     Session.requestClearSettings({
@@ -1047,15 +1093,22 @@ function AppInner({ settings }) {
     })
   }, [openConfirm, ui.clearSettingsTitle, ui.clearSettingsMessage, common.delete])
 
-  const participantProviderModal = activeEndpointModal?.target === 'participant-provider' ? activeEndpointModal : null
-  const participantModalProviderId = participantProviderModal?.providerId || providerId
+  /**
+   * The AI Providers dialog, scoped to one thing that picks a model — a
+   * participant, or the round summary. Everything but the title, the provider
+   * it is showing and the model it selects is the same for both, so the two
+   * used to be one long block and one dead endpoint editor.
+   */
+  const buildProviderDialog = ({ title, modalProviderId, onProviderChange, selectedModel, onSelectedModelChange }) => {
+  const participantModalProviderId = modalProviderId
   const participantModalConfig = providerModelSettings[participantModalProviderId] ?? { defaultModel: '', disabledModels: [] }
   const participantModalModels = participantModalProviderId === providerId ? availableModels : (providerModels[participantModalProviderId] ?? [])
-  const participantModalSelectedModel = participantProviderModal ? participants[participantProviderModal.idx]?.model ?? '' : ''
-  const participantProviderSettings = participantProviderModal ? {
-    title: `AI Providers · ${participantProviderModal.participantLabel}`,
+  const participantModalSelectedModel = selectedModel
+  const handleParticipantDialogModelChange = onSelectedModelChange
+  return {
+    title,
     providerId: participantModalProviderId,
-    onProviderChange: handleParticipantDialogProviderChange,
+    onProviderChange,
     onRefreshProvider: () => { void loadProviderModels(participantModalProviderId, true).catch(error => setConnectError(error.message)) },
     ollamaCloudHasSavedKey,
     onOllamaCloudConnect: handleParticipantCloudConnect,
@@ -1089,10 +1142,41 @@ function AppInner({ settings }) {
     },
     defaultModel: participantModalConfig.defaultModel,
     onDefaultModelChange: model => updateProviderModelConfig(participantModalProviderId, current => ({ ...current, defaultModel: model })),
+    defaultThinkingLevel: providerDefaultThinkingLevels[participantModalProviderId],
+    onDefaultThinkingLevelChange: level => updateProviderModelConfig(participantModalProviderId, current => ({ ...current, defaultThinkingLevel: Debate.normalizeThinkingLevel(level) })),
     selectedModel: participantModalSelectedModel,
     onSelectedModelChange: handleParticipantDialogModelChange,
     disabled: running,
-  } : null
+  }
+  }
+
+  const participantProviderModal = activeEndpointModal?.target === 'participant-provider' ? activeEndpointModal : null
+  const participantProviderSettings = participantProviderModal ? buildProviderDialog({
+    title: `AI Providers · ${participantProviderModal.participantLabel}`,
+    modalProviderId: participantProviderModal.providerId || providerId,
+    onProviderChange: handleParticipantDialogProviderChange,
+    selectedModel: participants[participantProviderModal.idx]?.model ?? '',
+    onSelectedModelChange: handleParticipantDialogModelChange,
+  }) : null
+
+  const summaryProviderModal = activeEndpointModal?.target === 'summary-provider' ? activeEndpointModal : null
+  const summaryProviderSettings = summaryProviderModal ? buildProviderDialog({
+    title: `AI Providers · ${ui.contextSummary}`,
+    modalProviderId: summaryProviderModal.providerId || providerId,
+    onProviderChange: selectedProvider => {
+      if (!selectedProvider) return
+      setEndpointModal(current => current?.target === 'summary-provider' ? { ...current, providerId: selectedProvider } : current)
+      setSummaryProviderId(selectedProvider)
+      // The model belonged to the provider being left.
+      setSummaryModelOverride('')
+      void loadProviderModels(selectedProvider).catch(error => setConnectError(error.message))
+    },
+    selectedModel: summaryModelOverride,
+    onSelectedModelChange: model => {
+      setSummaryProviderId(summaryProviderModal.providerId || providerId)
+      setSummaryModelOverride(model)
+    },
+  }) : null
 
   return (
     <div className="h-screen w-full items-stretch 2xl:flex 2xl:flex-row" style={{ ...styles.app, flexDirection: isWideLayout ? 'row' : 'column', alignItems: 'stretch' }}>
@@ -1198,13 +1282,23 @@ function AppInner({ settings }) {
           summaryModelEnabled={summaryModelEnabled}
           onSummaryModelEnabledChange={setSummaryModelEnabled}
           summaryModelOverride={summaryModelOverride}
-          onSummaryModelOverrideChange={setSummaryModelOverride}
-          models={models}
+          // Back to the general default means back to it whole, provider and
+          // endpoint included — the same rule the participants follow.
+          onSummaryModelOverrideChange={value => {
+            setSummaryModelOverride(value)
+            if (!value) {
+              setSummaryProviderId('')
+              setSummaryEndpointOverride('')
+            }
+          }}
+          models={summaryProviderId && summaryProviderId !== providerId ? (providerModels[summaryProviderId] ?? NO_MODELS) : models}
+          providerId={summaryProviderId}
+          defaultProviderId={providerId}
           running={running}
           defaultModel={defaultModel}
           summaryEndpointOverride={summaryEndpointOverride}
           summaryEndpointState={endpointStatuses[SUMMARY_ENDPOINT_ID]?.state ?? ''}
-          onConfigureEndpoint={handleConfigureSummaryEndpoint}
+          onConfigureEndpoint={handleConfigureSummaryProvider}
         />
 
         <AffinitySettings
@@ -1240,6 +1334,7 @@ function AppInner({ settings }) {
           palette={PALETTE}
           mkParticipant={Debate.mkParticipant}
           onResetAffinities={handleResetAffinities}
+          onResetProviders={handleResetProviders}
           onAddConstraint={handleAddParticipantConstraint}
           onEditConstraint={handleEditParticipantConstraint}
           onDeleteConstraint={handleDeleteParticipantConstraint}
@@ -1251,6 +1346,7 @@ function AppInner({ settings }) {
           wand={wand}
           defaultModel={defaultModel}
           defaultThinkingLevel={defaultThinkingLevel}
+          providerThinkingLevels={providerDefaultThinkingLevels}
         />
 </div> {/* end accordion */}
 </div>
@@ -1319,8 +1415,6 @@ function AppInner({ settings }) {
         <ConclusionsPanel
           running={running}
           messages={messages}
-          models={models}
-          modelSelectStyles={modelSelectStyles}
           conclusions={conclusionsState}
           wand={wand}
         />
@@ -1436,7 +1530,7 @@ function AppInner({ settings }) {
         onDeleteGlobalSuggestion={handleDeleteGlobalSuggestion}
         wand={wand}
         endpointModal={activeEndpointModal}
-        participantProviderSettings={participantProviderSettings}
+        scopedProviderSettings={participantProviderSettings ?? summaryProviderSettings}
         onCloseEndpointModal={handleCloseEndpointModal}
         onConfirmEndpoint={handleSaveEndpoint}
         customLangModal={customLangModal}
