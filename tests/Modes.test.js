@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildSystemPrompt } from '../src/debate/PromptBuilder'
-import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../src/prompts/Modes'
+import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../src/prompts/Modes'
 
 const constants = {
   MOODS: [{ id: 'diplomatic', instruction: 'Be balanced.' }],
@@ -21,11 +21,27 @@ const actor = { id: 0, tag: 'A', name: 'A', mood: 'diplomatic', moodIntensity: 2
 describe('Debate modes', () => {
   it('offers the complete mode list and defaults invalid values to Free', () => {
     expect(DEBATE_MODES.map(mode => mode.id)).toEqual([
-      'free', 'brainstorm', 'fact_check', 'design_review', 'decision',
+      'free', 'brainstorm', 'fact_check', 'investigation', 'design_review', 'decision',
       'negotiation', 'red_team', 'socratic', 'peer_review', 'consensus', 'role_play',
     ])
     expect(DEFAULT_DEBATE_MODE).toBe('free')
     expect(normalizeDebateMode('missing')).toBe('free')
+  })
+
+  it('turns Investigation into an evidence-led inquiry', () => {
+    const prompt = buildSystemPrompt({
+      actor,
+      allParticipants: [actor],
+      history: [],
+      debateMode: 'investigation',
+      constants,
+    })
+    expect(prompt).toContain('NON-NEGOTIABLE SHARED DEBATE MODE — INVESTIGATION:')
+    expect(prompt).toContain('separating observations from inferences')
+    expect(prompt).toContain('multiple plausible hypotheses')
+    expect(prompt).toContain('Do not treat suspicion, missing evidence, or correlation as proof.')
+    expect(DEBATE_MODE_CONCLUSION_INSTRUCTIONS.investigation).toContain('Reconstruct the evidence trail')
+    expect(DEBATE_MODE_CONCLUSION_INSTRUCTIONS.investigation).toContain('Do not present an accusation')
   })
 
   it('adds the selected purpose to every participant system prompt', () => {

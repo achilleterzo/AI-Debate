@@ -49,6 +49,23 @@ const MODE_DEFINITIONS = [
     ),
   },
   {
+    id: 'investigation',
+    emoji: '🕵️',
+    instruction: text(
+      'On every turn, advance the investigation by separating observations from inferences,',
+      'connecting clues, testing inconsistencies, and keeping multiple plausible hypotheses open.',
+      'State what evidence supports or weakens each hypothesis and identify the next useful lead,',
+      'question, source, or verification step.',
+      'Do not treat suspicion, missing evidence, or correlation as proof.',
+    ),
+    conclusion: text(
+      'Reconstruct the evidence trail and separate established facts, inferences, hypotheses,',
+      'contradictions, and unresolved questions.',
+      'Rank plausible explanations by evidential support and identify the next investigative steps.',
+      'Do not present an accusation or unresolved hypothesis as a finding.',
+    ),
+  },
+  {
     id: 'design_review',
     emoji: '🧩',
     instruction: text(

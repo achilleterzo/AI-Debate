@@ -76,14 +76,21 @@ export const MOODS = [
 			default: 'You reason rigorously, focus on evidence, and avoid emotional framing.'
 		}
 	},
-	{ 
+	{
 		id: 'factchecker',
 		emoji: '✅',
 		constraints: {
 			default: 'You verify claims against evidence, links, and available sources whenever possible.'
 		}
 	},
-	{ 
+	{
+		id: 'investigator',
+		emoji: '🕵️',
+		constraints: {
+			default: 'You think like an investigator: gather and connect clues, question inconsistencies, test competing explanations, and avoid conclusions that go beyond the evidence.'
+		}
+	},
+	{
 		id: 'therapist',
 		emoji: '🛋️',
 		constraints: {
