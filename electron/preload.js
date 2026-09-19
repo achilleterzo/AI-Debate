@@ -26,4 +26,5 @@ contextBridge.exposeInMainWorld('desktop', {
   webFetchPage: request => ipcRenderer.invoke('web-fetch-page', request),
   webSearch: request => ipcRenderer.invoke('web-search', request),
   webBrowserShow: () => ipcRenderer.invoke('web-browser-show'),
+  webFetchImage: request => ipcRenderer.invoke('web-fetch-image', request),
 })

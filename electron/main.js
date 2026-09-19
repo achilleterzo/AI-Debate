@@ -9,7 +9,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { resolveWindowsShim } from './cliShim.js'
 import { claudeEffort, codexEffort, createClaudeTranslator, createCodexTranslator, ndjson } from './cliStream.js'
-import { browserFetchPage, browserSearch, disposeBrowser, showBrowser } from './web/index.js'
+import { browserFetchImage, browserFetchPage, browserSearch, disposeBrowser, showBrowser } from './web/index.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -567,6 +567,7 @@ app.whenReady().then(() => {
   ipcMain.handle('web-fetch-page', (_event, request) => browserFetchPage(request))
   ipcMain.handle('web-search', (_event, request) => browserSearch(request))
   ipcMain.handle('web-browser-show', () => showBrowser())
+  ipcMain.handle('web-fetch-image', (_event, request) => browserFetchImage(request))
   createWindow()
 
   app.on('activate', () => {

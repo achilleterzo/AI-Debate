@@ -8,6 +8,7 @@ import { readSerp, serpExpression } from './serp.js'
 import { runInBrowser } from './browserSession.js'
 
 export { disposeBrowser, showBrowser } from './browserSession.js'
+export { browserFetchImage } from './image.js'
 
 const FETCH_TIMEOUT_MS = 30_000
 const SEARCH_TIMEOUT_MS = 25_000

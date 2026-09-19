@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 import { assertPublicHttpUrl } from './urlSafety.js'
 
 /**
@@ -149,24 +149,24 @@ async function navigate(win, target) {
 }
 
 /**
- * Loads `url` in the shared window and evaluates `expression` there.
+ * Loads `url` in the shared window and hands the loaded window to `action`.
  *
  * Requests are queued: there is one window, and a page must not be swapped
  * out from under an extraction. A timeout during loading just stops the load;
- * a timeout during extraction means the page's script is stuck, so the window
- * is dropped and rebuilt on the next request (the cookie jar survives it).
+ * a timeout during `action` means the page is stuck, so the window is dropped
+ * and rebuilt on the next request (the cookie jar survives it).
  */
-export function runInBrowser(url, expression, { timeoutMs = 30_000 } = {}) {
+export function withPage(url, action, { timeoutMs = 30_000 } = {}) {
   const task = queue.then(async () => {
     const target = await assertPublicHttpUrl(url, DNS_CACHE)
     const win = ensureWindow()
     let phase = 'load'
     const work = (async () => {
       await navigate(win, target)
-      phase = 'extract'
+      phase = 'action'
       await delay(RENDER_SETTLE_MS)
       await dismissCookieConsent(win)
-      return win.webContents.executeJavaScript(expression, true)
+      return action(win)
     })()
     work.catch(() => {})
     return withDeadline(work, timeoutMs, () => {
@@ -177,6 +177,31 @@ export function runInBrowser(url, expression, { timeoutMs = 30_000 } = {}) {
   })
   queue = task.catch(() => {})
   return task
+}
+
+/** Loads `url` in the shared window and evaluates `expression` there. */
+export function runInBrowser(url, expression, options) {
+  return withPage(url, win => win.webContents.executeJavaScript(expression, true), options)
+}
+
+/** Loads `url` and returns a PNG of what the window shows. */
+export function captureInBrowser(url, options) {
+  return withPage(url, async win => (await win.webContents.capturePage()).toPNG(), options)
+}
+
+/**
+ * The shared window's session, secured, for requests that are not page loads
+ * (images). Same cookies and user agent as the pages the participants read.
+ */
+export function browserSession() {
+  const ses = session.fromPartition(PARTITION)
+  secureSession(ses)
+  return ses
+}
+
+/** The same public-address check every navigation goes through. */
+export function assertAllowedUrl(url) {
+  return assertPublicHttpUrl(url, DNS_CACHE)
 }
 
 /** The page currently in the shared window, or null. */
