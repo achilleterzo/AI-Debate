@@ -23,4 +23,7 @@ contextBridge.exposeInMainWorld('desktop', {
   },
   ollamaCloudStreamCleanup: requestId => ipcRenderer.removeAllListeners(`ollama-cloud-stream:${String(requestId || '')}`),
   ollamaCloudCancel: requestId => ipcRenderer.invoke('ollama-cloud-cancel', requestId),
+  webFetchPage: request => ipcRenderer.invoke('web-fetch-page', request),
+  webSearch: request => ipcRenderer.invoke('web-search', request),
+  webBrowserShow: () => ipcRenderer.invoke('web-browser-show'),
 })

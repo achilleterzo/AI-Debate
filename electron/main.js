@@ -9,6 +9,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { resolveWindowsShim } from './cliShim.js'
 import { claudeEffort, codexEffort, createClaudeTranslator, createCodexTranslator, ndjson } from './cliStream.js'
+import { browserFetchPage, browserSearch, disposeBrowser, showBrowser } from './web/index.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -501,6 +502,9 @@ function createWindow() {
   })
 
   windowState.manage(win)
+  // The hidden web browser is a window too: left alone it would keep the app
+  // running after the user closed the only window they can see.
+  win.on('closed', disposeBrowser)
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
@@ -560,6 +564,9 @@ app.whenReady().then(() => {
     ollamaCloudRequests.delete(String(requestId))
     return true
   })
+  ipcMain.handle('web-fetch-page', (_event, request) => browserFetchPage(request))
+  ipcMain.handle('web-search', (_event, request) => browserSearch(request))
+  ipcMain.handle('web-browser-show', () => showBrowser())
   createWindow()
 
   app.on('activate', () => {
