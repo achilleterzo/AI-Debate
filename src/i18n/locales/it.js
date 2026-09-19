@@ -190,6 +190,12 @@ export default {
     reasoning: 'Ragionamento',
     copyResponse: 'Copia risposta',
     inspectPayload: 'Ispeziona payload',
+    openImage: 'Vedi a grandezza piena',
+    imageClose: 'Chiudi',
+    imageLoading: "Caricamento dell'immagine completa…",
+    imageUnavailable: "L'immagine completa non è più disponibile: è mostrata la miniatura.",
+    imageScreenshot: 'Screenshot della pagina',
+    imageOpenOriginal: "Apri l'originale",
   },
   participants: {
     resetAffinities: 'Azzera affinità',

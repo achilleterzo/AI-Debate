@@ -1385,6 +1385,7 @@ function AppInner({ settings }) {
           DotsComponent={DotsView}
            onResume={handleResumeFromChat}
           isWideLayout={isWideLayout}
+          attachedDocs={attachedDocs}
         />
         {summaryInProgress && <SummaryProgressBadge />}
         <ConclusionsPanel

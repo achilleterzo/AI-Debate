@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { styles } from './Style'
 import { buildOrderedItems } from '../utils/Sorting'
 import {
@@ -17,6 +17,8 @@ import { normalizeMathShorthands, renderMessageMarkdown } from '../utils/Message
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { conclusionTypeLabel } from '../prompts/ConclusionTypes'
 import { TOOL_ICONS } from '../tools'
+import { THUMBNAIL_EDGE, isThumbnailDataUrl } from '../services/Images'
+import ImageLightbox from './ImageLightbox'
 
 /**
  * Opens the cited message.
@@ -60,13 +62,21 @@ function quoteCard(quote, key, alignment, participants, ui) {
   )
 }
 
-function toolInvocationPill(invocation, key, alignment) {
+function toolInvocationPill(invocation, key, alignment, onOpenImage, ui) {
   const details = describeToolInvocation(invocation)
+  const thumbnail = isThumbnailDataUrl(invocation?.thumbnail) ? invocation.thumbnail : null
   return (
-    <div key={key} className="tool-pill" style={{ alignSelf: alignment }}>
-      <span className="tool-pill-icon">{TOOL_ICONS[invocation?.name] || '🛠️'}</span>
-      <span className="tool-pill-name">{invocation?.name}</span>
-      {details && <span className="tool-pill-details"> · {details}</span>}
+    <div key={key} className={thumbnail ? 'tool-pill tool-pill-with-thumb' : 'tool-pill'} style={{ alignSelf: alignment }}>
+      {thumbnail && (
+        <button type="button" className="tool-pill-thumb-button" onClick={() => onOpenImage?.(invocation)} title={ui?.openImage} aria-label={ui?.openImage}>
+          <img className="tool-pill-thumb" src={thumbnail} alt="" width={THUMBNAIL_EDGE} height={THUMBNAIL_EDGE} />
+        </button>
+      )}
+      <span className="tool-pill-text">
+        <span className="tool-pill-icon">{TOOL_ICONS[invocation?.name] || '🛠️'}</span>
+        <span className="tool-pill-name">{invocation?.name}</span>
+        {details && <span className="tool-pill-details"> · {details}</span>}
+      </span>
     </div>
   )
 }
@@ -75,10 +85,10 @@ function toolInvocationPill(invocation, key, alignment) {
  * One entry of a turn's tool sequence, in the order the model produced it: the
  * card of a citation that resolved, or the pill of any other call.
  */
-function turnEvent(event, key, alignment, participants, ui) {
+function turnEvent(event, key, alignment, participants, ui, onOpenImage) {
   return event.type === 'quote'
     ? quoteCard(event.quote, key, alignment, participants, ui)
-    : toolInvocationPill(event.invocation, key, alignment)
+    : toolInvocationPill(event.invocation, key, alignment, onOpenImage, ui)
 }
 
 function diceNote(result, owner, key, extraStyle, fallbackActor) {
@@ -120,9 +130,13 @@ function ChatTimeline({
   DotsComponent: Dots,
   onResume,
   isWideLayout,
+  attachedDocs,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.chat
+  // The view_image pill whose picture is open full size, if any.
+  const [openImage, setOpenImage] = useState(null)
+  const closeImage = useCallback(() => setOpenImage(null), [])
   // After a fork the transcript is empty but the conclusions remain, and they
   // are the record of what the branch came from: the empty state must not
   // swallow them.
@@ -363,7 +377,7 @@ function ChatTimeline({
             </div>
           )}
           {quotes.map((quote, quoteIndex) => quoteCard(quote, `quote-${i}-${quoteIndex}`, contentAlignment, participants, ui))}
-          {leadingEvents.map((event, eventIndex) => turnEvent(event, `tool-before-${i}-${eventIndex}`, contentAlignment, participants, ui))}
+          {leadingEvents.map((event, eventIndex) => turnEvent(event, `tool-before-${i}-${eventIndex}`, contentAlignment, participants, ui, setOpenImage))}
           {leadingDiceResults.map((result, resultIndex) => diceNote(
             result,
             resolveDiceOwner(result, participants),
@@ -413,7 +427,7 @@ function ChatTimeline({
               )}
             </div>
           )}
-          {trailingEvents.map((event, eventIndex) => turnEvent(event, `tool-after-${i}-${eventIndex}`, contentAlignment, participants, ui))}
+          {trailingEvents.map((event, eventIndex) => turnEvent(event, `tool-after-${i}-${eventIndex}`, contentAlignment, participants, ui, setOpenImage))}
           {continuationItems.map((continuation, continuationIndex) => {
             if (continuation.role === 'dice' && continuation.beforeContent) return null
             if (continuation.role === 'dice') {
@@ -448,6 +462,9 @@ function ChatTimeline({
     )
   })
 
+  if (openImage) {
+    elems.push(<ImageLightbox key="image-lightbox" invocation={openImage} attachments={attachedDocs} onClose={closeImage} />)
+  }
   return elems
 }
 

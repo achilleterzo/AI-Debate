@@ -249,6 +249,12 @@ export const UI_STRINGS = {
     reasoning: 'Reasoning',
     copyResponse: 'Copy response',
     inspectPayload: 'Inspect payload',
+    openImage: 'View full size',
+    imageClose: 'Close',
+    imageLoading: 'Loading the full image…',
+    imageUnavailable: 'The full image is no longer available: showing the thumbnail.',
+    imageScreenshot: 'Page screenshot',
+    imageOpenOriginal: 'Open the original',
   },
   participants: {
     resetAffinities: 'Reset affinities',

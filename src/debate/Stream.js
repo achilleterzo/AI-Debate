@@ -344,6 +344,7 @@ export async function streamChat({
   noResultsMessage = query => `No results for: ${query}`,
   executeTool = null,
   onToolInvocation = null,
+  onToolInvocationResult = null,
   onToolRound = null,
   onThinking = null,
   think = true,
@@ -653,7 +654,8 @@ export async function streamChat({
         if (typeof toolArgs === 'string') {
           try { toolArgs = JSON.parse(toolArgs) } catch { toolArgs = { value: toolArgs } }
         }
-        onToolInvocation?.({ name: toolName, arguments: toolArgs })
+        const invocation = { name: toolName, arguments: toolArgs }
+        onToolInvocation?.(invocation)
         if (toolName === 'web_search') {
           const query = toolArgs?.query ?? toolArgs
           const queryStr = typeof query === 'string' ? query : JSON.stringify(query)
@@ -680,6 +682,10 @@ export async function streamChat({
         } else if (typeof executeTool === 'function') {
           const result = await executeTool(toolName, toolArgs)
           if (result != null) appendToolResult(toolName, toolArgs, result)
+          // The pill was drawn before the call ran; what the call looked at is
+          // only known now. The same object is handed back so the caller can
+          // find the pill it already stored.
+          if (result?.pill) onToolInvocationResult?.(invocation, result.pill)
         }
       }
       // Out of tool rounds, so the next reply is the answer. Saying so is what

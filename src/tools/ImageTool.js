@@ -1,4 +1,4 @@
-import { imageCache, normalizeImage } from '../services/Images'
+import { imageCache, makeThumbnail, normalizeImage } from '../services/Images'
 
 /**
  * Looking at an image, for models that can.
@@ -77,58 +77,89 @@ function failure(error, images) {
 }
 
 /**
- * Runs the tool call.
- *
- * Returns `{ content, images }` when there is something to look at — `images`
- * being base64 strings — and plain text otherwise, so a failure reads like any
- * other tool result and the model is told what it can ask for instead.
+ * What `source` points at, normalized: an attached image by name, or the image
+ * (or page screenshot) behind a URL, downloaded once per debate.
+ * Throws with a readable message when there is nothing to show.
  */
-export async function viewImage(args = {}, {
+export async function resolveImage(source, {
   attachments = [],
   fetchImage = defaultFetchImage,
   normalize = normalizeImage,
   cache = imageCache,
 } = {}) {
+  const attached = matchAttachment(imageAttachments(attachments), source)
+  if (attached) return { kind: 'attachment', source: attached.name, image: attached.image }
+  if (!isHttpUrl(source)) throw new Error(`"${source}" is neither an attached image nor an http(s) URL.`)
+  let entry = cache.get(source)
+  if (!entry) {
+    const fetched = await fetchImage(source)
+    entry = { kind: fetched.kind === 'page' ? 'page' : 'image', image: await normalize(fetched.blob) }
+    cache.set(source, entry)
+  }
+  return { kind: entry.kind, source, image: entry.image }
+}
+
+/**
+ * Thumbnails already drawn, per image. Keyed on the image object itself, so
+ * the attachments' state is never written to and a cleared cache takes its
+ * thumbnails with it.
+ */
+const thumbnails = new WeakMap()
+
+/** The full-size image for the chat's lightbox, as a data URL. */
+export async function loadFullImage(source, options) {
+  const { kind, image } = await resolveImage(String(source || '').trim(), options)
+  return { kind, src: `data:${image.mime};base64,${image.base64}`, width: image.width, height: image.height }
+}
+
+/**
+ * Runs the tool call.
+ *
+ * Returns `{ content, images, caption, pill }` when there is something to look
+ * at — `images` being base64 strings for the model, `pill` what the chat shows
+ * on the call's pill (a thumbnail and the source to reopen) — and plain text
+ * otherwise, so a failure reads like any other tool result and the model is
+ * told what it can ask for instead.
+ */
+export async function viewImage(args = {}, {
+  attachments = [],
+  fetchImage = defaultFetchImage,
+  normalize = normalizeImage,
+  thumbnail = makeThumbnail,
+  cache = imageCache,
+} = {}) {
   const images = imageAttachments(attachments)
   const source = String(args?.source ?? args?.url ?? args?.name ?? '').trim()
   if (!source) return failure('No source given: pass the name of an attached image or an http(s) URL.', images)
-
-  const attached = matchAttachment(images, source)
-  if (attached) {
-    const { base64, width, height } = attached.image
-    return {
-      content: JSON.stringify({ source: attached.name, kind: 'attachment', width, height, note: 'The image follows in the next message.' }),
-      images: [base64],
-      caption: `[view_image: attachment "${attached.name}"]`,
-    }
-  }
-
-  if (!isHttpUrl(source)) {
+  if (!matchAttachment(images, source) && !isHttpUrl(source)) {
     return failure(`"${source}" is neither an attached image nor an http(s) URL.`, images)
   }
 
+  let resolved
   try {
-    let entry = cache.get(source)
-    if (!entry) {
-      const fetched = await fetchImage(source)
-      entry = { kind: fetched.kind === 'page' ? 'page' : 'image', ...(await normalize(fetched.blob)) }
-      cache.set(source, entry)
-    }
-    return {
-      content: JSON.stringify({
-        source,
-        kind: entry.kind,
-        width: entry.width,
-        height: entry.height,
-        note: entry.kind === 'page'
-          ? 'This is a screenshot of the web page as it renders, not the page text; use fetch_url to read its text. The screenshot follows in the next message.'
-          : 'The image follows in the next message.',
-      }),
-      images: [entry.base64],
-      caption: `[view_image: ${entry.kind === 'page' ? 'screenshot of' : 'image at'} ${source}]`,
-    }
+    resolved = await resolveImage(source, { attachments, fetchImage, normalize, cache })
   } catch (error) {
     // A failed download says nothing about what the image shows.
     return failure(`Could not load the image at ${source}: ${error?.message || 'unknown error'}. Nothing was viewed: do not describe it.`, images)
+  }
+
+  const { kind, image } = resolved
+  // A thumbnail that cannot be drawn costs the pill its picture, never the
+  // model its image.
+  if (!thumbnails.has(image)) {
+    let drawn = null
+    try { drawn = await thumbnail(image) } catch { /* no picture on the pill */ }
+    thumbnails.set(image, drawn)
+  }
+  const note = kind === 'page'
+    ? 'This is a screenshot of the web page as it renders, not the page text; use fetch_url to read its text. The screenshot follows in the next message.'
+    : 'The image follows in the next message.'
+  return {
+    content: JSON.stringify({ source: resolved.source, kind, width: image.width, height: image.height, note }),
+    images: [image.base64],
+    caption: kind === 'attachment'
+      ? `[view_image: attachment "${resolved.source}"]`
+      : `[view_image: ${kind === 'page' ? 'screenshot of' : 'image at'} ${resolved.source}]`,
+    pill: { thumbnail: thumbnails.get(image), imageSource: resolved.source, imageKind: kind },
   }
 }

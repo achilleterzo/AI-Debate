@@ -2,10 +2,12 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { streamChat } from '../src/debate/Stream'
 import { ollamaProvider } from '../src/providers/ollama'
 import { createCliProvider } from '../src/providers/cli'
-import { fitWithin, preferredOutputType } from '../src/services/Images'
+import { coverCrop, fitWithin, isThumbnailDataUrl, preferredOutputType } from '../src/services/Images'
+import { attachToolInvocationResult } from '../src/debate/Debate'
+import { Data } from '../src/data/Data'
 import { readAttachment } from '../src/tools/AttachmentTool'
 import { createConversationToolExecutor } from '../src/tools/ConversationTools'
-import { VIEW_IMAGE_TOOL, viewImage } from '../src/tools/ImageTool'
+import { VIEW_IMAGE_TOOL, loadFullImage, viewImage } from '../src/tools/ImageTool'
 import { buildTopicPromptBlocks } from '../src/prompts/TopicPrompt'
 
 const PHOTO = {
@@ -177,5 +179,147 @@ describe('the tool loop', () => {
 
     const logged = payloads[1].body.messages[toolIndex + 1].images[0]
     expect(logged).toMatch(/^\[image: \d+ KB, base64 omitted\]$/)
+  })
+})
+
+describe('thumbnail on the tool pill', () => {
+  const THUMB = 'data:image/jpeg;base64,/9j/4AAQ'
+
+  it('crops the centered square, like object-fit: cover at 1:1', () => {
+    expect(coverCrop(800, 600)).toEqual({ x: 100, y: 0, side: 600 })
+    expect(coverCrop(300, 900)).toEqual({ x: 0, y: 300, side: 300 })
+  })
+
+  it('accepts only our own data URLs as thumbnails', () => {
+    expect(isThumbnailDataUrl(THUMB)).toBe(true)
+    expect(isThumbnailDataUrl('https://example.org/a.png')).toBe(false)
+    expect(isThumbnailDataUrl('data:image/svg+xml;base64,PHN2Zz4=')).toBe(false)
+    expect(isThumbnailDataUrl('data:image/jpeg;base64,AA" onerror="x')).toBe(false)
+  })
+
+  it('comes back with the tool result, for attachments and URLs alike', async () => {
+    const thumbnail = vi.fn(async () => THUMB)
+    const attached = await viewImage({ source: 'colosseo' }, { attachments: [{ ...PHOTO, image: { ...PHOTO.image } }], thumbnail })
+    const fetched = await viewImage({ source: 'https://example.org/a.png' }, {
+      fetchImage: async () => ({ kind: 'image', blob: new Blob(['x'], { type: 'image/png' }) }),
+      normalize: async () => normalized(),
+      thumbnail,
+      cache: new Map(),
+    })
+    expect(attached.pill).toEqual({ thumbnail: THUMB, imageSource: 'colosseo.jpg', imageKind: 'attachment' })
+    expect(fetched.pill).toEqual({ thumbnail: THUMB, imageSource: 'https://example.org/a.png', imageKind: 'image' })
+  })
+
+  it('never costs the model its image when the thumbnail fails', async () => {
+    const photo = { ...PHOTO, image: { ...PHOTO.image } }
+    const result = await viewImage({ source: 'colosseo.jpg' }, { attachments: [photo], thumbnail: async () => { throw new Error('no canvas') } })
+    expect(result.pill.thumbnail).toBeNull()
+    expect(result.images).toEqual(['QUJD'])
+  })
+
+  it('is reported by the loop for the very pill it announced', async () => {
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      const lines = call === 1
+        ? [JSON.stringify({ message: { tool_calls: [{ function: { name: 'view_image', arguments: { source: 'colosseo.jpg' } } }] } }) + '\n',
+            JSON.stringify({ done: true, message: { content: '' } }) + '\n']
+        : [JSON.stringify({ done: true, message: { content: 'Arches.' } }) + '\n']
+      return { ok: true, body: new ReadableStream({ start(controller) { for (const line of lines) controller.enqueue(new TextEncoder().encode(line)); controller.close() } }) }
+    }))
+    const announced = []
+    const completed = []
+    await streamChat({
+      baseUrl: 'http://fake',
+      model: 'eyes',
+      messages: [{ role: 'user', content: 'Look.' }],
+      useTools: true,
+      tools: [VIEW_IMAGE_TOOL],
+      executeTool: (name, args) => viewImage(args, { attachments: [{ ...PHOTO, image: { ...PHOTO.image } }], thumbnail: async () => THUMB }),
+      onToken: () => {},
+      onToolInvocation: invocation => announced.push(invocation),
+      onToolInvocationResult: (invocation, extra) => completed.push({ invocation, extra }),
+    })
+    expect(completed).toHaveLength(1)
+    expect(completed[0].invocation).toBe(announced[0])
+    expect(completed[0].extra).toMatchObject({ thumbnail: THUMB, imageSource: 'colosseo.jpg' })
+  })
+
+  it('is stored on that pill wherever the turn carried it, and only on it', () => {
+    const invocation = { name: 'view_image', arguments: { source: 'colosseo.jpg' } }
+    const twin = { name: 'view_image', arguments: { source: 'colosseo.jpg' } }
+    const history = [
+      { seq: 1, toolInvocations: [twin], toolEvents: [{ type: 'invocation', invocation: twin }] },
+      { seq: 2, toolInvocations: [invocation], toolEvents: [{ type: 'invocation', invocation, beforeContent: true }] },
+    ]
+    const next = attachToolInvocationResult(history, invocation, { thumbnail: THUMB })
+    expect(next[0]).toBe(history[0])
+    expect(next[1].toolInvocations[0]).toMatchObject({ name: 'view_image', thumbnail: THUMB })
+    expect(next[1].toolEvents[0]).toMatchObject({ beforeContent: true, invocation: { thumbnail: THUMB } })
+  })
+
+  it('appears in the HTML export, and a foreign src never does', () => {
+    const turn = thumbnail => [
+      { role: 'topic', content: 'Rome', turn: 0, seq: 0 },
+      { role: 'A', content: 'Arches.', turn: 1, seq: 1, toolInvocations: [{ name: 'view_image', arguments: { source: 'colosseo.jpg' }, thumbnail }] },
+    ]
+    const participants = [{ id: 0, tag: 'A', name: 'Alice', mood: 'none' }]
+    const constants = { MOODS: [{ id: 'none', label: 'Neutral', emoji: '' }], MOOD_INTENSITY: [{ label: 'Balanced' }], DEFAULT_MOOD_INTENSITY: 0, AGE_GROUPS: [{ label: 'Adult' }], DEFAULT_AGE_GROUP: 0, EDUCATION_LEVELS: [{ value: null, label: 'Model default' }], CHARACTER_TYPES: [{ value: null, label: 'Person' }], RESPONSE_LENGTHS: [{ value: 'short', label: 'Short' }] }
+    const withThumb = Data.buildHTML({ messages: turn(THUMB), participants, baseUrl: '', constants })
+    const foreign = Data.buildHTML({ messages: turn('https://evil.example/pixel.png'), participants, baseUrl: '', constants })
+    expect(withThumb).toContain(`<img class="tool-pill-thumb" src="${THUMB}"`)
+    // An attachment has nothing to link to.
+    expect(withThumb).not.toContain('<a class="tool-pill-thumb-button"')
+    expect(withThumb).toContain('<span class="tool-pill-icon">🖼️</span>')
+    expect(foreign).not.toContain('evil.example')
+    expect(foreign).toContain('class="tool-pill"')
+  })
+})
+
+describe('full-size image for the lightbox', () => {
+  const THUMB = 'data:image/jpeg;base64,/9j/4AAQ'
+
+  it('reopens an attachment by the name the pill stored', async () => {
+    const full = await loadFullImage('colosseo.jpg', { attachments: [PHOTO] })
+    expect(full).toEqual({ kind: 'attachment', src: 'data:image/jpeg;base64,QUJD', width: 800, height: 600 })
+  })
+
+  it('reuses what the tool already downloaded, and downloads again after a reset', async () => {
+    const cache = new Map()
+    const fetchImage = vi.fn(async () => ({ kind: 'page', blob: new Blob(['x'], { type: 'image/png' }) }))
+    const options = { fetchImage, normalize: async () => normalized(), cache }
+    await viewImage({ source: 'https://example.org/' }, { ...options, thumbnail: async () => THUMB })
+    expect((await loadFullImage('https://example.org/', options)).kind).toBe('page')
+    expect(fetchImage).toHaveBeenCalledTimes(1)
+    cache.clear()
+    await loadFullImage('https://example.org/', options)
+    expect(fetchImage).toHaveBeenCalledTimes(2)
+  })
+
+  it('draws the thumbnail of an image once, however many times it is viewed', async () => {
+    const thumbnail = vi.fn(async () => THUMB)
+    const options = { fetchImage: async () => ({ kind: 'image', blob: new Blob(['x'], { type: 'image/png' }) }), normalize: async () => normalized(), thumbnail, cache: new Map() }
+    await viewImage({ source: 'https://example.org/b.png' }, options)
+    await viewImage({ source: 'https://example.org/b.png' }, options)
+    expect(thumbnail).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails on a removed attachment instead of showing something else', async () => {
+    await expect(loadFullImage('colosseo.jpg', { attachments: [] })).rejects.toThrow('neither an attached image')
+  })
+
+  it('links the exported thumbnail to its source, without letting a quote out of the attribute', () => {
+    const constants = { MOODS: [{ id: 'none', label: 'Neutral', emoji: '' }], MOOD_INTENSITY: [{ label: 'Balanced' }], DEFAULT_MOOD_INTENSITY: 0, AGE_GROUPS: [{ label: 'Adult' }], DEFAULT_AGE_GROUP: 0, EDUCATION_LEVELS: [{ value: null, label: 'Model default' }], CHARACTER_TYPES: [{ value: null, label: 'Person' }], RESPONSE_LENGTHS: [{ value: 'short', label: 'Short' }] }
+    const html = source => Data.buildHTML({
+      messages: [
+        { role: 'topic', content: 'Rome', turn: 0, seq: 0 },
+        { role: 'A', content: 'Arches.', turn: 1, seq: 1, toolInvocations: [{ name: 'view_image', arguments: { source }, thumbnail: THUMB, imageSource: source, imageKind: 'image' }] },
+      ],
+      participants: [{ id: 0, tag: 'A', name: 'Alice', mood: 'none' }], baseUrl: '', constants,
+    })
+    expect(html('https://example.org/a.png')).toContain('<a class="tool-pill-thumb-button" href="https://example.org/a.png" target="_blank"')
+    const hostile = html('https://example.org/a.png" onmouseover="alert(1)')
+    expect(hostile).not.toMatch(/href="[^"]*" onmouseover=/)
+    expect(hostile).toContain('href="https://example.org/a.png%22%20onmouseover=%22alert(1)"')
   })
 })

@@ -119,3 +119,38 @@ export async function normalizeImage(blob) {
     bytes: bytes.length,
   }
 }
+
+/** Size of the thumbnail shown on a view_image pill, in CSS pixels. */
+export const THUMBNAIL_EDGE = 64
+/** Stored at twice the display size so it stays sharp on HiDPI screens. */
+const THUMBNAIL_DENSITY = 2
+
+/** The centered square of a `width`×`height` image: CSS `object-fit: cover` at 1:1. */
+export function coverCrop(width, height) {
+  const side = Math.min(width, height)
+  return { x: Math.round((width - side) / 2), y: Math.round((height - side) / 2), side }
+}
+
+/**
+ * A small square JPEG data URL of an already normalized image, for the chat.
+ * A few KB: it is stored in the message and travels with snapshots and
+ * exports, unlike the full image, which lives only for the turn.
+ */
+export async function makeThumbnail({ base64, mime }, edge = THUMBNAIL_EDGE) {
+  const image = new Image()
+  image.src = `data:${mime};base64,${base64}`
+  await image.decode()
+  const { x, y, side } = coverCrop(image.naturalWidth, image.naturalHeight)
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = edge * THUMBNAIL_DENSITY
+  const context = canvas.getContext('2d')
+  context.fillStyle = '#ffffff'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.drawImage(image, x, y, side, side, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/jpeg', 0.8)
+}
+
+/** Only our own data URLs are rendered as thumbnails, never an arbitrary src. */
+export function isThumbnailDataUrl(value) {
+  return typeof value === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(value)
+}

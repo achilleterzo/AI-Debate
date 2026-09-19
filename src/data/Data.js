@@ -3,6 +3,8 @@ import { buildOrderedItems } from '../utils/Sorting'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
 import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { APP_VERSION } from '../settings/Settings'
+import { THUMBNAIL_EDGE, isThumbnailDataUrl } from '../services/Images'
+import { TOOL_ICONS } from '../tools'
 // The export is meant to look like the chat, so it reuses the chat's own
 // stylesheet and the chat's own idea of how a turn is put together.
 import { CHAT_CSS } from '../styles/ChatCss'
@@ -104,7 +106,8 @@ export class Data {
 
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const md = s => renderMessageMarkdown(s)
-    const toolIcons = { web_search: '🔍', get_recent_messages: '🕘', quote_message: '❝', request_moderator_intervention: '🙋', apply_moderation: '🛑', roll_dice: '🎲', memory: '🧠' }
+    // The chat's own map: a private copy here had already lost fetch_url and read_attachment.
+    const toolIcons = TOOL_ICONS
     const anchor = messageAnchorId
     const now = new Date().toLocaleString('it-IT')
     const mode = debateModeInfo(debateMode)
@@ -157,7 +160,23 @@ export class Data {
     // ── the same building blocks the chat renders, as HTML strings ─────────
     const toolPill = invocation => {
       const details = describeToolInvocation(invocation)
-      return `<div class="tool-pill"><span class="tool-pill-icon">${toolIcons[invocation?.name] || '🛠️'}</span><span class="tool-pill-name">${esc(invocation?.name ?? '')}</span>${details ? `<span class="tool-pill-details"> · ${esc(details)}</span>` : ''}</div>`
+      const thumbnail = isThumbnailDataUrl(invocation?.thumbnail) ? invocation.thumbnail : null
+      const text = `<span class="tool-pill-text"><span class="tool-pill-icon">${toolIcons[invocation?.name] || '🛠️'}</span><span class="tool-pill-name">${esc(invocation?.name ?? '')}</span>${details ? `<span class="tool-pill-details"> · ${esc(details)}</span>` : ''}</span>`
+      if (!thumbnail) return `<div class="tool-pill">${text}</div>`
+      // A static page has no lightbox: the thumbnail links to the original
+      // instead, when there is one to link to.
+      const img = `<img class="tool-pill-thumb" src="${thumbnail}" alt="" width="${THUMBNAIL_EDGE}" height="${THUMBNAIL_EDGE}">`
+      // The URL is the model's argument: parsed (which percent-encodes quotes)
+      // and escaped again, since `esc` alone leaves `"` free to end the attribute.
+      let href = null
+      try {
+        const url = new URL(String(invocation?.imageSource ?? ''))
+        if (/^https?:$/.test(url.protocol)) href = esc(url.href).replace(/"/g, '&quot;')
+      } catch { /* not a URL: an attachment name */ }
+      const linked = href
+        ? `<a class="tool-pill-thumb-button" href="${href}" target="_blank" rel="noreferrer noopener">${img}</a>`
+        : img
+      return `<div class="tool-pill tool-pill-with-thumb">${linked}${text}</div>`
     }
     const diceNote = (result, owner, fallbackActor) => {
       const ownerName = owner?.name || owner?.tag || 'Shared dice result'

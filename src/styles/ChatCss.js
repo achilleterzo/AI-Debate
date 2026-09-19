@@ -138,6 +138,57 @@ export const CHAT_CSS = `
 	.tool-pill-icon { margin-right: 5px; }
 	.tool-pill-name { color: #aaa; }
 	.tool-pill-details { color: #666; }
+	/* view_image: what the participant looked at, as a 1:1 cover thumbnail. */
+	.tool-pill-with-thumb { display: flex; align-items: center; gap: 8px; }
+	.tool-pill-thumb {
+		flex: none; width: 64px; height: 64px;
+		object-fit: cover; border-radius: 6px;
+		border: 1px solid #3a3558; background: #0f0e18;
+	}
+	.tool-pill-with-thumb .tool-pill-text { min-width: 0; overflow-wrap: anywhere; }
+	.tool-pill-thumb-button {
+		flex: none; display: block; padding: 0; margin: 0;
+		background: none; border: 0; border-radius: 6px; cursor: zoom-in;
+	}
+	.tool-pill-thumb-button:hover .tool-pill-thumb,
+	.tool-pill-thumb-button:focus-visible .tool-pill-thumb { border-color: #8b5cf6; box-shadow: 0 0 8px rgba(139, 92, 246, .45); }
+	.tool-pill-thumb-button:focus-visible { outline: none; }
+
+	/* ── view_image, full size ───────────────────────────────────────────── */
+	.image-lightbox {
+		position: fixed; inset: 0; z-index: 1200;
+		display: flex; align-items: center; justify-content: center;
+		padding: 24px; box-sizing: border-box;
+		background: rgba(0, 0, 0, .86); cursor: zoom-out;
+	}
+	.image-lightbox-figure {
+		margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px;
+		max-width: 100%; max-height: 100%; cursor: default;
+	}
+	.image-lightbox-image {
+		display: block; min-height: 0;
+		max-width: min(100%, 1568px); max-height: calc(100vh - 110px);
+		width: auto; height: auto; object-fit: contain;
+		border-radius: 8px; border: 1px solid #3a3558; background: #0f0e18;
+		box-shadow: 0 12px 48px rgba(0, 0, 0, .6);
+	}
+	/* The thumbnail standing in while the full image loads: scaled up, so blurred on purpose. */
+	.image-lightbox-image.is-placeholder { width: min(60vh, 90vw); height: auto; aspect-ratio: 1; object-fit: cover; filter: blur(6px); }
+	.image-lightbox-caption {
+		display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px;
+		max-width: min(90vw, 900px); font-size: 11px; color: #888; text-align: center;
+	}
+	.image-lightbox-caption a { color: #a99cf0; overflow-wrap: anywhere; }
+	.image-lightbox-kind { color: #c9bfff; }
+	.image-lightbox-size { color: #666; }
+	.image-lightbox-status { color: #aa8855; width: 100%; }
+	.image-lightbox-close {
+		position: absolute; top: 12px; right: 16px;
+		width: 34px; height: 34px; border-radius: 50%;
+		border: 1px solid #3a3558; background: #171624; color: #ccc;
+		font-size: 20px; line-height: 1; cursor: pointer;
+	}
+	.image-lightbox-close:hover { color: #fff; border-color: #8b5cf6; }
 
 	/* ── citations of another message ────────────────────────────────────── */
 	/* Rendered as a button in the chat and as an anchor in the export, so the

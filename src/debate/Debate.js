@@ -35,6 +35,27 @@ function continuationOverlap(previous, current) {
   return 0
 }
 
+/**
+ * Adds what a call produced (a view_image thumbnail) to the pill already
+ * stored for it. Found by identity: the pill may have been carried to another
+ * segment of the turn since, and two calls with the same arguments are still
+ * two pills.
+ */
+export function attachToolInvocationResult(history, invocation, extra) {
+  const updated = { ...invocation, ...extra }
+  let changed = false
+  const next = history.map(message => {
+    if (!message.toolInvocations?.includes(invocation) && !message.toolEvents?.some(event => event.invocation === invocation)) return message
+    changed = true
+    return {
+      ...message,
+      ...(message.toolInvocations ? { toolInvocations: message.toolInvocations.map(entry => (entry === invocation ? updated : entry)) } : {}),
+      ...(message.toolEvents ? { toolEvents: message.toolEvents.map(event => (event.invocation === invocation ? { ...event, invocation: updated } : event)) } : {}),
+    }
+  })
+  return changed ? next : history
+}
+
 function carryToolInvocations(history, fromSeq, toSeq) {
   const source = history.find(message => message.seq === fromSeq)
   if (!source?.toolInvocations?.length && !source?.toolEvents?.length && !source?.quotes?.length) return history
@@ -1953,6 +1974,10 @@ export class Debate {
                     ],
                   }
                 : message)
+              syncHistory()
+            },
+            onToolInvocationResult: (invocation, extra) => {
+              history = attachToolInvocationResult(history, invocation, extra)
               syncHistory()
             },
             onToolRound: ({ content }) => {
