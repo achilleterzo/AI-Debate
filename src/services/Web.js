@@ -1,5 +1,6 @@
 import { DEFAULT_PAGE_BLOCK_KB, DEFAULT_SEARCH_ENGINE, normalizeSearchEngine } from '../settings/Settings'
 import { searchEngineAvailable, searchEngineLabel } from '../../electron/web/engines/catalog.js'
+import { clearImageCache } from './Images'
 
 export class Web {
   static webSearchCache = new Map()
@@ -100,6 +101,7 @@ export class Web {
   static clearCaches() {
     Web.webSearchCache.clear()
     Web.pageCache.clear()
+    clearImageCache()
   }
 
   static readerHeaders(extra = {}) {

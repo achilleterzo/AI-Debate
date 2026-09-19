@@ -56,6 +56,7 @@ import { useAttachments } from './hooks/useAttachments'
 import { CONCLUSION_TYPES } from './prompts/ConclusionTypes'
 import { setActiveProviderId } from './providers/index.js'
 import { configureOllamaCloud } from './providers/ollamaCloud.js'
+import { isImageFileName } from './services/Images'
 
 // A provider not listed yet: one shared array, so the memos below stay put.
 const NO_MODELS = []
@@ -1415,7 +1416,7 @@ function AppInner({ settings }) {
           }
         }}
         onDrop={async e => {
-          const files = [...e.dataTransfer.files].filter(f => /\.(txt|md|pdf)$/i.test(f.name))
+          const files = [...e.dataTransfer.files].filter(f => /\.(txt|md|pdf)$/i.test(f.name) || isImageFileName(f.name))
           if (files.length === 0) return
           e.preventDefault()
           await addFiles(files)

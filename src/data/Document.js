@@ -1,7 +1,10 @@
+import { isImageFileName, normalizeImage } from '../services/Images'
+
 export class Document {
   static MAX_CHARS = 8000
 
   static async parse(file) {
+    if (isImageFileName(file.name)) return Document.parseImage(file)
     const ext = file.name.split('.').pop().toLowerCase()
 
     let raw = ''
@@ -20,6 +23,22 @@ export class Document {
       : normalized
 
     return { name: file.name, content, truncated }
+  }
+
+  /**
+   * An image is kept as pixels for the view_image tool. `content` is what
+   * every text-only consumer (conclusions, suggestions, models without vision)
+   * reads in its place: a statement that there is a picture, not its contents.
+   */
+  static async parseImage(file) {
+    const image = await normalizeImage(file)
+    return {
+      name: file.name,
+      kind: 'image',
+      image,
+      content: `[Image attachment, ${image.originalWidth}×${image.originalHeight} px. Its contents are not available as text.]`,
+      truncated: false,
+    }
   }
 
   static async extractPdf(file) {

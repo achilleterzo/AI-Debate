@@ -29,7 +29,7 @@ export default function InputActionButtons({
       <input
         ref={docInputRef}
         type="file"
-        accept=".txt,.md,.pdf"
+        accept=".txt,.md,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.avif,.svg"
         multiple
         style={{ display: 'none' }}
         onChange={async e => {
