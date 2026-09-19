@@ -52,7 +52,7 @@ export function resolveDiceOwner(message, participants) {
 
 export function describeToolInvocation(invocation) {
   const args = invocation?.arguments || {}
-  if (invocation?.name === 'web_search') return args.query || ''
+  if (invocation?.name === 'web_search') return [args.query, args.engine].filter(Boolean).join(' · ')
   if (invocation?.name === 'get_recent_messages') {
     return [args.searchTerm, Array.isArray(args.participantTags) && args.participantTags.length ? `@${args.participantTags.join(', @')}` : null]
       .filter(Boolean).join(' · ')

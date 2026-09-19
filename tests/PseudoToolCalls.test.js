@@ -99,6 +99,11 @@ describe('turning a typed call into a real one', () => {
     expect(calls).toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'web_search', arguments: { query: 'copper' } } }])
   })
 
+  it('keeps a search engine override when recovering a typed call', () => {
+    const calls = extractPseudoToolCalls('[TOOL_CALLS] [{"name":"web_search","arguments":{"query":"copper","engine":"bing"}}]', LLM_TOOLS)
+    expect(calls[0].function.arguments).toEqual({ query: 'copper', engine: 'bing' })
+  })
+
   it('recovers the roll the participant typed as a tag, so the dice really fall', () => {
     const calls = extractPseudoToolCalls('**Attacking Madara Uchiha**: <roll_dice count="1" sides="20"/> A punch.', [ROLL_DICE_TOOL])
     expect(calls).toEqual([{ id: 'pseudo-1', type: 'function', function: { name: 'roll_dice', arguments: { count: 1, sides: 20 } } }])

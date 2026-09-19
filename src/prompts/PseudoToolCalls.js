@@ -29,7 +29,7 @@
  * asserts it still matches the real schemas.
  */
 const TOOL_ARGUMENT_SHAPES = {
-  web_search: { properties: ['query'], required: ['query'] },
+  web_search: { properties: ['query', 'engine'], required: ['query'] },
   fetch_url: { properties: ['url', 'page', 'mode'], required: ['url'] },
   // No required argument: called bare it lists the attachments. So an empty
   // object is not a call — `matchesShape` rejects it — but a typed

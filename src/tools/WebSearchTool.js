@@ -1,3 +1,5 @@
+import { SEARCH_ENGINE_IDS } from '../settings/Settings'
+
 /**
  * OpenAI-compatible function definition exposed to language models.
  * Execution stays in services/Web.js so tool contracts and implementations
@@ -12,6 +14,11 @@ export const WEB_SEARCH_TOOL = {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Search query in English or Italian' },
+        engine: {
+          type: 'string',
+          enum: SEARCH_ENGINE_IDS,
+          description: "Search engine override. Omit it to use the user's default; 'auto' tries enabled browser engines in order.",
+        },
       },
       required: ['query'],
     },

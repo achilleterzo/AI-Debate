@@ -17,6 +17,11 @@ const messages = [
 ]
 
 describe('quote resolution', () => {
+  it('shows a web search engine override next to the query', () => {
+    expect(describeToolInvocation({ name: 'web_search', arguments: { query: 'latest news', engine: 'brave' } }))
+      .toBe('latest news · brave')
+  })
+
   it('quotes a message by its id and returns its full text', () => {
     const result = buildQuote({ messages, participants, messageId: 2 })
     expect(result.accepted).toBe(true)

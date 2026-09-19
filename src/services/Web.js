@@ -1,4 +1,5 @@
-import { DEFAULT_PAGE_BLOCK_KB } from '../settings/Settings'
+import { DEFAULT_PAGE_BLOCK_KB, DEFAULT_SEARCH_ENGINE, normalizeSearchEngine } from '../settings/Settings'
+import { searchEngineAvailable, searchEngineLabel } from '../../electron/web/engines/catalog.js'
 
 export class Web {
   static webSearchCache = new Map()
@@ -74,10 +75,12 @@ export class Web {
   static config = {
     searchApiKey: '',
     pageBlockChars: DEFAULT_PAGE_BLOCK_KB * 1024,
+    searchEngine: DEFAULT_SEARCH_ENGINE,
   }
 
-  static configure({ searchApiKey, pageBlockKb } = {}) {
+  static configure({ searchApiKey, pageBlockKb, searchEngine } = {}) {
     if (searchApiKey !== undefined) Web.config.searchApiKey = String(searchApiKey || '').trim()
+    if (searchEngine !== undefined) Web.config.searchEngine = normalizeSearchEngine(searchEngine)
     if (pageBlockKb !== undefined) {
       const kb = Number(pageBlockKb)
       if (Number.isFinite(kb) && kb > 0) Web.config.pageBlockChars = Math.round(kb * 1024)
@@ -117,11 +120,20 @@ export class Web {
     return String(query || '').trim().toLowerCase().replace(/\s+/g, ' ')
   }
 
-  static getCachedSearchResult(query) {
-    const key = Web.normalizeQuery(query)
+  static searchCacheKey(query, engine = Web.config.searchEngine) {
+    const normalized = Web.normalizeQuery(query)
+    return normalized ? `${normalizeSearchEngine(engine)}:${normalized}` : ''
+  }
+
+  static getCachedSearchResult(query, engine = Web.config.searchEngine) {
+    const key = Web.searchCacheKey(query, engine)
     if (!key || !Web.webSearchCache.has(key)) return null
     console.log(`[webSearch] cache hit: "${query}"`)
     return Web.webSearchCache.get(key)
+  }
+
+  static desktopBridge() {
+    return globalThis.window?.desktop ?? null
   }
 
   /**
@@ -178,6 +190,24 @@ export class Web {
     }
 
     try {
+      const desktop = Web.desktopBridge()
+      if (desktop?.webFetchPage) {
+        try {
+          const browserPage = await desktop.webFetchPage({ url: target, raw })
+          const cleaned = Web.stripBrowserArtifacts(browserPage?.text ?? '')
+          const text = raw ? cleaned.trim() : Web.stripImages(cleaned)
+          const result = { text, fullLength: text.length, error: null }
+          Web.pageCache.set(cacheKey, result)
+          return result
+        } catch (error) {
+          const message = error?.message || String(error)
+          if (/private|local network|unsafe browser|credentials|only http\(s\)/i.test(message)) {
+            return { text: '', fullLength: 0, error: message }
+          }
+          console.warn(`[fetchPage] Chromium failed for ${target}; trying reader fallback:`, message)
+        }
+      }
+
       const response = await fetch(`${Web.READER_BASE}${target}`, {
         headers: Web.readerHeaders(noCache ? { 'x-no-cache': 'true' } : {}),
         signal: AbortSignal.timeout(Web.FETCH_TIMEOUT_MS),
@@ -376,13 +406,14 @@ export class Web {
     return results
   }
 
-  static formatResults(query, results) {
+  static formatResults(query, results, engine = 'web') {
+    const engineLabel = { jina: 'Jina', web: 'Web' }[engine] ?? searchEngineLabel(engine)
     const lines = results.map((result, index) => {
       const snippet = result.snippet ? `\n   ${result.snippet}` : ''
       return `${index + 1}. ${result.title}\n   ${result.url}${snippet}`
     })
     return [
-      `Web results for "${query}" (${results.length}):`,
+      `Web results via ${engineLabel} for "${query}" (${results.length}):`,
       lines.join('\n\n'),
       'These are search results, not page contents. To read one of them, call fetch_url with its URL.',
     ].join('\n\n')
@@ -441,16 +472,45 @@ export class Web {
    * 25.216 characters for a one-line question. Deciding which result is worth
    * opening belongs to the model, and opening it is what `fetch_url` is for.
    */
-  static async search(query, { noResultsMessage } = {}) {
-    const key = Web.normalizeQuery(query)
+  static async search(query, { noResultsMessage, engine } = {}) {
+    const selectedEngine = normalizeSearchEngine(engine ?? Web.config.searchEngine)
+    const key = Web.searchCacheKey(query, selectedEngine)
     if (!key) return noResultsMessage ?? `No results for: ${query}`
 
-    const cached = Web.getCachedSearchResult(query)
+    const cached = Web.getCachedSearchResult(query, selectedEngine)
     if (cached) return cached
 
-    const attempts = Web.config.searchApiKey
-      ? [['jina', () => Web.searchViaJina(query)], ['duckduckgo', () => Web.searchViaDuckDuckGo(query)]]
-      : [['duckduckgo', () => Web.searchViaDuckDuckGo(query)]]
+    const desktop = Web.desktopBridge()
+    if (desktop?.webSearch) {
+      try {
+        const response = await desktop.webSearch({ query, engine: selectedEngine })
+        const actualEngine = normalizeSearchEngine(response?.engine === 'auto' ? selectedEngine : response?.engine)
+        const results = Array.isArray(response?.results) ? response.results : []
+        if (results.length > 0) {
+          console.log(`[webSearch] Chromium ${actualEngine}: ${results.length} results for "${query}"`)
+          const formatted = Web.formatResults(query, results, actualEngine)
+          Web.webSearchCache.set(key, formatted)
+          return formatted
+        }
+        return noResultsMessage ?? `No results for: ${query}`
+      } catch (error) {
+        const message = error?.message || 'unknown error'
+        console.warn(`[webSearch] Chromium ${selectedEngine} failed for "${query}":`, message)
+        // A specific choice is a user instruction, not permission to silently
+        // switch engines. Only Auto may continue into the portable fallbacks.
+        if (selectedEngine !== 'auto') {
+          return `Web search via ${selectedEngine} unavailable for "${query}" (${message}). No search was performed: do not treat this as evidence that nothing exists on the subject.`
+        }
+      }
+    } else if (!searchEngineAvailable(selectedEngine, { desktop: false })) {
+      return `Web search via ${selectedEngine} requires the Electron desktop browser. No search was performed: do not treat this as evidence that nothing exists on the subject.`
+    }
+
+    const attempts = selectedEngine === 'duckduckgo'
+      ? [['duckduckgo', () => Web.searchViaDuckDuckGo(query)]]
+      : Web.config.searchApiKey
+        ? [['jina', () => Web.searchViaJina(query)], ['duckduckgo', () => Web.searchViaDuckDuckGo(query)]]
+        : [['duckduckgo', () => Web.searchViaDuckDuckGo(query)]]
 
     const failures = []
     for (const [name, run] of attempts) {
@@ -458,7 +518,7 @@ export class Web {
         const results = await run()
         if (results.length > 0) {
           console.log(`[webSearch] ${name}: ${results.length} results for "${query}"`)
-          const formatted = Web.formatResults(query, results)
+          const formatted = Web.formatResults(query, results, name)
           Web.webSearchCache.set(key, formatted)
           return formatted
         }

@@ -19,13 +19,13 @@ function textResponse(body, { ok = true, status = 200 } = {}) {
 
 beforeEach(() => {
   Web.clearCaches()
-  Web.configure({ searchApiKey: '', pageBlockKb: 16 })
+  Web.configure({ searchApiKey: '', pageBlockKb: 16, searchEngine: 'auto' })
 })
 
 afterEach(() => {
   vi.unstubAllGlobals()
   Web.clearCaches()
-  Web.configure({ searchApiKey: '', pageBlockKb: 16 })
+  Web.configure({ searchApiKey: '', pageBlockKb: 16, searchEngine: 'auto' })
 })
 
 describe('stripReaderHeaders', () => {
@@ -368,6 +368,61 @@ describe('search', () => {
     await Web.search('Roma')
     expect(Web.getCachedSearchResult('  roma  ')).not.toBeNull()
     expect(Web.getCachedSearchResult('storia di Roma antica')).toBeNull()
+  })
+
+  it('keeps separate caches for the same query on different engines', async () => {
+    stubFetch(async () => textResponse(serp))
+    await Web.search('Roma', { engine: 'duckduckgo' })
+
+    expect(Web.getCachedSearchResult('Roma', 'duckduckgo')).toContain('DuckDuckGo')
+    expect(Web.getCachedSearchResult('Roma', 'bing')).toBeNull()
+  })
+
+  it('uses the isolated Electron browser and reports the engine actually used', async () => {
+    const webSearch = vi.fn(async () => ({
+      engine: 'brave',
+      results: [{ title: 'Browser result', url: 'https://example.com/browser', snippet: 'Rendered in Chromium.' }],
+    }))
+    vi.stubGlobal('window', { desktop: { webSearch } })
+
+    const result = await Web.search('browser query', { engine: 'auto' })
+
+    expect(webSearch).toHaveBeenCalledWith({ query: 'browser query', engine: 'auto' })
+    expect(result).toContain('Web results via Brave')
+    expect(result).toContain('https://example.com/browser')
+  })
+
+  it('does not silently replace a specifically requested desktop engine', async () => {
+    vi.stubGlobal('window', { desktop: { webSearch: vi.fn(async () => { throw new Error('challenge') }) } })
+    const result = await Web.search('browser query', { engine: 'google' })
+    expect(result).toContain('via google unavailable')
+    expect(result).toContain('No search was performed')
+  })
+})
+
+describe('Electron page browser', () => {
+  it('prefers rendered Chromium content over the Jina reader', async () => {
+    const webFetchPage = vi.fn(async () => ({ text: '# Rendered\n\nA [link](https://example.com/next).' }))
+    vi.stubGlobal('window', { desktop: { webFetchPage } })
+    stubFetch(async () => { throw new Error('reader should not be called') })
+
+    const result = await Web.readUrl('https://example.com/')
+
+    expect(webFetchPage).toHaveBeenCalledWith({ url: 'https://example.com/', raw: false })
+    expect(result.text).toContain('# Rendered')
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('does not route a browser-blocked private destination through the remote reader', async () => {
+    const webFetchPage = vi.fn(async () => { throw new Error('Private network URLs are not allowed') })
+    vi.stubGlobal('window', { desktop: { webFetchPage } })
+    stubFetch(async () => { throw new Error('reader should not be called') })
+
+    const result = await Web.readUrl('http://127.0.0.1/private')
+
+    expect(result.status).toBe('error')
+    expect(result.text).toContain('Private network URLs are not allowed')
+    expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 })
 

@@ -624,7 +624,8 @@ export async function streamChat({
         if (toolName === 'web_search') {
           const query = toolArgs?.query ?? toolArgs
           const queryStr = typeof query === 'string' ? query : JSON.stringify(query)
-          const cachedResult = Web.getCachedSearchResult(queryStr)
+          const searchEngine = toolArgs?.engine
+          const cachedResult = Web.getCachedSearchResult(queryStr, searchEngine)
           if (cachedResult) {
             console.log(`[webSearch] cache hit (tool loop): "${queryStr}"`)
             appendToolResult('web_search', toolArgs, cachedResult)
@@ -632,7 +633,7 @@ export async function streamChat({
             onToken(separateToolRounds
               ? [full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n')
               : [visiblePrefix, full, `*🔍 Web search: "${queryStr}"...*`].filter(Boolean).join('\n\n'))
-            const result = await Web.search(queryStr, { noResultsMessage: noResultsMessage(queryStr) })
+            const result = await Web.search(queryStr, { noResultsMessage: noResultsMessage(queryStr), engine: searchEngine })
             appendToolResult('web_search', toolArgs, result)
           }
         } else if (toolName === 'fetch_url') {
