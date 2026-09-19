@@ -95,6 +95,8 @@ export function createCliProvider({ id, label }) {
     async capabilities() { return ['completion', 'tools', 'thinking'] },
     async supportsTools() { return true },
     async supportsThinking() { return true },
+    // The prompt reaches the client as one flattened transcript: no image slot.
+    async supportsVision() { return false },
     async health() {
       try {
         const status = await desktopApi()?.aiStatus?.(id)

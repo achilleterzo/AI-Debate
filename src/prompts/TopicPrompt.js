@@ -19,10 +19,17 @@ const ATTACHMENT_PREVIEW_CHARS = 700
  * everything when the tool is not available: without it the prompt is the only
  * way the document can be read at all.
  */
-function buildDocsBlock(attachedDocs, attachmentToolAvailable, attachmentsSummarized) {
+function buildDocsBlock(attachedDocs, attachmentToolAvailable, attachmentsSummarized, imageToolAvailable) {
   if (attachedDocs.length === 0) return ''
 
   const rendered = attachedDocs.map(doc => {
+    if (doc.kind === 'image') {
+      const size = doc.image?.width ? `, ${doc.image.width}×${doc.image.height} px` : ''
+      return `## ${doc.name}
+(image${size}) ${imageToolAvailable
+        ? 'Look at it with the view_image tool before saying anything about what it shows.'
+        : 'You cannot view images in this turn: do not describe it or guess what it shows.'}`
+    }
     const content = String(doc.content ?? '')
     if (!attachmentToolAvailable || content.length <= ATTACHMENT_INLINE_CHARS) {
       return `## ${doc.name}\n${content}`
@@ -34,7 +41,7 @@ function buildDocsBlock(attachedDocs, attachmentToolAvailable, attachmentsSummar
   })
 
   const indexed = attachmentToolAvailable
-    && attachedDocs.some(doc => String(doc.content ?? '').length > ATTACHMENT_INLINE_CHARS)
+    && attachedDocs.some(doc => doc.kind !== 'image' && String(doc.content ?? '').length > ATTACHMENT_INLINE_CHARS)
   const note = indexed
     ? '\n\nThe documents above marked with a character count are not reproduced in full here. Read one with the read_attachment tool before quoting it or stating what it says; the summary or opening shown is not the document.'
     : ''
@@ -42,7 +49,7 @@ function buildDocsBlock(attachedDocs, attachmentToolAvailable, attachmentsSummar
   return `\n\nAttached context documents:\n${rendered.join('\n\n')}${note}`
 }
 
-export function buildTopicPromptBlocks({ history, attachedDocs, attachmentToolAvailable = false, attachmentsSummarized = false }) {
+export function buildTopicPromptBlocks({ history, attachedDocs, attachmentToolAvailable = false, attachmentsSummarized = false, imageToolAvailable = false }) {
   const topicDirectives = history
     .filter(m => (m.role === 'topic' || m.role === 'interjection') && m.content?.trim())
     .map((m, index) => {
@@ -74,7 +81,7 @@ export function buildTopicPromptBlocks({ history, attachedDocs, attachmentToolAv
     ? `Topic directives history:\n${topicDirectives}\n\nTreat topic and topic updates as authoritative steering instructions from outside the debate flow, not as conversational turns by any participant or by the moderator.`
     : ''
 
-  const docsBlock = buildDocsBlock(attachedDocs, attachmentToolAvailable, attachmentsSummarized)
+  const docsBlock = buildDocsBlock(attachedDocs, attachmentToolAvailable, attachmentsSummarized, imageToolAvailable)
 
   return { topicDirectiveBlock, activeTopicBlock, sourcePriorityBlock, docsBlock }
 }

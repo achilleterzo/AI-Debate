@@ -54,7 +54,9 @@ function matchDocument(docs, requested) {
  */
 export function readAttachment(docs = [], args = {}) {
   const available = (Array.isArray(docs) ? docs : []).filter(doc => String(doc?.content || '').trim())
-  const index = available.map(doc => ({ name: doc.name, characters: String(doc.content).length }))
+  const index = available.map(doc => (doc.kind === 'image'
+    ? { name: doc.name, type: 'image' }
+    : { name: doc.name, characters: String(doc.content).length }))
 
   if (available.length === 0) {
     return JSON.stringify({ attachments: [], note: 'No documents are attached to this debate.' })
@@ -66,6 +68,10 @@ export function readAttachment(docs = [], args = {}) {
   const doc = matchDocument(available, requested)
   if (!doc) {
     return JSON.stringify({ error: `No attachment named "${requested}".`, attachments: index })
+  }
+
+  if (doc.kind === 'image') {
+    return JSON.stringify({ name: doc.name, type: 'image', note: 'This attachment is an image and has no text to read. Look at it with the view_image tool, if you have it.' })
   }
 
   const content = String(doc.content)

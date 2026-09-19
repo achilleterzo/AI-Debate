@@ -69,6 +69,43 @@ function repeatedToolResultNote(name) {
 }
 
 /**
+ * A tool result as the loop handles it.
+ *
+ * Tools answer with text, except view_image, which answers `{ content, images }`.
+ * Tool messages have no image slot on most backends, so the picture goes in a
+ * user message right after the result — the one place every vision model
+ * reads images — labelled as the tool's output so nobody mistakes it for a
+ * contribution from the table.
+ */
+function toolResultMessages(name, result, repeated) {
+  const structured = result && typeof result === 'object' && 'content' in result
+  const content = structured ? result.content : result
+  const toolMessage = { role: 'tool', tool_name: name, content: repeated ? repeatedToolResultNote(name) : String(content) }
+  const images = structured && Array.isArray(result.images) ? result.images.filter(Boolean) : []
+  if (repeated || images.length === 0) return [toolMessage]
+  return [toolMessage, {
+    role: 'user',
+    content: `${result.caption || `[${name} result]`}
+This image is the output of your ${name} call above. It was not sent by any participant.`,
+    images,
+  }]
+}
+
+/**
+ * The request as the payload inspector shows it: base64 images would make a
+ * single message megabytes long and bury everything else in the log.
+ */
+function redactImages(body) {
+  if (!Array.isArray(body?.messages) || !body.messages.some(message => message?.images?.length)) return body
+  return {
+    ...body,
+    messages: body.messages.map(message => (message?.images?.length
+      ? { ...message, images: message.images.map(image => `[image: ${Math.round(String(image).length * 0.75 / 1024)} KB, base64 omitted]`) }
+      : message)),
+  }
+}
+
+/**
  * Thrown when the user cut the stream instead of waiting for it.
  *
  * Distinct from a timeout, which aborts the same request through the same
@@ -405,7 +442,7 @@ export async function streamChat({
       url: request.url,
       method: 'POST',
       headers: debugHeaders,
-      body: request.body,
+      body: redactImages(request.body),
     }
     console.log('→ payload', debugRequest)
     if (onPayload) onPayload(debugRequest)
@@ -603,16 +640,12 @@ export async function streamChat({
         content: full || '',
         tool_calls: toolCalls,
       }]
-      const appendToolResult = (name, args, content) => {
+      const appendToolResult = (name, args, result) => {
         const key = toolResultKey(name, args)
         const repeated = deliveredToolResults.has(key)
         deliveredToolResults.add(key)
         if (repeated) console.log(`${label} ${name} repeated with the same arguments — result not attached again`)
-        apiMessages = [...apiMessages, {
-          role: 'tool',
-          tool_name: name,
-          content: repeated ? repeatedToolResultNote(name) : String(content),
-        }]
+        apiMessages = [...apiMessages, ...toolResultMessages(name, result, repeated)]
       }
       for (const toolCall of toolCalls) {
         const toolName = toolCall.function?.name

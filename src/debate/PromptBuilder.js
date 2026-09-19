@@ -59,6 +59,7 @@ export function buildSystemPrompt({ actor, allParticipants, history, externalMod
     // that can read them back. Describing a document the turn cannot open is
     // how a model ends up quoting one it never saw.
     attachmentToolAvailable: toolsAvailable && availableTools.some(tool => tool.function?.name === 'read_attachment'),
+    imageToolAvailable: toolsAvailable && availableTools.some(tool => tool.function?.name === 'view_image'),
     attachmentsSummarized,
   })
 

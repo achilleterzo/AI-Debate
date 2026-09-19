@@ -18,7 +18,7 @@ import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePr
 import { visibleContribution } from '../prompts/ReasoningLeak'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
 import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_MODE as DEFAULT_MODE, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, MODERATOR_MODES as MODERATOR_MODE_VALUES, contextBudgetChars, normalizeModeratorFacilitationInterval, normalizeModeratorMode, normalizeModeratorPermissiveness } from '../settings/Settings'
-import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, READ_ATTACHMENT_TOOL, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readAttachment, readMemory, rollDice } from '../tools'
+import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, READ_ATTACHMENT_TOOL, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readAttachment, readMemory, rollDice, VIEW_IMAGE_TOOL, viewImage } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
@@ -1342,6 +1342,8 @@ export class Debate {
           const docSystem = Debate.buildDocumentSummarySystemPrompt(uiLang, LANGUAGES)
           const summarized = []
           for (const doc of docs) {
+            // There is no text to summarize, only the placeholder.
+            if (doc.kind === 'image') { summarized.push(doc); continue }
             let sum = ''
             await streamChat({
               purpose: 'attachment summary',
@@ -1742,12 +1744,17 @@ export class Debate {
         // Resolved before the prompt, not after: what the prompt may say about
         // tools depends on whether this turn actually carries any. Describing a
         // tool the request never sends is what makes a model type the call.
+        const actorSeesImages = enabledTools?.[VIEW_IMAGE_TOOL.function.name] !== false
+          && !!(await getProvider(actor.providerId).supportsVision?.(actor.model, { baseUrl: actorBaseUrl }))
         const availableTools = [
           ...(parts.some(participant => participant.isModerator)
           ? (isRolePlay ? ROLE_PLAY_TOOLS : LLM_TOOLS)
           : (isRolePlay ? ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION : LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION)),
           ...(actor.isModerator ? MODERATOR_TOOLS : []),
         ].filter(tool => enabledTools?.[tool.function.name] !== false)
+          // Offered only to eyes that can use it: a model without vision that
+          // is handed an image either errors or describes what it never saw.
+          .filter(tool => tool.function.name !== VIEW_IMAGE_TOOL.function.name || actorSeesImages)
         const toolsAvailable = availableTools.length > 0
           && await getProvider(actor.providerId).supportsTools(actor.model, { baseUrl: actorBaseUrl })
         const quoteToolAvailable = availableTools.some(tool => tool.function.name === QUOTE_MESSAGE_TOOL.function.name)
@@ -1832,6 +1839,7 @@ export class Debate {
             // summary of a document, and this is how a participant reaches the
             // text that summary was made from.
             readAttachment: args => readAttachment(docs, args),
+            viewImage: args => viewImage(args, { attachments: docs }),
             // The citation is attached to the message being written, not stored
             // apart from it: it travels with the turn through the timeline, the
             // snapshots, the exports and every later payload.
