@@ -18,6 +18,7 @@ import {
   DEFAULT_PAGE_BLOCK_KB,
   DEFAULT_PROVIDER_ID,
   DEFAULT_SEARCH_API_KEY,
+  DEFAULT_SEARCH_ENGINE,
   DEFAULT_TIMEOUT_SEC,
   DEFAULT_DEBUG_PAYLOAD_TURNS,
   DEFAULT_URL,
@@ -29,6 +30,7 @@ import {
   providerThinkingLevels,
   normalizeModerationCooling,
   normalizePageBlockKb,
+  normalizeSearchEngine,
 } from '../settings/Settings'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from '../prompts/DefaultGeneralPersonalityInstructions'
 import { DEFAULT_DEBATE_MODE, normalizeDebateMode } from '../prompts/Modes'
@@ -118,6 +120,7 @@ export function useAppSettings() {
   const [enabledTools, setEnabledTools] = useState(() => normalizeEnabledTools(saved?.enabledTools ?? DEFAULT_ENABLED_TOOLS))
   const [searchApiKey, setSearchApiKey] = useState(saved?.searchApiKey ?? DEFAULT_SEARCH_API_KEY)
   const [pageBlockKb, setPageBlockKb] = useState(() => normalizePageBlockKb(saved?.pageBlockKb ?? DEFAULT_PAGE_BLOCK_KB))
+  const [searchEngine, setSearchEngine] = useState(() => normalizeSearchEngine(saved?.searchEngine ?? DEFAULT_SEARCH_ENGINE))
 
   return {
     saved,
@@ -141,7 +144,7 @@ export function useAppSettings() {
     providerModelSettings, setProviderModelSettings,
     defaultThinkingLevel, setDefaultThinkingLevel, providerDefaultThinkingLevels,
     debateMode, setDebateMode, enabledTools, setEnabledTools,
-    searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
+    searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb, searchEngine, setSearchEngine,
   }
 }
 
@@ -156,14 +159,15 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     enabledTools,
     searchApiKey,
     pageBlockKb,
+    searchEngine,
   } = settings
   const { customConclusionPrompt, standardConclusionPrompts } = conclusions
 
   // The web service is a static class reached from non-React code, so the
   // settings have to be pushed into it rather than read out of a context.
   useEffect(() => {
-    Web.configure({ searchApiKey, pageBlockKb: normalizePageBlockKb(pageBlockKb) })
-  }, [searchApiKey, pageBlockKb])
+    Web.configure({ searchApiKey, pageBlockKb: normalizePageBlockKb(pageBlockKb), searchEngine: normalizeSearchEngine(searchEngine) })
+  }, [searchApiKey, pageBlockKb, searchEngine])
 
   useEffect(() => {
     Storage.saveSettings({
@@ -182,7 +186,8 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       enabledTools,
       searchApiKey: searchApiKey ?? DEFAULT_SEARCH_API_KEY,
       pageBlockKb: normalizePageBlockKb(pageBlockKb),
+      searchEngine: normalizeSearchEngine(searchEngine),
       debugPayloadTurns: normalizeDebugPayloadTurns(debugPayloadTurns),
     })
-  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryProviderId, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb])
+  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryProviderId, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb, searchEngine])
 }

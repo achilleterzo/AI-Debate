@@ -13,6 +13,8 @@ import {
   normalizeProviderModelSettings,
   normalizeProviderModelCache,
   providerThinkingLevels,
+  DEFAULT_SEARCH_ENGINE,
+  normalizeSearchEngine,
 } from '../src/settings/Settings'
 
 describe('normalizeDisabledModels', () => {
@@ -25,6 +27,15 @@ describe('normalizeDisabledModels', () => {
     expect(normalizeDisabledModels()).toEqual([])
     expect(normalizeDisabledModels(null)).toEqual([])
     expect(normalizeDisabledModels('a:latest')).toEqual([])
+  })
+})
+
+describe('search engine setting', () => {
+  it('accepts supported engines and sends invalid values back to Auto', () => {
+    expect(normalizeSearchEngine('brave')).toBe('brave')
+    expect(normalizeSearchEngine('google')).toBe('google')
+    expect(normalizeSearchEngine('unknown')).toBe(DEFAULT_SEARCH_ENGINE)
+    expect(normalizeSearchEngine()).toBe(DEFAULT_SEARCH_ENGINE)
   })
 })
 

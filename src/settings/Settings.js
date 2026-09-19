@@ -1,3 +1,5 @@
+import { AUTO_SEARCH_ENGINE, SEARCH_ENGINE_IDS } from '../../electron/web/engines/catalog.js'
+
 export const DEFAULT_URL = 'http://localhost:11434'
 export const DEFAULT_PROVIDER_ID = 'ollama'
 
@@ -216,6 +218,15 @@ export function normalizeDebugPayloadTurns(raw) {
 // requests a minute shared per IP; with one that ceiling rises and the keyed
 // search backend — which refuses anonymous callers — becomes available.
 export const DEFAULT_SEARCH_API_KEY = ''
+
+// Desktop searches are rendered by an isolated Chromium window. The engine
+// list, and which of them Auto tries, lives in the shared catalog.
+export { SEARCH_ENGINE_IDS }
+export const DEFAULT_SEARCH_ENGINE = AUTO_SEARCH_ENGINE
+
+export function normalizeSearchEngine(value) {
+  return SEARCH_ENGINE_IDS.includes(value) ? value : DEFAULT_SEARCH_ENGINE
+}
 
 export function normalizeModerationCooling(raw) {
   const value = Number(raw)
