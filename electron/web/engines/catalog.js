@@ -13,6 +13,9 @@ export const SEARCH_ENGINES = [
   { id: 'duckduckgo', label: 'DuckDuckGo', auto: 3, desktopOnly: false },
   { id: 'brave', label: 'Brave', auto: 1, desktopOnly: true },
   { id: 'bing', label: 'Bing', auto: 2, desktopOnly: true },
+  { id: 'qwant', label: 'Qwant', auto: 0, desktopOnly: true },
+  // SmartCaptcha is quick to trigger on automated clients: explicit only.
+  { id: 'yandex', label: 'Yandex', auto: 0, desktopOnly: true },
   // Consent pages and bot challenges make Google a poor silent fallback.
   { id: 'google', label: 'Google', auto: 0, desktopOnly: true, experimental: true },
 ]

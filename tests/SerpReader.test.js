@@ -40,7 +40,7 @@ describe('engine catalog', () => {
   })
 
   it('keeps the settings list and the Auto chain derived from one place', () => {
-    expect(SEARCH_ENGINE_IDS).toEqual(['auto', 'duckduckgo', 'brave', 'bing', 'google'])
+    expect(SEARCH_ENGINE_IDS).toEqual(['auto', 'duckduckgo', 'brave', 'bing', 'qwant', 'yandex', 'google'])
     expect(AUTO_ENGINE_ORDER).toEqual(['brave', 'bing', 'duckduckgo'])
   })
 })
@@ -89,6 +89,37 @@ describe('reading result pages', () => {
       'https://it.wikipedia.org/wiki/Roma_antica',
       'https://www.treccani.it/enciclopedia/roma',
     ])
+  })
+
+  it('reads Qwant result cards and skips its ads', () => {
+    const { results } = read('qwant', 'qwant', 'https://www.qwant.com/?q=roma+antica&t=web')
+    expect(results.map(result => result.url)).toEqual([
+      'https://it.wikipedia.org/wiki/Roma_antica',
+      'https://www.treccani.it/enciclopedia/roma',
+    ])
+    expect(results[0].title).toBe('Roma antica - Wikipedia')
+    expect(results[0].snippet).toContain('civiltà romana')
+  })
+
+  it('reports Qwant unavailability instead of returning its footer links', () => {
+    const outcome = read('qwant-unavailable', 'qwant', 'https://www.qwant.com/?q=roma+antica&t=web')
+    expect(outcome.results).toEqual([])
+    expect(outcome.challenge).toBe(true)
+  })
+
+  it('reads Yandex cards, unwraps its redirects and drops Yandex-owned links', () => {
+    const { results } = read('yandex', 'yandex', 'https://yandex.com/search/?text=roma+antica')
+    expect(results.map(result => result.url)).toEqual([
+      'https://it.wikipedia.org/wiki/Roma_antica',
+      'https://www.treccani.it/enciclopedia/roma',
+    ])
+    expect(results[1].snippet).toBe('Voce enciclopedica sulla città di Roma.')
+  })
+
+  it('does not treat footer links on a challenge page as results', () => {
+    const outcome = read('challenge', 'bing', 'https://www.bing.com/search?q=roma')
+    expect(outcome.results).toEqual([])
+    expect(outcome.challenge).toBe(true)
   })
 
   it('reports a challenge page instead of an empty result set', () => {

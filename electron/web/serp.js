@@ -10,6 +10,8 @@
 
 export const MAX_RESULTS = 8
 const MAX_CANDIDATES_PER_TIER = 200
+const WAIT_FOR_MS = 6_000
+const WAIT_POLL_MS = 150
 const SNIPPET_MAX_CHARS = 400
 const GENERIC_CHALLENGE = /unusual traffic|not a robot|captcha|before you continue/i
 
@@ -60,9 +62,23 @@ export function collectSerpCandidates(spec, maxPerTier) {
   }
 }
 
-/** The expression executed in the page for `engine`. */
+/**
+ * The expression executed in the page for `engine`.
+ *
+ * Engines that render results client-side declare `waitFor`: collection then
+ * starts as soon as that selector appears, or after WAIT_FOR_MS regardless,
+ * so a challenge page is still read (and recognized) rather than timing out.
+ */
 export function serpExpression(engine) {
-  return `(${collectSerpCandidates.toString()})(${JSON.stringify(engine.serp)}, ${MAX_CANDIDATES_PER_TIER})`
+  const collect = `(${collectSerpCandidates.toString()})(${JSON.stringify(engine.serp)}, ${MAX_CANDIDATES_PER_TIER})`
+  if (!engine.waitFor) return collect
+  return `(async () => {
+    const deadline = Date.now() + ${WAIT_FOR_MS}
+    while (!document.querySelector(${JSON.stringify(engine.waitFor)}) && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, ${WAIT_POLL_MS}))
+    }
+    return ${collect}
+  })()`
 }
 
 function parseHttpUrl(value, base) {
@@ -91,12 +107,16 @@ export function isChallengePage(page, engine) {
 /**
  * Turns what `collectSerpCandidates` returned into results.
  *
- * `challenge` is only raised on an empty page: a result page that merely
- * mentions "captcha" in a snippet is still a result page.
+ * `challenge` is only reported on an empty page: a result page that merely
+ * mentions "captcha" in a snippet is still a result page. Only the anchor
+ * tier is refused on a page that looks like a challenge.
  */
 export function readSerp(page, engine, limit = MAX_RESULTS) {
   const candidates = Array.isArray(page?.candidates) ? page.candidates : []
-  for (const tier of TIERS) {
+  const challenge = isChallengePage(page, engine)
+  for (const tier of engine.tiers ?? TIERS) {
+    // Stray links on a challenge or error page are that page's chrome, not results.
+    if (tier === 'anchor' && challenge) break
     const results = []
     const seen = new Set()
     for (const candidate of candidates) {
@@ -110,5 +130,5 @@ export function readSerp(page, engine, limit = MAX_RESULTS) {
     }
     if (results.length) return { results, tier, challenge: false }
   }
-  return { results: [], tier: null, challenge: isChallengePage(page, engine) }
+  return { results: [], tier: null, challenge }
 }
