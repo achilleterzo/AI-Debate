@@ -5,8 +5,9 @@ import { useUiStrings } from '../i18n/UiStringsContext'
 import { TRANSLATED_LANGUAGE_CODES } from '../i18n/locales'
 import { UPDATE_ERROR, UPDATE_STATUS } from '../services/Updates'
 import { TOOL_SETTINGS } from '../tools/ToolSettings'
-import { MAX_DEBUG_PAYLOAD_TURNS, MIN_DEBUG_PAYLOAD_TURNS, PAGE_BLOCK_STEPS, normalizeDebugPayloadTurns } from '../settings/Settings'
+import { MAX_DEBUG_PAYLOAD_TURNS, MIN_DEBUG_PAYLOAD_TURNS, PAGE_BLOCK_STEPS, SEARCH_ENGINE_IDS, normalizeDebugPayloadTurns } from '../settings/Settings'
 import ProviderSettings from './ProviderSettings'
+import { AUTO_ENGINE_ORDER, AUTO_SEARCH_ENGINE, searchEngineAvailable, searchEngineInfo, searchEngineLabel } from '../../electron/web/engines/catalog.js'
 
 const TABS = ['main', 'ollama', 'promptRules', 'advanced']
 
@@ -29,6 +30,8 @@ export default function PromptSettingsModal({
   onEnabledToolsChange,
   searchApiKey,
   onSearchApiKeyChange,
+  searchEngine,
+  onSearchEngineChange,
   pageBlockKb,
   onPageBlockKbChange,
   debugPayloadTurns,
@@ -63,6 +66,12 @@ export default function PromptSettingsModal({
   // Restoring a notice has no visible effect until the notice next fires, so
   // the button has to say for itself that it did something.
   const [noticesRestored, setNoticesRestored] = useState(false)
+  const hasDesktopBrowser = !!globalThis.window?.desktop?.webSearch
+  const searchEngineOptionLabel = engine => {
+    if (engine === AUTO_SEARCH_ENGINE) return `${ui.searchEngineAuto} (${AUTO_ENGINE_ORDER.map(searchEngineLabel).join(' → ')})`
+    const label = searchEngineLabel(engine)
+    return searchEngineInfo(engine)?.experimental ? `${label} (${ui.searchEngineExperimental})` : label
+  }
   const languageOptions = UI_LANGUAGE_OPTIONS
     .filter(language => TRANSLATED_LANGUAGE_CODES.includes(language.code))
     .map(language => ({ value: language.code, label: language.label, code: language.code }))
@@ -260,6 +269,20 @@ export default function PromptSettingsModal({
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
                   <span style={{ fontSize: 12, color: '#888' }}>{ui.webAccessTitle}</span>
+                  <label style={{ fontSize: 11, color: '#999' }}>{ui.searchEngineLabel}</label>
+                  <select
+                    value={searchEngine ?? 'auto'}
+                    onChange={event => onSearchEngineChange?.(event.target.value)}
+                    disabled={running}
+                    style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 12 }}
+                  >
+                    {SEARCH_ENGINE_IDS.map(engine => (
+                      <option key={engine} value={engine} disabled={!searchEngineAvailable(engine, { desktop: hasDesktopBrowser })}>
+                        {searchEngineOptionLabel(engine)}
+                      </option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.searchEngineHint}</span>
                   <label style={{ fontSize: 11, color: '#999' }}>{ui.searchApiKeyLabel}</label>
                   <input
                     type="password"
