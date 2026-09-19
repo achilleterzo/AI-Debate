@@ -146,6 +146,7 @@ export default {
     webSearch: 'Ricerca web',
     fetchUrl: 'Leggi una pagina web',
     readAttachment: 'Leggi un allegato',
+    viewImage: "Guarda un'immagine (modelli vision)",
     getRecentMessages: 'Messaggi recenti',
     quoteMessage: 'Cita un messaggio',
     requestModeratorIntervention: 'Richiedi intervento del moderatore',

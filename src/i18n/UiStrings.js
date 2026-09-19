@@ -205,6 +205,7 @@ export const UI_STRINGS = {
     webSearch: 'Web search',
     fetchUrl: 'Read a web page',
     readAttachment: 'Read an attachment',
+    viewImage: 'View an image (vision models)',
     getRecentMessages: 'Recent messages',
     quoteMessage: 'Quote a message',
     requestModeratorIntervention: 'Request moderator intervention',
