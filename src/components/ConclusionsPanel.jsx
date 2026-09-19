@@ -8,7 +8,6 @@ import { styles } from './Style'
 export default function ConclusionsPanel({ running, messages, conclusions, wand }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
-  const common = UI_STRINGS.common
   const {
     conclusionType,
     customConclusionPrompt,
@@ -88,15 +87,10 @@ export default function ConclusionsPanel({ running, messages, conclusions, wand 
                   }}
                 />
               )}
-              {/* The model is the one the settings name — the summary model
-                  when one is configured, the general default otherwise — so
-                  this says which it is rather than offering a third choice. */}
-              <div
-                style={{ flex: 1, minWidth: 0, fontSize: 11, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                title={effectiveConclusionModel || common.noModels}
-              >
-                {effectiveConclusionModel || common.noModels}
-              </div>
+              {/* The model comes from the settings — the summary model when one
+                  is configured, the general default otherwise — so the row has
+                  nothing to choose here and only keeps Generate at its end. */}
+              <div style={{ flex: 1 }} />
               <button disabled={isDisabled} onClick={() => {
                 // Only the textarea for the selected type is mounted, so the
                 // other ref is null. Reading both and committing both wrote an

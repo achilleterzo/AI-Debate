@@ -173,7 +173,7 @@ function AppInner({ settings }) {
     providerModelSettings, setProviderModelSettings,
     defaultThinkingLevel, setDefaultThinkingLevel, providerDefaultThinkingLevels,
     enabledTools, setEnabledTools,
-    searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb,
+    searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb, searchEngine, setSearchEngine,
   } = settings
   // The app runs off `models` below, which is this list minus what the
   // provider settings switched off.
@@ -670,32 +670,6 @@ function AppInner({ settings }) {
     setEndpointHistory(Storage.saveEndpointToHistory(normalized))
     setEndpointInput(normalized)
     fetchModels(normalized)
-  }
-
-  const handleSaveEndpoint = async (rawValue) => {
-    if (!activeEndpointModal) return
-    const normalized = (rawValue ?? '').trim().replace(/\/$/, '')
-    if (normalized) setEndpointHistory(Storage.saveEndpointToHistory(normalized))
-    if (activeEndpointModal.target === 'main') {
-      // Connecting is the save here. The modal is pinned open across the
-      // request — the auto-opened one would otherwise vanish the moment the
-      // connection it exists to fix starts working — and it closes once there
-      // is nothing left to do in it: the endpoint answered and the default
-      // model is one it serves. Anything else keeps it open on the refreshed
-      // list, which is what the model gets picked from.
-      if (!normalized) return
-      setEndpointInput(normalized)
-      setEndpointModal({ target: 'main', initialValue: normalized })
-      const list = await fetchModels(normalized)
-      if (defaultModel && list?.includes(defaultModel)) setEndpointModal(null)
-      return
-    }
-    if (activeEndpointModal.target === 'summary') {
-      setSummaryEndpointOverride(normalized)
-    } else {
-      setParticipants(prev => prev.map((p, i) => i === activeEndpointModal.idx ? { ...p, endpointOverride: normalized } : p))
-    }
-    setEndpointModal(null)
   }
 
   const handleAddParticipantConstraint = (idx) => {
@@ -1532,13 +1506,11 @@ function AppInner({ settings }) {
         endpointModal={activeEndpointModal}
         scopedProviderSettings={participantProviderSettings ?? summaryProviderSettings}
         onCloseEndpointModal={handleCloseEndpointModal}
-        onConfirmEndpoint={handleSaveEndpoint}
         customLangModal={customLangModal}
         onCloseCustomLangModal={() => setCustomLangModal(null)}
         onConfirmCustomLang={handleSaveCustomLang}
         endpointHistory={endpointHistory}
         onDeleteEndpointHistoryEntry={entry => setEndpointHistory(Storage.deleteEndpointFromHistory(entry))}
-        models={models}
         defaultModel={defaultModel}
         onDefaultModelChange={setDefaultModel}
         defaultThinkingLevel={defaultThinkingLevel}
@@ -1570,6 +1542,8 @@ function AppInner({ settings }) {
         onEnabledToolsChange={setEnabledTools}
         searchApiKey={searchApiKey}
         onSearchApiKeyChange={setSearchApiKey}
+        searchEngine={searchEngine}
+        onSearchEngineChange={setSearchEngine}
         pageBlockKb={pageBlockKb}
         onPageBlockKbChange={setPageBlockKb}
         endpointInput={endpointInput}

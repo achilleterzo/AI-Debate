@@ -25,6 +25,7 @@ export default function HeaderTop({
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.app
+  const canShowWebBrowser = !!globalThis.window?.desktop?.webBrowserShow
 
   // Unreachable is the state that needs to shout: it is the one the user has to
   // act on, and the action is one click away on this very button.
@@ -59,6 +60,22 @@ export default function HeaderTop({
       <span style={{ ...styles.title, textAlign: 'center' }}>{ui.debateTitle}</span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+        {/* Desktop only: web_search and fetch_url run in one hidden Chromium
+            window, and this puts it on screen at whatever page it is on. */}
+        {canShowWebBrowser && (
+          <button
+            onClick={() => window.desktop.webBrowserShow()}
+            title={ui.showWebBrowser}
+            aria-label={ui.showWebBrowser}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', padding: '0 2px', lineHeight: 1, display: 'flex', alignItems: 'center' }}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+          </button>
+        )}
         {/* The status light doubles as the way into the endpoint settings: it is
             the thing you look at when the connection misbehaves. Every state
             carries its own words — a bare red dot says something is wrong

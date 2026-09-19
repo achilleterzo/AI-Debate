@@ -3,7 +3,7 @@ import { Debate } from '../debate/Debate'
 /**
  * The five native reasoning levels as select options.
  *
- * Shared by the general default in the connection modal and the per-participant
+ * Shared by the provider default in the AI Providers dialog and the per-participant
  * picker so the two always offer the same list, labelled the same way.
  */
 export function thinkingLevelOptions(participantsUi) {

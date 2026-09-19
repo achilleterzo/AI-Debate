@@ -1,6 +1,5 @@
 import PayloadModalView from './PayloadModal'
 import ConstraintModalView from './ConstraintModal'
-import EndpointModalView from './EndpointModal'
 import CustomLanguageModalView from './CustomLanguageModal'
 import PromptSettingsModalView from './PromptSettingsModal'
 import ConfirmModalView from './ConfirmModal'
@@ -18,13 +17,11 @@ export default function AppModals({
   wand = null,
   endpointModal,
   onCloseEndpointModal,
-  onConfirmEndpoint,
   customLangModal,
   onCloseCustomLangModal,
   onConfirmCustomLang,
   endpointHistory = [],
   onDeleteEndpointHistoryEntry,
-  models = [],
   defaultModel,
   onDefaultModelChange,
   defaultThinkingLevel,
@@ -53,6 +50,8 @@ export default function AppModals({
   onEnabledToolsChange,
   searchApiKey,
   onSearchApiKeyChange,
+  searchEngine,
+  onSearchEngineChange,
   pageBlockKb,
   onPageBlockKbChange,
   debugPayloadTurns,
@@ -127,24 +126,6 @@ export default function AppModals({
           {...scopedProviderSettings}
         />
       )}
-      {endpointModal && !scopedProviderSettings && endpointModal.target !== 'main' && (
-        <EndpointModalView
-          state={endpointModal}
-          onClose={onCloseEndpointModal}
-          onConfirm={onConfirmEndpoint}
-          history={endpointHistory}
-          onDeleteHistoryEntry={onDeleteEndpointHistoryEntry}
-          models={models}
-          defaultModel={defaultModel}
-          onDefaultModelChange={onDefaultModelChange}
-          defaultThinkingLevel={defaultThinkingLevel}
-          onDefaultThinkingLevelChange={onDefaultThinkingLevelChange}
-          connecting={connecting}
-          connectError={connectError}
-          ollamaOk={ollamaOk}
-          disabled={running}
-        />
-      )}
       {promptSettingsModal && (
         <PromptSettingsModalView
           value={generalPersonalityInstructions}
@@ -165,6 +146,8 @@ export default function AppModals({
           onEnabledToolsChange={onEnabledToolsChange}
           searchApiKey={searchApiKey}
           onSearchApiKeyChange={onSearchApiKeyChange}
+          searchEngine={searchEngine}
+          onSearchEngineChange={onSearchEngineChange}
           pageBlockKb={pageBlockKb}
           onPageBlockKbChange={onPageBlockKbChange}
           debugPayloadTurns={debugPayloadTurns}
