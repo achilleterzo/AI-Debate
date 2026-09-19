@@ -35,6 +35,7 @@ const TOOL_ARGUMENT_SHAPES = {
   // object is not a call — `matchesShape` rejects it — but a typed
   // `read_attachment` by name is still recognised through KNOWN_TOOL_NAMES.
   read_attachment: { properties: ['name', 'page'], required: [] },
+  view_image: { properties: ['source'], required: ['source'] },
   get_recent_messages: { properties: ['limit', 'participantTags', 'searchTerm'], required: ['limit'] },
   quote_message: { properties: ['messageId', 'excerpt'], required: ['messageId'] },
   request_moderator_intervention: { properties: ['reason'], required: ['reason'] },

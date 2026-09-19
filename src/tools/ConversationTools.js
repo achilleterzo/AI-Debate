@@ -87,7 +87,7 @@ export function formatRecentMessages(messages = [], { limit = 10, participantTag
   return JSON.stringify({ messages: eligible })
 }
 
-export function createConversationToolExecutor({ getMessages, requestModeratorIntervention, applyModeration, rollDice, memory, quote, readAttachment }) {
+export function createConversationToolExecutor({ getMessages, requestModeratorIntervention, applyModeration, rollDice, memory, quote, readAttachment, viewImage }) {
   return async (name, args = {}) => {
     if (name === GET_RECENT_MESSAGES_TOOL.function.name) {
       return formatRecentMessages(getMessages?.() || [], args)
@@ -95,6 +95,11 @@ export function createConversationToolExecutor({ getMessages, requestModeratorIn
     if (name === 'read_attachment') {
       const result = await readAttachment?.(args)
       return result ?? JSON.stringify({ attachments: [], note: 'No documents are attached to this debate.' })
+    }
+    if (name === 'view_image') {
+      // `{ content, images }`: Stream.js puts the picture next to the result.
+      const result = await viewImage?.(args)
+      return result ?? JSON.stringify({ error: 'Viewing images is not available.' })
     }
     if (name === 'quote_message') {
       const result = await quote?.(args)
