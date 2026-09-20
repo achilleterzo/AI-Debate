@@ -68,6 +68,15 @@ jobs:
             exit 0
           fi
 
+          # Bump from the newest released tag, not from package.json. A run
+          # that pushed its release commit and then failed to build leaves
+          # package.json ahead of everything actually released, and bumping
+          # that would keep drifting further from the tags on every manual run.
+          latest_tag="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
+          if [ -n "$latest_tag" ]; then
+            npm version "${latest_tag#v}" --no-git-tag-version --no-commit-hooks --allow-same-version >/dev/null
+          fi
+
           npm version "$bump" --no-git-tag-version --no-commit-hooks >/dev/null
           new_version="v$(node -p "require('./package.json').version")"
 
