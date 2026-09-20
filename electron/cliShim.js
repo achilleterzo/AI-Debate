@@ -22,8 +22,13 @@ export function resolveWindowsShim(command, { nodePath = process.execPath } = {}
   try { script = fs.readFileSync(command, 'utf8') } catch { return null }
   const directory = path.dirname(command)
   // `%dp0%` and `%~dp0` both stand for the shim's own folder, with or without
-  // the separator the shim then adds itself.
-  const expand = value => value.replace(/%~?dp0%?\\?/gi, `${directory}${path.sep}`)
+  // the separator the shim then adds itself. A shim is written in Windows
+  // notation throughout, so the separators between its own segments are
+  // backslashes too — on a POSIX filesystem nothing else would turn those into
+  // a path that exists.
+  const expand = value => value
+    .replace(/%~?dp0%?\\?/gi, `${directory}${path.sep}`)
+    .replaceAll('\\', path.sep)
   const targets = [...script.matchAll(/"([^"\r\n]+\.(?:exe|js|cjs|mjs))"/gi)]
     .map(match => { try { return path.normalize(expand(match[1])) } catch { return '' } })
     .filter(target => target && fs.existsSync(target))
