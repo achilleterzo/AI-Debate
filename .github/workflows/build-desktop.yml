@@ -141,7 +141,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: |
           rm -rf release
-          npm run build:desktop:ci -- ${{ matrix.build_args }} --publish never
+          npm run build:desktop:ci -- ${{ matrix.build_args }}
 
       - name: Upload desktop artifact
         uses: actions/upload-artifact@v6
