@@ -1421,13 +1421,38 @@ export class Debate {
       return Array.isArray(queued) ? queued : (queued ? [queued] : [])
     }
 
+    // Streaming callbacks fire once per network chunk, and each push to React
+    // re-renders the whole timeline. A fast model on a long transcript asks
+    // for more of those than a frame can pay for, and the renderer stops
+    // keeping up. `history` below stays exact and synchronous — it is what the
+    // turn reads back from — while the push to React is coalesced, so the
+    // update rate no longer follows the token rate.
+    const STREAM_SYNC_INTERVAL_MS = 60
+    let pendingSync = null
+
     const syncHistory = () => {
+      if (pendingSync) {
+        clearTimeout(pendingSync)
+        pendingSync = null
+      }
       const nextHistory = queuedInterjections().reduce(
         (currentHistory, interjection) => Debate.appendInterjection(currentHistory, interjection),
         history,
       )
       setMessages(() => nextHistory)
     }
+
+    /** Streaming text: show it soon, not once per chunk. */
+    const queueHistorySync = () => {
+      if (pendingSync) return
+      pendingSync = setTimeout(() => {
+        pendingSync = null
+        syncHistory()
+      }, STREAM_SYNC_INTERVAL_MS)
+    }
+
+    /** Leaves nothing waiting on a timer once there is no more streaming. */
+    const flushHistorySync = () => { if (pendingSync) syncHistory() }
 
     const consumeQueuedInterjection = () => {
       const queued = queuedInterjections()
@@ -2017,12 +2042,12 @@ export class Debate {
               history = history.map(message => message.seq === activeMessageSeq
                 ? { ...message, thinking }
                 : message)
-              syncHistory()
+              queueHistorySync()
             },
             ...transportCallbacks(debugMode ? debugPayloads : null),
             onToken: text => {
               history = history.map(message => message.seq === activeMessageSeq ? { ...message, content: text } : message)
-               syncHistory()
+              queueHistorySync()
             },
             timeoutMs,
           })
@@ -2171,7 +2196,7 @@ export class Debate {
                 onToken: token => {
                   rewrite = token
                   history = history.map(message => message.seq === rewriteMessageSeq ? { ...message, content: token } : message)
-                  syncHistory()
+                  queueHistorySync()
                 },
               })
               if (rewrite.trim() && Debate.isModerationDirectiveStyle(rewrite)) {
@@ -2258,6 +2283,10 @@ export class Debate {
       turnRef.current = { round, step: 0 }
     }
 
+    // A run that ends between two coalesced updates — a stop, or simply the
+    // last chunk of the last turn — must not leave the final text waiting on
+    // a timer that outlives it.
+    flushHistorySync()
     setStreamingRole(null)
     setStreamingSeq(null)
     setStopping(false)
