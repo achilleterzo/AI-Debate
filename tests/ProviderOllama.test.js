@@ -1,8 +1,10 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { ollamaProvider } from '../src/providers/ollama'
-import { getProvider, DEFAULT_PROVIDER_ID } from '../src/providers/index'
+import { configureProviderOptions, getProvider, getProviderOptions, DEFAULT_PROVIDER_ID } from '../src/providers/index'
+import { streamChat } from '../src/debate/Stream.js'
 
 afterEach(() => {
+  configureProviderOptions({})
   vi.unstubAllGlobals()
 })
 
@@ -192,5 +194,42 @@ describe('ollamaProvider.health', () => {
   it('swallows network failures rather than throwing', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
     await expect(ollamaProvider.health('http://x')).resolves.toBe(false)
+  })
+})
+
+describe('the generation parameters the user configured', () => {
+  it('are sent in the Ollama shape, and only where set', () => {
+    const body = ollamaProvider.buildChatRequest({
+      baseUrl: 'http://x',
+      model: 'llama3',
+      messages: [],
+      options: { temperature: 0.4, numCtx: 8192, keepAlive: '10m' },
+    }).body
+    expect(body.options).toEqual({ num_ctx: 8192, temperature: 0.4 })
+    expect(body.keep_alive).toBe('10m')
+    // A plain number is a count of seconds, which the API takes as a number.
+    expect(ollamaProvider.buildChatRequest({ baseUrl: 'http://x', model: 'llama3', messages: [], options: { keepAlive: '-1' } }).body.keep_alive).toBe(-1)
+    const bare = ollamaProvider.buildChatRequest({ baseUrl: 'http://x', model: 'llama3', messages: [] }).body
+    expect(bare).not.toHaveProperty('options')
+    expect(bare).not.toHaveProperty('keep_alive')
+  })
+
+  it('reach the request of the provider that is running the turn', async () => {
+    configureProviderOptions({ ollama: { temperature: 0.2 }, gemini: { temperature: 1.5 } })
+    expect(getProviderOptions('gemini')).toEqual({ temperature: 1.5 })
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      body: { getReader: () => ({ read: async () => ({ done: true, value: undefined }) }) },
+    })))
+    let payload
+    await streamChat({
+      baseUrl: 'http://x',
+      model: 'llama3',
+      messages: [{ role: 'user', content: 'Hello' }],
+      provider: { ...ollamaProvider, supportsTools: async () => false, supportsThinking: async () => false },
+      onToken: () => {},
+      onPayload: value => { payload = value },
+    })
+    expect(payload.body.options).toEqual({ temperature: 0.2 })
   })
 })

@@ -11,6 +11,8 @@ import {
   normalizeModeratorPermissiveness,
   normalizeDisabledModels,
   normalizeProviderModelSettings,
+  providerRequestOptions,
+  providerThinkingLevelOptions,
   normalizeProviderModelCache,
   providerThinkingLevels,
   DEFAULT_SEARCH_ENGINE,
@@ -43,12 +45,32 @@ describe('normalizeProviderModelSettings', () => {
   it('keeps separate defaults and disabled models for every supported provider', () => {
     expect(normalizeProviderModelSettings({
       ollama: { defaultModel: ' llama3 ', disabledModels: ['old', 'old'] },
-      openai: { defaultModel: 'gpt-5', disabledModels: ['mini'] },
+      gemini: { defaultModel: 'gemini-3-pro', disabledModels: ['mini'] },
       unsupported: { defaultModel: 'ignored', disabledModels: [] },
     })).toEqual({
-      ollama: { defaultModel: 'llama3', disabledModels: ['old'] },
-      openai: { defaultModel: 'gpt-5', disabledModels: ['mini'] },
+      ollama: { defaultModel: 'llama3', disabledModels: ['old'], options: { temperature: '', numPredict: '', numCtx: '', keepAlive: '' } },
+      gemini: { defaultModel: 'gemini-3-pro', disabledModels: ['mini'], options: { temperature: '', numPredict: '' } },
     })
+  })
+
+  it('reads a provider saved under its former id', () => {
+    const normalized = normalizeProviderModelSettings({ openai: { defaultModel: 'gpt-5-codex', disabledModels: [] } })
+    expect(normalized.codex).toMatchObject({ defaultModel: 'gpt-5-codex' })
+    expect(normalized).not.toHaveProperty('openai')
+  })
+
+  it('keeps the generation parameters within what the provider accepts', () => {
+    const normalized = normalizeProviderModelSettings({
+      ollama: { defaultModel: '', disabledModels: [], options: { temperature: 9, numPredict: '2048', numCtx: 1, keepAlive: '10m', sandbox: 'danger-full-access' } },
+      codex: { defaultModel: '', disabledModels: [], options: { sandbox: 'workspace-write', temperature: 1 } },
+    })
+    expect(normalized.ollama.options).toEqual({ temperature: 2, numPredict: 2048, numCtx: 512, keepAlive: '10m' })
+    expect(normalized.codex.options).toEqual({ sandbox: 'workspace-write' })
+  })
+
+  it('sends only the parameters that were set', () => {
+    expect(providerRequestOptions('ollama', { temperature: 0.4, numPredict: '', numCtx: null, keepAlive: '5m' }))
+      .toEqual({ temperature: 0.4, keepAlive: '5m' })
   })
 
   it('rejects malformed provider settings', () => {
@@ -97,23 +119,35 @@ describe('debug payload retention', () => {
 describe('per-provider reasoning defaults', () => {
   it('keeps a valid level per provider and drops an invalid one', () => {
     const normalized = normalizeProviderModelSettings({
-      openai: { defaultModel: 'gpt-test', disabledModels: [], defaultThinkingLevel: 'high' },
+      codex: { defaultModel: 'gpt-test', disabledModels: [], defaultThinkingLevel: 'high' },
       claude: { defaultModel: 'sonnet', disabledModels: [], defaultThinkingLevel: 'extreme' },
     })
-    expect(normalized.openai.defaultThinkingLevel).toBe('high')
+    expect(normalized.codex.defaultThinkingLevel).toBe('high')
     expect(normalized.claude).not.toHaveProperty('defaultThinkingLevel')
   })
 
+  it('brings a level the provider does not offer down to its highest', () => {
+    const normalized = normalizeProviderModelSettings({
+      gemini: { defaultModel: '', disabledModels: [], defaultThinkingLevel: 'max' },
+      claude: { defaultModel: '', disabledModels: [], defaultThinkingLevel: 'max' },
+    })
+    expect(normalized.gemini.defaultThinkingLevel).toBe('high')
+    expect(normalized.claude.defaultThinkingLevel).toBe('max')
+    expect(providerThinkingLevelOptions('openrouter')).toEqual(['none', 'low', 'medium', 'high'])
+  })
+
   it('fills providers without a level from the fallback', () => {
-    const levels = providerThinkingLevels({ openai: { defaultThinkingLevel: 'max' } }, 'low')
-    expect(levels).toMatchObject({ openai: 'max', claude: 'low', ollama: 'low', 'ollama-cloud': 'low' })
+    const levels = providerThinkingLevels({ codex: { defaultThinkingLevel: 'max' } }, 'low')
+    expect(levels).toMatchObject({ codex: 'max', claude: 'low', ollama: 'low', 'ollama-cloud': 'low', openrouter: 'low', gemini: 'low' })
   })
 })
 
 describe('normalizeProviderModelCache', () => {
   it('keeps known providers with clean, unique model names', () => {
-    expect(normalizeProviderModelCache({ openai: ['gpt-a', ' gpt-a ', '', 'gpt-b'], nope: ['x'], claude: 'sonnet' }))
-      .toEqual({ openai: ['gpt-a', 'gpt-b'] })
+    expect(normalizeProviderModelCache({ codex: ['gpt-a', ' gpt-a ', '', 'gpt-b'], nope: ['x'], claude: 'sonnet' }))
+      .toEqual({ codex: ['gpt-a', 'gpt-b'] })
+    // A cache written before the Codex client was renamed is still read.
+    expect(normalizeProviderModelCache({ openai: ['gpt-5-codex'] })).toEqual({ codex: ['gpt-5-codex'] })
     expect(normalizeProviderModelCache(null)).toEqual({})
   })
 })

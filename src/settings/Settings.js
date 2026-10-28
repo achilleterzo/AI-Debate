@@ -37,7 +37,26 @@ export const DEBUG_MODE_STORAGE_KEY = 'debugMode'
  * later is available without having to be enabled first.
  */
 export const DEFAULT_DISABLED_MODELS = []
-export const MODEL_PROVIDER_IDS = ['ollama', 'ollama-cloud', 'openai', 'claude']
+export const MODEL_PROVIDER_IDS = ['ollama', 'ollama-cloud', 'openrouter', 'gemini', 'codex', 'claude']
+
+/** The providers whose API key the app stores, encrypted, for the user. */
+export const KEY_PROVIDER_IDS = ['ollama-cloud', 'openrouter', 'gemini']
+
+/**
+ * Provider ids as they were once written, and what they are called now.
+ *
+ * The Codex client was filed under the vendor's name before OpenRouter and
+ * Gemini arrived and made "OpenAI" ambiguous. Saved settings, saved sessions
+ * and exported files all carry the old id, so it is translated on the way in
+ * rather than left to resolve to no provider at all.
+ */
+const LEGACY_PROVIDER_IDS = { openai: 'codex' }
+
+export function normalizeProviderId(raw) {
+  const id = String(raw ?? '').trim()
+  const current = LEGACY_PROVIDER_IDS[id] ?? id
+  return MODEL_PROVIDER_IDS.includes(current) ? current : ''
+}
 
 export function normalizeDisabledModels(raw) {
   if (!Array.isArray(raw)) return []
@@ -56,6 +75,101 @@ export function normalizeDisabledModels(raw) {
 export const PROVIDER_THINKING_LEVELS = ['none', 'low', 'medium', 'high', 'max']
 
 /**
+ * The levels each provider actually accepts, in the app's own vocabulary.
+ *
+ * Asking for a level a provider has no name for is not a softer request, it is
+ * a rejected one: the hosted OpenAI-compatible APIs stop at `high`, Ollama has
+ * no step above it either, and only the coding clients reason harder than that
+ * — Claude up to `max`, Codex to the effort it calls `xhigh`. Claude has no
+ * way to switch reasoning off through its client, so `none` there is simply
+ * the least it will do.
+ */
+export const PROVIDER_THINKING_LEVEL_OPTIONS = {
+  ollama: ['none', 'low', 'medium', 'high'],
+  'ollama-cloud': ['none', 'low', 'medium', 'high'],
+  openrouter: ['none', 'low', 'medium', 'high'],
+  gemini: ['none', 'low', 'medium', 'high'],
+  codex: ['none', 'low', 'medium', 'high', 'max'],
+  claude: ['none', 'low', 'medium', 'high', 'max'],
+}
+
+export function providerThinkingLevelOptions(providerId) {
+  return PROVIDER_THINKING_LEVEL_OPTIONS[providerId] ?? PROVIDER_THINKING_LEVELS
+}
+
+/**
+ * The nearest level the provider offers. A level it does not have falls to the
+ * highest one it does, so a participant carried over from another provider
+ * keeps asking for as much reasoning as that provider can give.
+ */
+export function clampThinkingLevel(providerId, level) {
+  const options = providerThinkingLevelOptions(providerId)
+  if (options.includes(level)) return level
+  const wanted = PROVIDER_THINKING_LEVELS.indexOf(level)
+  if (wanted < 0) return options[0]
+  return [...options].reverse().find(option => PROVIDER_THINKING_LEVELS.indexOf(option) <= wanted) ?? options[0]
+}
+
+/**
+ * Generation parameters, per provider, in the app's own names.
+ *
+ * Every one of them is optional and empty means "whatever the model does by
+ * itself" — the same as not sending the field at all, which is what the
+ * providers do with it. They are stored per provider because none of them is
+ * portable: a context window that fits a local model is not the one a hosted
+ * frontier model wants, and only Ollama can be asked to keep a model loaded.
+ */
+export const PROVIDER_OPTION_FIELDS = {
+  ollama: ['temperature', 'numPredict', 'numCtx', 'keepAlive'],
+  'ollama-cloud': ['temperature', 'numPredict', 'numCtx'],
+  openrouter: ['temperature', 'numPredict'],
+  gemini: ['temperature', 'numPredict'],
+  codex: ['sandbox'],
+  claude: [],
+}
+
+export const CODEX_SANDBOXES = ['read-only', 'workspace-write', 'danger-full-access']
+export const DEFAULT_CODEX_SANDBOX = 'read-only'
+
+const OPTION_RANGES = {
+  temperature: { min: 0, max: 2, whole: false },
+  numPredict: { min: 1, max: 131072, whole: true },
+  numCtx: { min: 512, max: 1048576, whole: true },
+}
+
+function normalizeOptionNumber(field, raw) {
+  const range = OPTION_RANGES[field]
+  if (raw === '' || raw == null) return ''
+  const value = range.whole ? Math.round(Number(raw)) : Number(raw)
+  if (!Number.isFinite(value)) return ''
+  return Math.min(range.max, Math.max(range.min, value))
+}
+
+/** `30s`, `10m`, `-1` to keep it loaded, `0` to unload at once — or empty. */
+function normalizeKeepAlive(raw) {
+  const value = String(raw ?? '').trim()
+  return /^-?\d+(?:[smh])?$/.test(value) ? value : ''
+}
+
+export function normalizeProviderOptions(providerId, raw) {
+  const fields = PROVIDER_OPTION_FIELDS[providerId] ?? []
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  return Object.fromEntries(fields.map(field => {
+    if (field === 'keepAlive') return [field, normalizeKeepAlive(source[field])]
+    if (field === 'sandbox') return [field, CODEX_SANDBOXES.includes(source[field]) ? source[field] : DEFAULT_CODEX_SANDBOX]
+    return [field, normalizeOptionNumber(field, source[field])]
+  }))
+}
+
+/**
+ * The options as a request carries them: only what was actually set, so an
+ * empty field stays absent rather than being sent as a zero.
+ */
+export function providerRequestOptions(providerId, options) {
+  return Object.fromEntries(Object.entries(normalizeProviderOptions(providerId, options)).filter(([, value]) => value !== '' && value != null))
+}
+
+/**
  * Per provider: the default model, the models switched off, and the reasoning
  * level participants on that provider follow unless they picked their own.
  *
@@ -67,13 +181,23 @@ export const PROVIDER_THINKING_LEVELS = ['none', 'low', 'medium', 'high', 'max']
  */
 export function normalizeProviderModelSettings(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  // Entries saved under a provider's former id are read under its current one;
+  // an entry already saved under the current id is the one that wins.
+  const byProvider = {}
+  for (const [savedId, entry] of Object.entries(raw)) {
+    const providerId = normalizeProviderId(savedId)
+    if (providerId && !(savedId !== providerId && byProvider[providerId])) byProvider[providerId] = entry
+  }
   return Object.fromEntries(MODEL_PROVIDER_IDS.flatMap(providerId => {
-    const entry = raw[providerId]
+    const entry = byProvider[providerId]
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
     return [[providerId, {
       defaultModel: String(entry.defaultModel ?? '').trim(),
       disabledModels: normalizeDisabledModels(entry.disabledModels),
-      ...(PROVIDER_THINKING_LEVELS.includes(entry.defaultThinkingLevel) ? { defaultThinkingLevel: entry.defaultThinkingLevel } : {}),
+      options: normalizeProviderOptions(providerId, entry.options),
+      ...(PROVIDER_THINKING_LEVELS.includes(entry.defaultThinkingLevel)
+        ? { defaultThinkingLevel: clampThinkingLevel(providerId, entry.defaultThinkingLevel) }
+        : {}),
     }]]
   }))
 }
@@ -98,8 +222,13 @@ export const PROVIDER_MODEL_CACHE_STORAGE_KEY = 'providerModelCache'
 
 export function normalizeProviderModelCache(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const byProvider = {}
+  for (const [savedId, list] of Object.entries(raw)) {
+    const providerId = normalizeProviderId(savedId)
+    if (providerId && !(savedId !== providerId && byProvider[providerId])) byProvider[providerId] = list
+  }
   return Object.fromEntries(MODEL_PROVIDER_IDS.flatMap(providerId => {
-    const list = raw[providerId]
+    const list = byProvider[providerId]
     if (!Array.isArray(list)) return []
     return [[providerId, [...new Set(list.map(entry => String(entry ?? '').trim()).filter(Boolean))]]]
   }))

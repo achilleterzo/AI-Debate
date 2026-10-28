@@ -1,5 +1,5 @@
 import { Web } from '../services/Web'
-import { getProvider } from '../providers/index.js'
+import { getProvider, getProviderOptions } from '../providers/index.js'
 import { stripPromptScaffolding } from '../prompts/PromptTags'
 import { extractLeakedReasoning, stripLeakedReasoning } from '../prompts/ReasoningLeak'
 import { extractPseudoToolCalls, stripPseudoToolCalls } from '../prompts/PseudoToolCalls'
@@ -348,6 +348,9 @@ export async function streamChat({
   onToolRound = null,
   onThinking = null,
   think = true,
+  // The participant's own temperature, when it has one; it replaces the
+  // provider-wide setting for this request only.
+  temperature = null,
   provider = getProvider(),
   // What this request is for, in the console. Turns, round summaries and
   // attachment summaries all logged the same `[provider] model` line, which
@@ -433,6 +436,12 @@ export async function streamChat({
       // chat templates it reads as "tools exist" — enough to get a pseudo-call.
       tools: wantsTools && tools?.length ? tools : null,
       think: thinkLevel,
+      // The generation parameters configured for this provider. Read here
+      // rather than passed in: every turn of a debate may run on a different
+      // provider, and each carries its own.
+      options: temperature != null
+        ? { ...getProviderOptions(provider.id), temperature }
+        : getProviderOptions(provider.id),
     })
     const debugHeaders = Object.fromEntries(Object.entries(request.headers || {}).map(([name, value]) => [
       name,
