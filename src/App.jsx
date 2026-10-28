@@ -27,7 +27,8 @@ import ScrollToBottomButton from './components/ScrollToBottomButton'
 import SummaryProgressBadge from './components/SummaryProgressBadge'
 import { PALETTE } from './dataset/Palette'
 import { MOODS } from './prompts/Moods'
-import { DEBATE_MODE_OPTIONS } from './prompts/Modes'
+import { DEBATE_MODE_OPTIONS, findDebateMode, resolveModeSettings } from './prompts/Modes'
+import { updateModeEntry } from './prompts/ModeEditing'
 import { RESPONSE_LENGTHS } from './prompts/ResponseLengths'
 import { CHARACTER_TYPES } from './dataset/CharacterTypes'
 import { EDUCATION_LEVELS } from './prompts/EducationLevels'
@@ -37,7 +38,7 @@ import { useUiStrings } from './i18n/UiStringsContext'
 import { UiStringsProvider } from './i18n/UiStringsProvider'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from './prompts/DefaultGeneralPersonalityInstructions'
 import { isCustomOutputLanguage } from './prompts/LanguagePrompt'
-import { DEFAULT_URL } from './settings/Settings'
+import { DEFAULT_URL, KEY_PROVIDER_IDS, providerRequestOptions } from './settings/Settings'
 import { formatMoodOption, GlobalStyles, moodSelectStyles, styles } from './components/Style'
 import { Debate } from './debate/Debate'
 import { useDebateController } from './debate/DebateController'
@@ -45,6 +46,7 @@ import { useSnapshots } from './hooks/useSnapshots'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
 import { useMagicWand } from './hooks/useMagicWand'
 import { useDebateWizard } from './hooks/useDebateWizard'
+import { useModeGenerator } from './hooks/useModeGenerator'
 import { useConclusions } from './hooks/useConclusions'
 import { SUMMARY_ENDPOINT_ID, useEndpointStatuses } from './hooks/useEndpointStatuses'
 import { useModelCapabilities } from './hooks/useModelCapabilities'
@@ -54,8 +56,8 @@ import { useTopicComposer } from './hooks/useTopicComposer'
 import { useAppSettings, usePersistedAppSettings } from './hooks/useAppSettings'
 import { useAttachments } from './hooks/useAttachments'
 import { CONCLUSION_TYPES } from './prompts/ConclusionTypes'
-import { setActiveProviderId } from './providers/index.js'
-import { configureOllamaCloud } from './providers/ollamaCloud.js'
+import { configureProviderOptions, setActiveProviderId } from './providers/index.js'
+import { configureHostedKey } from './providers/hosted.js'
 import { isImageFileName } from './services/Images'
 
 // A provider not listed yet: one shared array, so the memos below stay put.
@@ -128,13 +130,6 @@ function AppInner({ settings }) {
     })),
     [UI_STRINGS],
   )
-  const localizedModeOptions = useMemo(
-    () => DEBATE_MODE_OPTIONS.map(option => ({
-      ...option,
-      label: UI_STRINGS.modes[option.value] ?? option.value,
-    })),
-    [UI_STRINGS],
-  )
   const common = UI_STRINGS.common
   const ui = UI_STRINGS.app
   const topMenuUi = UI_STRINGS.topMenu
@@ -157,10 +152,11 @@ function AppInner({ settings }) {
   const { attachedDocs, inputRef: docInputRef, addFiles, removeAttachment } = useAttachments()
   const {
     saved, endpointInput, setEndpointInput, baseUrl, setBaseUrl, providerId, setProviderId, participants, setParticipants,
-    globalConstraints, setGlobalConstraints, generalPersonalityInstructions, setGeneralPersonalityInstructions, debateMode, setDebateMode,
-    maxTurns, setMaxTurns, useSummary, setUseSummary,
-    dynamicAffinity, setDynamicAffinity, randomTurnOrder, setRandomTurnOrder,
-    moderationCooling, setModerationCooling,
+    globalConstraints, setGlobalConstraints, generalPersonalityInstructions: basePersonalityInstructions, setGeneralPersonalityInstructions, debateMode, setDebateMode,
+    maxTurns: baseMaxTurns, setMaxTurns: setBaseMaxTurns, useSummary: baseUseSummary, setUseSummary: setBaseUseSummary,
+    dynamicAffinity: baseDynamicAffinity, setDynamicAffinity: setBaseDynamicAffinity, randomTurnOrder: baseRandomTurnOrder, setRandomTurnOrder: setBaseRandomTurnOrder,
+    moderationCooling: baseModerationCooling, setModerationCooling: setBaseModerationCooling,
+    modesConfig, setModesConfig, appearance, setAppearance,
     summaryModelEnabled, setSummaryModelEnabled,
     summaryModelOverride, setSummaryModelOverride,
     summaryProviderId, setSummaryProviderId,
@@ -173,9 +169,46 @@ function AppInner({ settings }) {
     disabledModels, setDisabledModels,
     providerModelSettings, setProviderModelSettings,
     defaultThinkingLevel, setDefaultThinkingLevel, providerDefaultThinkingLevels,
-    enabledTools, setEnabledTools,
+    providerOptions, setProviderOptions, providerOptionsById,
+    enabledTools: baseEnabledTools, setEnabledTools,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb, searchEngine, setSearchEngine,
   } = settings
+  // The active mode may replace some of the general settings. A debate runs on
+  // the resolved values; a control that shows one of them edits whichever
+  // layer is in effect, so changing the rounds under a mode that sets its own
+  // rounds changes that mode's rounds and not an unrelated general value.
+  const modeSettings = useMemo(() => resolveModeSettings({
+    maxTurns: baseMaxTurns,
+    useSummary: baseUseSummary,
+    dynamicAffinity: baseDynamicAffinity,
+    randomTurnOrder: baseRandomTurnOrder,
+    moderationCooling: baseModerationCooling,
+    enabledTools: baseEnabledTools,
+    generalPersonalityInstructions: basePersonalityInstructions,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, debateMode), [baseMaxTurns, baseUseSummary, baseDynamicAffinity, baseRandomTurnOrder, baseModerationCooling, baseEnabledTools, basePersonalityInstructions, debateMode, modesConfig])
+  const { maxTurns, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, enabledTools, generalPersonalityInstructions } = modeSettings
+  // The options are rebuilt in place when the mode list changes, so the
+  // configuration is what tells React the list is new.
+  const localizedModeOptions = useMemo(
+    () => DEBATE_MODE_OPTIONS.map(option => ({
+      ...option,
+      label: option.name ?? UI_STRINGS.modes[option.value] ?? option.label,
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [UI_STRINGS, modesConfig],
+  )
+  const modeSettingSetter = (key, setBase) => value => {
+    if (!modeSettings.overridden.includes(key)) { setBase(value); return }
+    const current = findDebateMode(debateMode).settings
+    const next = typeof value === 'function' ? value(current[key]) : value
+    setModesConfig(config => updateModeEntry(config, debateMode, { settings: { ...config.find(entry => entry.id === debateMode)?.settings, [key]: next } }))
+  }
+  const setMaxTurns = modeSettingSetter('maxTurns', setBaseMaxTurns)
+  const setUseSummary = modeSettingSetter('useSummary', setBaseUseSummary)
+  const setDynamicAffinity = modeSettingSetter('dynamicAffinity', setBaseDynamicAffinity)
+  const setRandomTurnOrder = modeSettingSetter('randomTurnOrder', setBaseRandomTurnOrder)
+  const setModerationCooling = modeSettingSetter('moderationCooling', setBaseModerationCooling)
   // The app runs off `models` below, which is this list minus what the
   // provider settings switched off.
   const availableModels = providerModels[providerId] ?? NO_MODELS
@@ -214,16 +247,26 @@ function AppInner({ settings }) {
   const [lastRequest, setLastRequest] = useState(null)
   const [userInputPending, setUserInputPending] = useState(null) // { resolve, tag }
   const userInputRef = useRef('')
-  const [ollamaCloudHasSavedKey, setOllamaCloudHasSavedKey] = useState(false)
+  // Which hosted providers already have a key saved. The key itself stays in
+  // the main process; this is only whether there is one.
+  const [savedApiKeys, setSavedApiKeys] = useState({})
 
   useEffect(() => { setActiveProviderId(providerId) }, [providerId])
+  // The generation parameters follow the settings, as the web service does:
+  // a request is built far from React and reads them from the provider layer.
+  useEffect(() => {
+    configureProviderOptions(Object.fromEntries(Object.entries(providerOptionsById ?? {})
+      .map(([id, options]) => [id, providerRequestOptions(id, options)])))
+  }, [providerOptionsById])
   useEffect(() => {
     let cancelled = false
-    window.desktop?.hasOllamaCloudApiKey?.().then(stored => {
-      if (cancelled) return
-      configureOllamaCloud({ stored })
-      setOllamaCloudHasSavedKey(stored)
-    }).catch(() => undefined)
+    for (const id of KEY_PROVIDER_IDS) {
+      window.desktop?.hasAiApiKey?.(id).then(stored => {
+        if (cancelled) return
+        configureHostedKey(id, { stored })
+        setSavedApiKeys(current => ({ ...current, [id]: stored }))
+      }).catch(() => undefined)
+    }
     return () => { cancelled = true }
   }, [])
 
@@ -366,6 +409,15 @@ function AppInner({ settings }) {
     setLastRequest,
     ollamaOk,
   })
+  const modeGenerator = useModeGenerator({
+    baseUrl,
+    defaultModel,
+    timeoutSec,
+    ollamaOk,
+    interfaceLang,
+    setLastPromptEstimate,
+    setLastRequest,
+  })
   const wizard = useDebateWizard({
     baseUrl,
     defaultModel,
@@ -459,7 +511,7 @@ function AppInner({ settings }) {
   }, [])
   const { fetchModels } = useAIModels({
     providerId,
-    providerAuth: providerId === 'ollama-cloud' ? String(ollamaCloudHasSavedKey) : '',
+    providerAuth: KEY_PROVIDER_IDS.includes(providerId) ? String(Boolean(savedApiKeys[providerId])) : '',
     baseUrl,
     noLocalModelsMessage: ui.noLocalModels,
     setConnecting,
@@ -850,23 +902,29 @@ function AppInner({ settings }) {
     setSummaryEndpointOverride('')
   }, [providerId, running, setParticipants, setProviderId, setSummaryEndpointOverride, setSummaryModelOverride])
 
-  const handleOllamaCloudConnect = useCallback(async apiKey => {
+  /**
+   * Connecting a hosted provider: the key is used for this listing first, and
+   * saved only once it has proved it works. A refresh with no new key reuses
+   * the saved one, which is why the field may be left empty.
+   */
+  const handleApiKeyConnect = useCallback(async (keyProviderId, apiKey) => {
     const normalized = String(apiKey || '').trim()
-    configureOllamaCloud(normalized ? { apiKey: normalized } : { stored: ollamaCloudHasSavedKey })
-    const models = await fetchModels(baseUrl, 'ollama-cloud')
+    const stored = Boolean(savedApiKeys[keyProviderId])
+    configureHostedKey(keyProviderId, normalized ? { apiKey: normalized, stored } : { stored })
+    const models = await fetchModels(baseUrl, keyProviderId)
     if (models !== null && normalized) {
       try {
-        if (window.desktop?.saveOllamaCloudApiKey) {
-          await window.desktop.saveOllamaCloudApiKey(normalized)
-          configureOllamaCloud({ stored: true })
-          setOllamaCloudHasSavedKey(true)
+        if (window.desktop?.saveAiApiKey) {
+          await window.desktop.saveAiApiKey(keyProviderId, normalized)
+          configureHostedKey(keyProviderId, { stored: true })
+          setSavedApiKeys(current => ({ ...current, [keyProviderId]: true }))
         }
-      } catch (error) { console.warn('Ollama Cloud key could not be persisted securely:', error.message) }
-    } else if (ollamaCloudHasSavedKey) {
-      configureOllamaCloud({ stored: true })
+      } catch (error) { console.warn(`${keyProviderId} key could not be persisted securely:`, error.message) }
+    } else if (!normalized && stored) {
+      configureHostedKey(keyProviderId, { stored: true })
     }
     return models
-  }, [baseUrl, fetchModels, ollamaCloudHasSavedKey])
+  }, [baseUrl, fetchModels, savedApiKeys])
 
   const updateProviderModelConfig = useCallback((selectedProvider, updater) => {
     setProviderModelSettings(previous => {
@@ -913,17 +971,19 @@ function AppInner({ settings }) {
     } finally { setConnecting(false) }
   }, [loadProviderModels, setBaseUrl, setEndpointInput])
 
-  const handleParticipantCloudConnect = useCallback(async apiKey => {
+  /** The same, from the dialog a participant or the summary opened. */
+  const handleParticipantApiKeyConnect = useCallback(async (keyProviderId, apiKey) => {
     const normalized = String(apiKey || '').trim()
-    configureOllamaCloud(normalized ? { apiKey: normalized } : { stored: ollamaCloudHasSavedKey })
-    const list = await loadProviderModels('ollama-cloud', true)
-    if (normalized && window.desktop?.saveOllamaCloudApiKey) {
-      await window.desktop.saveOllamaCloudApiKey(normalized)
-      configureOllamaCloud({ stored: true })
-      setOllamaCloudHasSavedKey(true)
+    const stored = Boolean(savedApiKeys[keyProviderId])
+    configureHostedKey(keyProviderId, normalized ? { apiKey: normalized, stored } : { stored })
+    const list = await loadProviderModels(keyProviderId, true)
+    if (normalized && window.desktop?.saveAiApiKey) {
+      await window.desktop.saveAiApiKey(keyProviderId, normalized)
+      configureHostedKey(keyProviderId, { stored: true })
+      setSavedApiKeys(current => ({ ...current, [keyProviderId]: true }))
     }
     return list
-  }, [loadProviderModels, ollamaCloudHasSavedKey])
+  }, [loadProviderModels, savedApiKeys])
 
   const handleSavePromptSettings = (text) => {
     setGeneralPersonalityInstructions(String(text || '').trim())
@@ -977,11 +1037,11 @@ function AppInner({ settings }) {
     state: {
       participants,
       globalConstraints,
-      generalPersonalityInstructions,
+      generalPersonalityInstructions: basePersonalityInstructions,
       debateMode,
       customConclusionPrompt,
       standardConclusionPrompts,
-      maxTurns,
+      maxTurns: baseMaxTurns,
         timeoutSec,
       baseUrl,
       providerId,
@@ -999,10 +1059,11 @@ function AppInner({ settings }) {
       setDebateMode,
       setCustomConclusionPrompt,
       setStandardConclusionPrompt,
-      setMaxTurns,
+      setMaxTurns: setBaseMaxTurns,
       setTimeoutSec,
-      setModerationCooling,
-      setUseSummary,
+      setModerationCooling: setBaseModerationCooling,
+      setUseSummary: setBaseUseSummary,
+      setModesConfig,
       setSummarizeAttachments,
       setBaseUrl,
       setEndpointInput,
@@ -1085,8 +1146,10 @@ function AppInner({ settings }) {
     providerId: participantModalProviderId,
     onProviderChange,
     onRefreshProvider: () => { void loadProviderModels(participantModalProviderId, true).catch(error => setConnectError(error.message)) },
-    ollamaCloudHasSavedKey,
-    onOllamaCloudConnect: handleParticipantCloudConnect,
+    savedApiKeys,
+    onApiKeyConnect: handleParticipantApiKeyConnect,
+    providerOptions: providerOptionsById?.[participantModalProviderId] ?? {},
+    onProviderOptionsChange: options => updateProviderModelConfig(participantModalProviderId, current => ({ ...current, options })),
     endpoint: endpointInput,
     onConnect: handleParticipantProviderConnect,
     connecting,
@@ -1194,7 +1257,7 @@ function AppInner({ settings }) {
       )}
       {/* ── left column: menu + participants ── */}
       <div className="relative z-10 w-full shrink-0 2xl:w-[800px]" style={{ width: isWideLayout ? 800 : '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10 }}>
-      <div style={{ ...styles.header, borderRight: isWideLayout ? '1px solid #2e2e2e' : 'none', height: isWideLayout ? '100vh' : 'auto' }}>
+      <div style={{ ...styles.header, borderRight: isWideLayout ? '1px solid var(--c-2e2e2e, #2e2e2e)' : 'none', height: isWideLayout ? '100vh' : 'auto' }}>
 
         {/* hamburger | centered title | model status */}
         <HeaderTop
@@ -1230,9 +1293,9 @@ function AppInner({ settings }) {
           right: isWideLayout ? 'auto' : 0,
           top: isWideLayout ? 'auto' : '100%',
           zIndex: isWideLayout ? 'auto' : 130,
-          background: '#1a1a1a',
-          borderBottom: isWideLayout ? 'none' : '1px solid #2e2e2e',
-          boxShadow: isWideLayout ? 'none' : '0 10px 24px #0009',
+          background: 'var(--c-1a1a1a, #1a1a1a)',
+          borderBottom: isWideLayout ? 'none' : '1px solid var(--c-2e2e2e, #2e2e2e)',
+          boxShadow: isWideLayout ? 'none' : '0 10px 24px var(--c-00000099, #0009)',
           flex: isWideLayout ? 1 : 'none',
         }}>
 
@@ -1521,7 +1584,7 @@ function AppInner({ settings }) {
         connectError={connectError}
         ollamaOk={ollamaOk}
         promptSettingsModal={promptSettingsModal}
-        generalPersonalityInstructions={generalPersonalityInstructions}
+        generalPersonalityInstructions={basePersonalityInstructions}
         onClosePromptSettings={() => setPromptSettingsModal(false)}
         onSavePromptSettings={handleSavePromptSettings}
         onResetPromptSettings={handleResetPromptSettings}
@@ -1540,8 +1603,14 @@ function AppInner({ settings }) {
         onDebugPayloadTurnsChange={setDebugPayloadTurns}
         onRestoreNotices={handleRestoreNotices}
         running={running}
-        enabledTools={enabledTools}
+        enabledTools={baseEnabledTools}
         onEnabledToolsChange={setEnabledTools}
+        modesConfig={modesConfig}
+        onModesConfigChange={setModesConfig}
+        appearance={appearance}
+        onAppearanceChange={setAppearance}
+        modeGenerator={modeGenerator}
+        generalSettingsForModes={{ maxTurns: baseMaxTurns, useSummary: baseUseSummary, dynamicAffinity: baseDynamicAffinity, randomTurnOrder: baseRandomTurnOrder, moderationCooling: baseModerationCooling }}
         searchApiKey={searchApiKey}
         onSearchApiKeyChange={setSearchApiKey}
         searchEngine={searchEngine}
@@ -1552,8 +1621,10 @@ function AppInner({ settings }) {
         providerId={providerId}
         onProviderChange={handleProviderChange}
         onRefreshProvider={() => fetchModels(baseUrl, providerId)}
-        ollamaCloudHasSavedKey={ollamaCloudHasSavedKey}
-        onOllamaCloudConnect={handleOllamaCloudConnect}
+        savedApiKeys={savedApiKeys}
+        onApiKeyConnect={handleApiKeyConnect}
+        providerOptions={providerOptions}
+        onProviderOptionsChange={setProviderOptions}
         onConnectEndpoint={connectMainEndpoint}
         availableModels={availableModels}
         disabledModels={disabledModels}

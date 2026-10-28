@@ -66,9 +66,17 @@ export default function AppModals({
   providerId,
   onProviderChange,
   onRefreshProvider,
-  ollamaCloudHasSavedKey,
-  onOllamaCloudConnect,
+  savedApiKeys,
+  onApiKeyConnect,
+  providerOptions,
+  onProviderOptionsChange,
   scopedProviderSettings,
+  appearance,
+  onAppearanceChange,
+  modesConfig,
+  onModesConfigChange,
+  generalSettingsForModes,
+  modeGenerator,
 }) {
   return (
     <>
@@ -98,8 +106,10 @@ export default function AppModals({
           providerId={providerId}
           onProviderChange={onProviderChange}
           onRefreshProvider={onRefreshProvider}
-          ollamaCloudHasSavedKey={ollamaCloudHasSavedKey}
-          onOllamaCloudConnect={onOllamaCloudConnect}
+          savedApiKeys={savedApiKeys}
+          onApiKeyConnect={onApiKeyConnect}
+          providerOptions={providerOptions}
+          onProviderOptionsChange={onProviderOptionsChange}
           endpoint={endpointInput}
           onConnect={onConnectEndpoint}
           connecting={connecting}
@@ -153,6 +163,12 @@ export default function AppModals({
           debugPayloadTurns={debugPayloadTurns}
           onDebugPayloadTurnsChange={onDebugPayloadTurnsChange}
           onRestoreNotices={onRestoreNotices}
+          appearance={appearance}
+          onAppearanceChange={onAppearanceChange}
+          modesConfig={modesConfig}
+          onModesConfigChange={onModesConfigChange}
+          generalSettingsForModes={generalSettingsForModes}
+          modeGenerator={modeGenerator}
           endpoint={endpointInput}
           onConnectEndpoint={onConnectEndpoint}
           connecting={connecting}
@@ -167,8 +183,10 @@ export default function AppModals({
           providerId={providerId}
           onProviderChange={onProviderChange}
           onRefreshProvider={onRefreshProvider}
-          ollamaCloudHasSavedKey={ollamaCloudHasSavedKey}
-          onOllamaCloudConnect={onOllamaCloudConnect}
+          savedApiKeys={savedApiKeys}
+          onApiKeyConnect={onApiKeyConnect}
+          providerOptions={providerOptions}
+          onProviderOptionsChange={onProviderOptionsChange}
           defaultModel={defaultModel}
           onDefaultModelChange={onDefaultModelChange}
         />

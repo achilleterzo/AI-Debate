@@ -7,9 +7,11 @@ import { UPDATE_ERROR, UPDATE_STATUS } from '../services/Updates'
 import { TOOL_SETTINGS } from '../tools/ToolSettings'
 import { MAX_DEBUG_PAYLOAD_TURNS, MIN_DEBUG_PAYLOAD_TURNS, PAGE_BLOCK_STEPS, SEARCH_ENGINE_IDS, normalizeDebugPayloadTurns } from '../settings/Settings'
 import ProviderSettings from './ProviderSettings'
+import AppearanceSettings from './AppearanceSettings'
+import ModesSettings from './ModesSettings'
 import { AUTO_ENGINE_ORDER, AUTO_SEARCH_ENGINE, searchEngineAvailable, searchEngineInfo, searchEngineLabel } from '../../electron/web/engines/catalog.js'
 
-const TABS = ['main', 'ollama', 'promptRules', 'advanced']
+const TABS = ['main', 'appearance', 'modes', 'ollama', 'promptRules', 'advanced']
 
 export default function PromptSettingsModal({
   value,
@@ -53,8 +55,16 @@ export default function PromptSettingsModal({
   providerId,
   onProviderChange,
   onRefreshProvider,
-  ollamaCloudHasSavedKey,
-  onOllamaCloudConnect,
+  savedApiKeys,
+  onApiKeyConnect,
+  providerOptions,
+  onProviderOptionsChange,
+  appearance,
+  onAppearanceChange,
+  modesConfig,
+  onModesConfigChange,
+  generalSettingsForModes,
+  modeGenerator,
 }) {
   const UI_STRINGS = useUiStrings()
   const ui = UI_STRINGS.promptSettingsModal
@@ -78,31 +88,33 @@ export default function PromptSettingsModal({
 
   const tabLabel = {
     main: ui.tabMain,
+    appearance: ui.tabAppearance,
+    modes: ui.tabModes,
     ollama: ui.tabOllama,
     promptRules: ui.tabPromptRules,
     advanced: ui.tabAdvanced,
   }
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: '#000000bb', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: '#141414', border: '1px solid #2e2e2e', borderRadius: 10, width: 'min(94vw, 820px)', height: 'min(84vh, 560px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #2e2e2e', flexShrink: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#ddd' }}>{ui.title}</span>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--c-000000bb, #000000bb)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--c-141414, #141414)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 10, width: 'min(96vw, 1000px)', height: 'min(88vh, 700px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--c-2e2e2e, #2e2e2e)', flexShrink: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-dddddd, #ddd)' }}>{ui.title}</span>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--c-666666, #666)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
 
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <div style={{ width: 160, flexShrink: 0, borderRight: '1px solid #2e2e2e', padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ width: 160, flexShrink: 0, borderRight: '1px solid var(--c-2e2e2e, #2e2e2e)', padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {TABS.map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
                   textAlign: 'left',
-                  background: activeTab === tab ? '#1f2a3f' : 'transparent',
+                  background: activeTab === tab ? 'var(--c-1f2a3f, #1f2a3f)' : 'transparent',
                   border: 'none',
                   borderRadius: 6,
-                  color: activeTab === tab ? '#9fc2ff' : '#999',
+                  color: activeTab === tab ? 'var(--c-9fc2ff, #9fc2ff)' : 'var(--c-999999, #999)',
                   padding: '8px 10px',
                   fontSize: 12,
                   cursor: 'pointer',
@@ -115,7 +127,7 @@ export default function PromptSettingsModal({
             {activeTab === 'main' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <span style={{ fontSize: 12, color: '#888' }}>{ui.interfaceLanguage}</span>
+                  <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{ui.interfaceLanguage}</span>
                   <div style={{ minWidth: 170 }}>
                     <ReactSelect
                       styles={moodSelectStyles}
@@ -128,10 +140,10 @@ export default function PromptSettingsModal({
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #242424', paddingTop: 14 }}>
-                  <span style={{ fontSize: 12, color: '#888' }}>{ui.version}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--c-242424, #242424)', paddingTop: 14 }}>
+                  <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{ui.version}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, color: '#ddd', fontFamily: 'var(--mono)' }}>
+                    <span style={{ fontSize: 13, color: 'var(--c-dddddd, #ddd)', fontFamily: 'var(--mono)' }}>
                       v{updateCheck?.currentVersion ?? '—'}
                     </span>
                     <button
@@ -139,8 +151,8 @@ export default function PromptSettingsModal({
                       disabled={!updateCheck || updateCheck.isChecking}
                       style={{
                         background: 'transparent',
-                        border: '1px solid #3a3a3a',
-                        color: updateCheck?.isChecking ? '#555' : '#888',
+                        border: '1px solid var(--c-3a3a3a, #3a3a3a)',
+                        color: updateCheck?.isChecking ? 'var(--c-555555, #555)' : 'var(--c-888888, #888)',
                         borderRadius: 6,
                         padding: '4px 12px',
                         cursor: updateCheck?.isChecking ? 'default' : 'pointer',
@@ -152,10 +164,10 @@ export default function PromptSettingsModal({
                   </div>
 
                   {updateCheck?.status === UPDATE_STATUS.UP_TO_DATE && (
-                    <span style={{ fontSize: 11, color: '#4ade80' }}>{ui.updateUpToDate}</span>
+                    <span style={{ fontSize: 11, color: 'var(--c-4ade80, #4ade80)' }}>{ui.updateUpToDate}</span>
                   )}
                   {updateCheck?.status === UPDATE_STATUS.ERROR && (
-                    <span style={{ fontSize: 11, color: '#f87171' }}>
+                    <span style={{ fontSize: 11, color: 'var(--c-f87171, #f87171)' }}>
                       {updateCheck.errorKind === UPDATE_ERROR.UNREACHABLE
                         ? ui.updateUnreachable
                         : ui.updateError(updateCheck.error)}
@@ -163,15 +175,15 @@ export default function PromptSettingsModal({
                   )}
                   {updateCheck?.status === UPDATE_STATUS.AVAILABLE && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 11, color: '#f59e0b' }}>
+                      <span style={{ fontSize: 11, color: 'var(--c-f59e0b, #f59e0b)' }}>
                         {ui.updateAvailable(updateCheck.latestVersion)}
                       </span>
                       <button
                         onClick={() => window.open(updateCheck.releaseUrl, '_blank', 'noopener,noreferrer')}
                         style={{
-                          background: '#2a1f10',
-                          border: '1px solid #7a5a1f',
-                          color: '#f0c060',
+                          background: 'var(--c-2a1f10, #2a1f10)',
+                          border: '1px solid var(--c-7a5a1f, #7a5a1f)',
+                          color: 'var(--c-f0c060, #f0c060)',
                           borderRadius: 6,
                           padding: '4px 12px',
                           cursor: 'pointer',
@@ -184,13 +196,30 @@ export default function PromptSettingsModal({
               </div>
             )}
 
+            {activeTab === 'appearance' && (
+              <AppearanceSettings appearance={appearance} onAppearanceChange={onAppearanceChange} />
+            )}
+
+            {activeTab === 'modes' && (
+              <ModesSettings
+                modesConfig={modesConfig}
+                onModesConfigChange={onModesConfigChange}
+                general={{ ...generalSettingsForModes, enabledTools }}
+                generalPersonalityInstructions={value}
+                running={running}
+                modeGenerator={modeGenerator}
+              />
+            )}
+
             {activeTab === 'ollama' && (
               <ProviderSettings
                 providerId={providerId}
                 onProviderChange={onProviderChange}
                 onRefreshProvider={onRefreshProvider}
-                ollamaCloudHasSavedKey={ollamaCloudHasSavedKey}
-                onOllamaCloudConnect={onOllamaCloudConnect}
+                savedApiKeys={savedApiKeys}
+                onApiKeyConnect={onApiKeyConnect}
+                providerOptions={providerOptions}
+                onProviderOptionsChange={onProviderOptionsChange}
                 endpoint={endpoint}
                 onConnect={onConnectEndpoint}
                 connecting={connecting}
@@ -210,13 +239,13 @@ export default function PromptSettingsModal({
 
             {activeTab === 'promptRules' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <span style={{ fontSize: 11, color: '#777' }}>{ui.description}</span>
+                <span style={{ fontSize: 11, color: 'var(--c-777777, #777)' }}>{ui.description}</span>
                 <textarea
                   value={text}
                   onChange={e => setText(e.target.value)}
                   rows={14}
                   spellCheck={false}
-                  style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 12, lineHeight: 1.55, padding: '10px 12px', resize: 'vertical', minHeight: 220 }}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 8, color: 'var(--c-dddddd, #ddd)', fontSize: 12, lineHeight: 1.55, padding: '10px 12px', resize: 'vertical', minHeight: 220 }}
                 />
               </div>
             )}
@@ -224,25 +253,25 @@ export default function PromptSettingsModal({
             {activeTab === 'advanced' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start', minHeight: '100%', boxSizing: 'border-box' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-                  <span style={{ fontSize: 12, color: '#888' }}>{ui.toolsTitle}</span>
-                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.toolsDescription}</span>
+                  <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{ui.toolsTitle}</span>
+                  <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', lineHeight: 1.45 }}>{ui.toolsDescription}</span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: '100%' }}>
                     {TOOL_SETTINGS.map(tool => {
-                      const enabled = enabledTools?.[tool.id] !== false
+                      const enabled = enabledTools?.[tool.id] ?? tool.defaultEnabled !== false
                       return (
-                        <div key={tool.id} style={{ border: '1px solid #252525', borderRadius: 7, background: '#101010', opacity: running ? 0.55 : 1 }}>
+                        <div key={tool.id} style={{ border: '1px solid var(--c-252525, #252525)', borderRadius: 7, background: 'var(--c-101010, #101010)', opacity: running ? 0.55 : 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '7px 9px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                             <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{tool.icon}</span>
-                            <span style={{ fontSize: 12, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ui[tool.labelKey]} <span style={{ color: '#777' }}>({tool.id})</span></span>
-                            {tool.rolePlayOnly && <span style={{ fontSize: 10, color: '#9b8bd4', border: '1px solid #443b64', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap' }}>{ui.toolRolePlayOnly}</span>}
-                            {tool.moderatorOnly && <span style={{ fontSize: 10, color: '#fb923c', border: '1px solid #6b4228', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap' }}>{ui.moderator}</span>}
+                            <span style={{ fontSize: 12, color: 'var(--c-cccccc, #ccc)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ui[tool.labelKey]} <span style={{ color: 'var(--c-777777, #777)' }}>({tool.id})</span></span>
+                            {tool.rolePlayOnly && <span style={{ fontSize: 10, color: 'var(--c-9b8bd4, #9b8bd4)', border: '1px solid var(--c-443b64, #443b64)', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap' }}>{ui.toolRolePlayOnly}</span>}
+                            {tool.moderatorOnly && <span style={{ fontSize: 10, color: 'var(--c-fb923c, #fb923c)', border: '1px solid var(--c-6b4228, #6b4228)', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap' }}>{common.moderator}</span>}
                           </div>
                           <div
                             onClick={() => !running && onEnabledToolsChange?.({ ...enabledTools, [tool.id]: !enabled })}
                             role="switch"
                             aria-checked={enabled}
-                            style={{ width: 34, height: 18, borderRadius: 9, position: 'relative', flexShrink: 0, background: enabled ? '#4ade80' : '#444', cursor: running ? 'default' : 'pointer', transition: 'background 0.2s' }}
+                            style={{ width: 34, height: 18, borderRadius: 9, position: 'relative', flexShrink: 0, background: enabled ? 'var(--c-4ade80, #4ade80)' : 'var(--c-444444, #444)', cursor: running ? 'default' : 'pointer', transition: 'background 0.2s' }}
                             title={enabled ? ui.toolEnabled : ui.toolDisabled}
                           >
                             <div style={{ position: 'absolute', top: 2, left: enabled ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
@@ -250,12 +279,12 @@ export default function PromptSettingsModal({
                           </div>
                           {tool.id === 'fetch_url' && enabled && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '0 9px 8px' }}>
-                              <span style={{ fontSize: 11, color: '#777', marginRight: 2 }}>{ui.pageBlockLabel}</span>
+                              <span style={{ fontSize: 11, color: 'var(--c-777777, #777)', marginRight: 2 }}>{ui.pageBlockLabel}</span>
                               {PAGE_BLOCK_STEPS.map(step => (
                                 <button
                                   key={step}
                                   onClick={() => !running && onPageBlockKbChange?.(step)}
-                                  style={{ background: pageBlockKb === step ? '#2b3a2b' : 'transparent', border: `1px solid ${pageBlockKb === step ? '#4ade80' : '#2e2e2e'}`, color: pageBlockKb === step ? '#4ade80' : '#999', borderRadius: 6, padding: '3px 9px', cursor: running ? 'default' : 'pointer', fontSize: 11 }}
+                                  style={{ background: pageBlockKb === step ? 'var(--c-2b3a2b, #2b3a2b)' : 'transparent', border: `1px solid ${pageBlockKb === step ? 'var(--c-4ade80, #4ade80)' : 'var(--c-2e2e2e, #2e2e2e)'}`, color: pageBlockKb === step ? 'var(--c-4ade80, #4ade80)' : 'var(--c-999999, #999)', borderRadius: 6, padding: '3px 9px', cursor: running ? 'default' : 'pointer', fontSize: 11 }}
                                 >
                                   {step}k
                                 </button>
@@ -268,13 +297,13 @@ export default function PromptSettingsModal({
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-                  <span style={{ fontSize: 12, color: '#888' }}>{ui.webAccessTitle}</span>
-                  <label style={{ fontSize: 11, color: '#999' }}>{ui.searchEngineLabel}</label>
+                  <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{ui.webAccessTitle}</span>
+                  <label style={{ fontSize: 11, color: 'var(--c-999999, #999)' }}>{ui.searchEngineLabel}</label>
                   <select
                     value={searchEngine ?? 'auto'}
                     onChange={event => onSearchEngineChange?.(event.target.value)}
                     disabled={running}
-                    style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 12 }}
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 6, color: 'var(--c-dddddd, #ddd)', padding: '5px 8px', fontSize: 12 }}
                   >
                     {SEARCH_ENGINE_IDS.map(engine => (
                       <option key={engine} value={engine} disabled={!searchEngineAvailable(engine, { desktop: hasDesktopBrowser })}>
@@ -282,8 +311,8 @@ export default function PromptSettingsModal({
                       </option>
                     ))}
                   </select>
-                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.searchEngineHint}</span>
-                  <label style={{ fontSize: 11, color: '#999' }}>{ui.searchApiKeyLabel}</label>
+                  <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', lineHeight: 1.45 }}>{ui.searchEngineHint}</span>
+                  <label style={{ fontSize: 11, color: 'var(--c-999999, #999)' }}>{ui.searchApiKeyLabel}</label>
                   <input
                     type="password"
                     value={searchApiKey ?? ''}
@@ -292,20 +321,20 @@ export default function PromptSettingsModal({
                     spellCheck={false}
                     autoComplete="off"
                     disabled={running}
-                    style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 12 }}
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 6, color: 'var(--c-dddddd, #ddd)', padding: '5px 8px', fontSize: 12 }}
                   />
-                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.searchApiKeyHint}</span>
+                  <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', lineHeight: 1.45 }}>{ui.searchApiKeyHint}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-                  <span style={{ fontSize: 12, color: '#888' }}>{appUi.timeout}</span>
+                  <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{appUi.timeout}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="number" min={10} max={600} value={timeoutSec} onChange={e => onTimeoutSecChange(Math.max(10, Number(e.target.value)))} disabled={running} style={{ width: 80, background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 13, textAlign: 'center' }} />
-                    <span style={{ fontSize: 11, color: '#666' }}>{appUi.seconds}</span>
+                    <input type="number" min={10} max={600} value={timeoutSec} onChange={e => onTimeoutSecChange(Math.max(10, Number(e.target.value)))} disabled={running} style={{ width: 80, background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 6, color: 'var(--c-dddddd, #ddd)', padding: '5px 8px', fontSize: 13, textAlign: 'center' }} />
+                    <span style={{ fontSize: 11, color: 'var(--c-666666, #666)' }}>{appUi.seconds}</span>
                   </div>
                 </div>
                 {debugMode && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-                    <span style={{ fontSize: 12, color: '#888' }}>{appUi.debugPayloadTurns}</span>
+                    <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{appUi.debugPayloadTurns}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <input
                         type="number"
@@ -313,35 +342,35 @@ export default function PromptSettingsModal({
                         max={MAX_DEBUG_PAYLOAD_TURNS}
                         value={debugPayloadTurns}
                         onChange={e => onDebugPayloadTurnsChange?.(normalizeDebugPayloadTurns(e.target.value))}
-                        style={{ width: 80, background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '5px 8px', fontSize: 13, textAlign: 'center' }}
+                        style={{ width: 80, background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 6, color: 'var(--c-dddddd, #ddd)', padding: '5px 8px', fontSize: 13, textAlign: 'center' }}
                       />
-                      <span style={{ fontSize: 11, color: '#666' }}>{appUi.debugPayloadTurnsUnit}</span>
+                      <span style={{ fontSize: 11, color: 'var(--c-666666, #666)' }}>{appUi.debugPayloadTurnsUnit}</span>
                     </div>
-                    <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{appUi.debugPayloadTurnsHint}</span>
+                    <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', lineHeight: 1.45 }}>{appUi.debugPayloadTurnsHint}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-                  <span style={{ fontSize: 12, color: '#888' }}>{ui.noticesTitle}</span>
-                  <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.noticesDescription}</span>
+                  <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{ui.noticesTitle}</span>
+                  <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', lineHeight: 1.45 }}>{ui.noticesDescription}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <button
                       onClick={() => { onRestoreNotices?.(); setNoticesRestored(true) }}
-                      style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}
+                      style={{ background: 'transparent', border: '1px solid var(--c-3a3a3a, #3a3a3a)', color: 'var(--c-888888, #888)', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}
                     >{ui.restoreNotices}</button>
-                    {noticesRestored && <span style={{ fontSize: 11, color: '#4ade80' }}>{ui.noticesRestored}</span>}
+                    {noticesRestored && <span style={{ fontSize: 11, color: 'var(--c-4ade80, #4ade80)' }}>{ui.noticesRestored}</span>}
                   </div>
                 </div>
-                <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid #2e2e2e', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <button onClick={onClearSettings} style={{ background: 'transparent', border: '1px solid #5a2e2e', color: '#f87171', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{topMenuUi.clearSavedSettings}</button>
+                <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: '1px solid var(--c-2e2e2e, #2e2e2e)', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <button onClick={onClearSettings} style={{ background: 'transparent', border: '1px solid var(--c-5a2e2e, #5a2e2e)', color: 'var(--c-f87171, #f87171)', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{topMenuUi.clearSavedSettings}</button>
                   <div
                     onClick={() => onDebugModeChange(!debugMode)}
                     title={debugMode ? appUi.debugOn : appUi.debugOff}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
                   >
-                    <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: debugMode ? '#f59e0b' : '#444', transition: 'background 0.2s' }}>
+                    <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: debugMode ? 'var(--c-f59e0b, #f59e0b)' : 'var(--c-444444, #444)', transition: 'background 0.2s' }}>
                       <div style={{ position: 'absolute', top: 2, left: debugMode ? 18 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
                     </div>
-                    <span style={{ fontSize: 12, color: debugMode ? '#f59e0b' : '#aaa' }}>{appUi.debugLabel}</span>
+                    <span style={{ fontSize: 12, color: debugMode ? 'var(--c-f59e0b, #f59e0b)' : 'var(--c-aaaaaa, #aaa)' }}>{appUi.debugLabel}</span>
                   </div>
                 </div>
               </div>
@@ -349,16 +378,16 @@ export default function PromptSettingsModal({
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '10px 14px', borderTop: '1px solid #2e2e2e', flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '10px 14px', borderTop: '1px solid var(--c-2e2e2e, #2e2e2e)', flexShrink: 0 }}>
           <div>
             {activeTab === 'promptRules' && (
-              <button onClick={() => setText(onReset())} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{ui.resetDefault}</button>
+              <button onClick={() => setText(onReset())} style={{ background: 'transparent', border: '1px solid var(--c-3a3a3a, #3a3a3a)', color: 'var(--c-888888, #888)', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{ui.resetDefault}</button>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{activeTab === 'promptRules' ? common.cancel : common.close}</button>
+            <button onClick={onClose} style={{ background: 'transparent', border: '1px solid var(--c-3a3a3a, #3a3a3a)', color: 'var(--c-888888, #888)', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{activeTab === 'promptRules' ? common.cancel : common.close}</button>
             {activeTab === 'promptRules' && (
-              <button onClick={() => onSave(text)} style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{common.save}</button>
+              <button onClick={() => onSave(text)} style={{ background: 'var(--c-1f2a3f, #1f2a3f)', border: '1px solid var(--c-3f5a8a, #3f5a8a)', color: 'var(--c-9fc2ff, #9fc2ff)', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{common.save}</button>
             )}
           </div>
         </div>

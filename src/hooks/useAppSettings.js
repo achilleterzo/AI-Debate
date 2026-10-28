@@ -26,14 +26,18 @@ import {
   normalizeDebugPayloadTurns,
   normalizeDisabledModels,
   MODEL_PROVIDER_IDS,
+  normalizeProviderId,
   normalizeProviderModelSettings,
+  normalizeProviderOptions,
   providerThinkingLevels,
+  clampThinkingLevel,
   normalizeModerationCooling,
   normalizePageBlockKb,
   normalizeSearchEngine,
 } from '../settings/Settings'
 import { DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS } from '../prompts/DefaultGeneralPersonalityInstructions'
-import { DEFAULT_DEBATE_MODE, normalizeDebateMode } from '../prompts/Modes'
+import { DEFAULT_DEBATE_MODE, configureModes, normalizeDebateMode } from '../prompts/Modes'
+import { applyAppearance, normalizeAppearance } from '../theme/Theme'
 import { normalizeStandardConclusionPrompts } from '../prompts/ConclusionTypes'
 import { DEFAULT_ENABLED_TOOLS, normalizeEnabledTools } from '../tools/ToolSettings'
 
@@ -41,7 +45,7 @@ export function useAppSettings() {
   const saved = Storage.loadSettings()
   const [endpointInput, setEndpointInput] = useState(saved?.baseUrl ?? DEFAULT_URL)
   const [baseUrl, setBaseUrl] = useState(saved?.baseUrl ?? DEFAULT_URL)
-  const [providerId, setProviderId] = useState(['ollama', 'ollama-cloud', 'openai', 'claude'].includes(saved?.providerId) ? saved.providerId : DEFAULT_PROVIDER_ID)
+  const [providerId, setProviderId] = useState(normalizeProviderId(saved?.providerId) || DEFAULT_PROVIDER_ID)
   const [participants, setParticipants] = useState(() => saved?.participants?.length >= 2
     ? Debate.hydrateParticipantsFromSession(saved.participants)
     : [Debate.mkParticipant(0, ''), Debate.mkParticipant(1, '')])
@@ -59,7 +63,7 @@ export function useAppSettings() {
     ?? (saved ? !!(saved.summaryModelOverride || saved.summaryEndpointOverride) : DEFAULT_SUMMARY_MODEL_ENABLED))
   const [summaryModelOverride, setSummaryModelOverride] = useState(saved?.summaryModelOverride ?? DEFAULT_SUMMARY_MODEL_OVERRIDE)
   // Empty means the general provider, exactly as it does for a participant.
-  const [summaryProviderId, setSummaryProviderId] = useState(MODEL_PROVIDER_IDS.includes(saved?.summaryProviderId) ? saved.summaryProviderId : '')
+  const [summaryProviderId, setSummaryProviderId] = useState(normalizeProviderId(saved?.summaryProviderId))
   const [summaryEndpointOverride, setSummaryEndpointOverride] = useState(saved?.summaryEndpointOverride ?? '')
   const [summaryAccumulateThreshold, setSummaryAccumulateThreshold] = useState(saved?.summaryAccumulateThreshold ?? DEFAULT_SUMMARY_ACCUMULATE_THRESHOLD)
   const [summarizeAttachments, setSummarizeAttachments] = useState(saved?.summarizeAttachments ?? DEFAULT_SUMMARIZE_ATTACHMENTS)
@@ -70,11 +74,12 @@ export function useAppSettings() {
   const [timeoutSec, setTimeoutSec] = useState(saved?.timeoutSec ?? DEFAULT_TIMEOUT_SEC)
   const [providerModelSettings, setProviderModelSettings] = useState(() => {
     const normalized = normalizeProviderModelSettings(saved?.providerModelSettings)
-    const legacyProviderId = ['ollama', 'ollama-cloud', 'openai', 'claude'].includes(saved?.providerId) ? saved.providerId : DEFAULT_PROVIDER_ID
+    const legacyProviderId = normalizeProviderId(saved?.providerId) || DEFAULT_PROVIDER_ID
     if (!normalized[legacyProviderId]) {
       normalized[legacyProviderId] = {
         defaultModel: saved?.defaultModel ?? DEFAULT_FALLBACK_MODEL,
         disabledModels: normalizeDisabledModels(saved?.disabledModels ?? DEFAULT_DISABLED_MODELS),
+        options: normalizeProviderOptions(legacyProviderId),
       }
     }
     // Settings saved before providers had their own reasoning level carry one
@@ -83,7 +88,11 @@ export function useAppSettings() {
     const sharedLevel = Debate.normalizeThinkingLevel(saved?.defaultThinkingLevel ?? Debate.DEFAULT_THINKING_LEVEL)
     for (const id of MODEL_PROVIDER_IDS) {
       const current = normalized[id] ?? { defaultModel: DEFAULT_FALLBACK_MODEL, disabledModels: DEFAULT_DISABLED_MODELS }
-      normalized[id] = { ...current, defaultThinkingLevel: current.defaultThinkingLevel ?? sharedLevel }
+      normalized[id] = {
+        ...current,
+        options: normalizeProviderOptions(id, current.options),
+        defaultThinkingLevel: clampThinkingLevel(id, current.defaultThinkingLevel ?? sharedLevel),
+      }
     }
     return normalized
   })
@@ -116,6 +125,32 @@ export function useAppSettings() {
     })
   }, [providerId])
   const providerDefaultThinkingLevels = useMemo(() => providerThinkingLevels(providerModelSettings, legacyThinkingLevel), [providerModelSettings, legacyThinkingLevel])
+  // The generation parameters of the provider whose tab is open, and the same
+  // for every provider: a participant on a provider of its own is run with
+  // that provider's parameters, not with the ones of the general default.
+  const providerOptions = useMemo(() => normalizeProviderOptions(providerId, providerModelSettings[providerId]?.options), [providerId, providerModelSettings])
+  const providerOptionsById = useMemo(
+    () => Object.fromEntries(MODEL_PROVIDER_IDS.map(id => [id, normalizeProviderOptions(id, providerModelSettings[id]?.options)])),
+    [providerModelSettings],
+  )
+  const setProviderOptions = useCallback(value => {
+    setProviderModelSettings(previous => {
+      const current = previous[providerId] ?? { defaultModel: DEFAULT_FALLBACK_MODEL, disabledModels: DEFAULT_DISABLED_MODELS }
+      const next = typeof value === 'function' ? value(normalizeProviderOptions(providerId, current.options)) : value
+      return { ...previous, [providerId]: { ...current, options: normalizeProviderOptions(providerId, next) } }
+    })
+  }, [providerId])
+  // The mode list is configured before the selected mode is read back: a saved
+  // debate in one of the user's own modes only resolves once that mode exists.
+  const [modesConfig, setModesConfigState] = useState(() => configureModes(saved?.modesConfig))
+  const setModesConfig = useCallback(value => {
+    setModesConfigState(previous => configureModes(typeof value === 'function' ? value(previous) : value))
+  }, [])
+  const [appearance, setAppearance] = useState(() => {
+    const normalized = normalizeAppearance(saved?.appearance)
+    applyAppearance(normalized, { prefersDark: globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true })
+    return normalized
+  })
   const [debateMode, setDebateMode] = useState(() => normalizeDebateMode(saved?.debateMode ?? DEFAULT_DEBATE_MODE))
   const [enabledTools, setEnabledTools] = useState(() => normalizeEnabledTools(saved?.enabledTools ?? DEFAULT_ENABLED_TOOLS))
   const [searchApiKey, setSearchApiKey] = useState(saved?.searchApiKey ?? DEFAULT_SEARCH_API_KEY)
@@ -143,7 +178,9 @@ export function useAppSettings() {
     disabledModels, setDisabledModels,
     providerModelSettings, setProviderModelSettings,
     defaultThinkingLevel, setDefaultThinkingLevel, providerDefaultThinkingLevels,
+    providerOptions, setProviderOptions, providerOptionsById,
     debateMode, setDebateMode, enabledTools, setEnabledTools,
+    modesConfig, setModesConfig, appearance, setAppearance,
     searchApiKey, setSearchApiKey, pageBlockKb, setPageBlockKb, searchEngine, setSearchEngine,
   }
 }
@@ -157,6 +194,8 @@ export function usePersistedAppSettings({ settings, conclusions }) {
     debugPayloadTurns,
     debateMode,
     enabledTools,
+    modesConfig,
+    appearance,
     searchApiKey,
     pageBlockKb,
     searchEngine,
@@ -168,6 +207,16 @@ export function usePersistedAppSettings({ settings, conclusions }) {
   useEffect(() => {
     Web.configure({ searchApiKey, pageBlockKb: normalizePageBlockKb(pageBlockKb), searchEngine: normalizeSearchEngine(searchEngine) })
   }, [searchApiKey, pageBlockKb, searchEngine])
+
+  // The theme can follow the operating system, so the preference is watched
+  // as well as the setting.
+  useEffect(() => {
+    const media = globalThis.matchMedia?.('(prefers-color-scheme: dark)')
+    const apply = () => applyAppearance(appearance, { prefersDark: media?.matches ?? true })
+    apply()
+    media?.addEventListener?.('change', apply)
+    return () => media?.removeEventListener?.('change', apply)
+  }, [appearance])
 
   useEffect(() => {
     Storage.saveSettings({
@@ -183,11 +232,13 @@ export function usePersistedAppSettings({ settings, conclusions }) {
       globalConstraints: globalConstraints ?? [],
       generalPersonalityInstructions: generalPersonalityInstructions ?? DEFAULT_GENERAL_PERSONALITY_INSTRUCTIONS,
       debateMode: normalizeDebateMode(debateMode),
+      modesConfig,
+      appearance: normalizeAppearance(appearance),
       enabledTools,
       searchApiKey: searchApiKey ?? DEFAULT_SEARCH_API_KEY,
       pageBlockKb: normalizePageBlockKb(pageBlockKb),
       searchEngine: normalizeSearchEngine(searchEngine),
       debugPayloadTurns: normalizeDebugPayloadTurns(debugPayloadTurns),
     })
-  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryProviderId, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, enabledTools, searchApiKey, pageBlockKb, searchEngine])
+  }, [debugPayloadTurns, participants, maxTurns, timeoutSec, baseUrl, providerId, useSummary, dynamicAffinity, randomTurnOrder, moderationCooling, summaryModelEnabled, summaryModelOverride, summaryProviderId, summaryEndpointOverride, summaryAccumulateThreshold, summarizeAttachments, uiLang, interfaceLang, defaultModel, disabledModels, providerModelSettings, defaultThinkingLevel, customConclusionPrompt, standardConclusionPrompts, globalConstraints, generalPersonalityInstructions, debateMode, modesConfig, appearance, enabledTools, searchApiKey, pageBlockKb, searchEngine])
 }
