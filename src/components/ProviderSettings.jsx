@@ -6,6 +6,7 @@ import { Debate } from '../debate/Debate'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { modelSelectStyles } from './Style'
 import { thinkingLevelOptions } from './ThinkingLevels'
+import ProviderLogo from './ProviderLogo'
 import {
   CODEX_SANDBOXES,
   KEY_PROVIDER_IDS,
@@ -200,7 +201,7 @@ export default function ProviderSettings({ providerId, onProviderChange, onRefre
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
       {PROVIDER_CATALOG.map(provider => <button key={provider.id} type="button" disabled={disabled} onClick={() => onProviderChange?.(provider.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, textAlign: 'left', border: `1px solid ${providerId === provider.id ? 'var(--c-3f5a8a, #3f5a8a)' : 'var(--c-333333, #333)'}`, borderRadius: 7, background: providerId === provider.id ? 'var(--c-1f2a3f, #1f2a3f)' : 'var(--c-111111, #111)', color: providerId === provider.id ? 'var(--c-9fc2ff, #9fc2ff)' : 'var(--c-aaaaaa, #aaa)', padding: '10px', cursor: disabled ? 'default' : 'pointer' }}>
-        <img src={provider.logo} alt="" width={16} height={16} style={{ flexShrink: 0, opacity: providerId === provider.id ? 1 : 0.7 }} />
+        <ProviderLogo src={provider.logo} size={30} padding={provider.id === 'claude' ? 5 : '4px 6px'} dimmed={providerId !== provider.id} />
         <span style={{ minWidth: 0 }}>
           <strong style={{ display: 'block', fontSize: 12 }}>{provider.label}</strong>
           <span style={{ fontSize: 10, color: 'var(--c-777777, #777)' }}>{provider.detail}</span>

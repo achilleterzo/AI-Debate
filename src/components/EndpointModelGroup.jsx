@@ -3,6 +3,7 @@ import { useUiStrings } from '../i18n/UiStringsContext'
 import { modelSelectStyles } from './Style'
 import { AI } from '../services/AI'
 import { PROVIDER_LOGOS, providerLabel } from './ProviderCatalog'
+import ProviderLogo from './ProviderLogo'
 
 const ENDPOINT_STATE_COLORS = { ok: 'var(--c-4ade80, #4ade80)', err: 'var(--c-f87171, #f87171)', checking: 'var(--c-f59e0b, #f59e0b)' }
 
@@ -103,7 +104,7 @@ export default function EndpointModelGroup({
           flexShrink: 0,
         }}
       >
-        <img src={PROVIDER_LOGOS[effectiveProviderId]} alt="" aria-hidden="true" style={{ width: 21, height: 21, boxSizing: 'border-box', objectFit: 'contain', padding: effectiveProviderId === 'claude' ? 3 : '2px 4px', borderRadius: 4, background: 'var(--c-f4f4f0, #f4f4f0)' }} />
+        <ProviderLogo src={PROVIDER_LOGOS[effectiveProviderId]} size={26} padding={effectiveProviderId === 'claude' ? 4 : '3px 5px'} />
         {effectiveProviderId === 'ollama-cloud' && <span aria-hidden="true" style={{ position: 'absolute', right: 1, bottom: 0, fontSize: 8, lineHeight: 1, color: 'var(--c-9ac8ff, #9ac8ff)', textShadow: '0 0 2px var(--c-000000, #000)' }}>☁</span>}
         {badgeColor && (
           <span style={{ position: 'absolute', right: 2, top: 2, width: 6, height: 6, borderRadius: '50%', background: badgeColor, boxShadow: '0 0 0 1px var(--c-111111, #111)' }} />
