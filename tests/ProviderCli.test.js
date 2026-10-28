@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { claudeProvider } from '../src/providers/claude.js'
-import { openaiProvider } from '../src/providers/openai.js'
+import { codexProvider } from '../src/providers/codex.js'
 import { serializeTranscript, toolProtocolInstructions } from '../src/providers/cli.js'
 import { getProvider, setActiveProviderId } from '../src/providers/index.js'
 import { streamChat } from '../src/debate/Stream'
@@ -43,15 +43,15 @@ async function readEvents(provider, response) {
 }
 
 describe('desktop CLI providers', () => {
-  it('registers OpenAI and Claude as selectable providers', () => {
-    setActiveProviderId('openai')
-    expect(getProvider()).toBe(openaiProvider)
+  it('registers Codex and Claude as selectable providers', () => {
+    setActiveProviderId('codex')
+    expect(getProvider()).toBe(codexProvider)
     setActiveProviderId('claude')
     expect(getProvider()).toBe(claudeProvider)
   })
 
   it('declares tools and thinking, which the clients now carry', async () => {
-    expect(await openaiProvider.supportsTools('gpt-test')).toBe(true)
+    expect(await codexProvider.supportsTools('gpt-test')).toBe(true)
     expect(await claudeProvider.supportsThinking('sonnet')).toBe(true)
     expect(await claudeProvider.capabilities()).toEqual(expect.arrayContaining(['tools', 'thinking']))
   })
@@ -65,8 +65,8 @@ describe('desktop CLI providers', () => {
     ]])
     vi.stubGlobal('window', { desktop })
 
-    const request = openaiProvider.buildChatRequest({ model: 'gpt-test', messages: [{ role: 'user', content: 'Hi' }] })
-    const events = await readEvents(openaiProvider, await openaiProvider.sendChat(request))
+    const request = codexProvider.buildChatRequest({ model: 'gpt-test', messages: [{ role: 'user', content: 'Hi' }] })
+    const events = await readEvents(codexProvider, await codexProvider.sendChat(request))
 
     expect(events).toEqual([
       { type: 'thinking', text: 'Weighing it.' },
@@ -74,7 +74,13 @@ describe('desktop CLI providers', () => {
       { type: 'delta', text: ', world' },
       { type: 'done', content: '', doneReason: null },
     ])
-    expect(desktop.aiChatStream).toHaveBeenCalledWith(expect.objectContaining({ provider: 'openai', model: 'gpt-test', requestId: expect.any(String) }), expect.any(Function))
+    expect(desktop.aiChatStream).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-test', requestId: expect.any(String) }), expect.any(Function))
+  })
+
+  it('passes the Codex sandbox the user chose, and nothing for Claude', () => {
+    expect(codexProvider.buildChatRequest({ model: 'gpt-test', messages: [], options: { sandbox: 'workspace-write' } }).body.sandbox).toBe('workspace-write')
+    expect(codexProvider.buildChatRequest({ model: 'gpt-test', messages: [] }).body).not.toHaveProperty('sandbox')
+    expect(claudeProvider.buildChatRequest({ model: 'sonnet', messages: [], options: { sandbox: 'workspace-write' } }).body).not.toHaveProperty('sandbox')
   })
 
   it('sends the system prompt apart from the transcript, with the reasoning level', () => {
@@ -131,8 +137,8 @@ describe('desktop CLI providers', () => {
   it('turns an error reported mid-answer into a stream error event', async () => {
     const { desktop } = scriptedDesktop([[line({ message: { content: 'Half' } }), line({ error: 'rate limited' })]])
     vi.stubGlobal('window', { desktop })
-    const request = openaiProvider.buildChatRequest({ model: 'gpt-test', messages: [] })
-    const events = await readEvents(openaiProvider, await openaiProvider.sendChat(request))
+    const request = codexProvider.buildChatRequest({ model: 'gpt-test', messages: [] })
+    const events = await readEvents(codexProvider, await codexProvider.sendChat(request))
     expect(events).toContainEqual({ type: 'error', message: 'rate limited' })
   })
 
@@ -140,8 +146,8 @@ describe('desktop CLI providers', () => {
     const desktop = { aiChatStream: vi.fn(), aiChatStreamCleanup: vi.fn(), aiCancel: vi.fn() }
     vi.stubGlobal('window', { desktop })
     const controller = new AbortController()
-    const request = openaiProvider.buildChatRequest({ model: 'gpt-test', messages: [] })
-    const pending = openaiProvider.sendChat(request, { signal: controller.signal })
+    const request = codexProvider.buildChatRequest({ model: 'gpt-test', messages: [] })
+    const pending = codexProvider.sendChat(request, { signal: controller.signal })
     controller.abort()
     await expect(pending).rejects.toThrow(/aborted/)
     expect(desktop.aiCancel).toHaveBeenCalled()

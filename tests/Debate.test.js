@@ -8,19 +8,19 @@ describe('Debate participant domain rules', () => {
   })
 
   it('requires an individual model when a participant overrides the default provider', () => {
-    expect(Debate.hasConfiguredModel({ providerId: 'claude', model: '' }, 'gpt-default', 'openai')).toBe(false)
-    expect(Debate.hasConfiguredModel({ providerId: 'claude', model: 'claude-sonnet' }, 'gpt-default', 'openai')).toBe(true)
+    expect(Debate.hasConfiguredModel({ providerId: 'claude', model: '' }, 'gpt-default', 'codex')).toBe(false)
+    expect(Debate.hasConfiguredModel({ providerId: 'claude', model: 'claude-sonnet' }, 'gpt-default', 'codex')).toBe(true)
   })
 
   it('inherits the model only from the matching default provider', () => {
     expect(Debate.withRunDefaults(
       { providerId: '', model: '' },
-      { defaultProviderId: 'openai', defaultModel: 'gpt-default' },
-    )).toMatchObject({ providerId: 'openai', model: 'gpt-default' })
+      { defaultProviderId: 'codex', defaultModel: 'gpt-default' },
+    )).toMatchObject({ providerId: 'codex', model: 'gpt-default' })
 
     expect(Debate.withRunDefaults(
       { providerId: 'claude', model: '' },
-      { defaultProviderId: 'openai', defaultModel: 'gpt-default' },
+      { defaultProviderId: 'codex', defaultModel: 'gpt-default' },
     )).toMatchObject({ providerId: 'claude', model: '' })
   })
 

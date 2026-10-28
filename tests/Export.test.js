@@ -72,24 +72,24 @@ describe('export header', () => {
     ]
     const extra = {
       participants: mixedParticipants,
-      defaultProviderId: 'openai',
+      defaultProviderId: 'codex',
       defaultModel: 'gpt-default',
       baseUrl: 'https://openai.example',
     }
 
     const html = Data.buildHTML({ messages, constants, ...extra })
-    expect(html).toContain('Default provider: openai')
-    expect(html).toContain('Provider: openai · Model: gpt-default · Endpoint: https://openai.example')
+    expect(html).toContain('Default provider: codex')
+    expect(html).toContain('Provider: codex · Model: gpt-default · Endpoint: https://openai.example')
     expect(html).toContain('Provider: claude · Model: claude-sonnet · Endpoint: https://claude.example')
 
     const markdown = exported(Data.exportMD, extra)
-    expect(markdown).toContain('**Default provider:** openai')
-    expect(markdown).toContain('Provider: openai · Model: gpt-default')
+    expect(markdown).toContain('**Default provider:** codex')
+    expect(markdown).toContain('Provider: codex · Model: gpt-default')
     expect(markdown).toContain('Provider: claude · Model: claude-sonnet')
 
     const data = JSON.parse(exported(Data.exportJSON, extra))
-    expect(data).toMatchObject({ providerId: 'openai', defaultModel: 'gpt-default' })
-    expect(data.participants[0]).toMatchObject({ providerId: 'openai', model: 'gpt-default', endpoint: 'https://openai.example' })
+    expect(data).toMatchObject({ providerId: 'codex', defaultModel: 'gpt-default' })
+    expect(data.participants[0]).toMatchObject({ providerId: 'codex', model: 'gpt-default', endpoint: 'https://openai.example' })
     expect(data.participants[1]).toMatchObject({ providerId: 'claude', model: 'claude-sonnet', endpoint: 'https://claude.example' })
   })
 
@@ -109,7 +109,7 @@ describe('export header', () => {
     ]
     const data = JSON.parse(exported(Data.exportJSON, {
       messages: historicalMessages,
-      defaultProviderId: 'openai',
+      defaultProviderId: 'codex',
       defaultModel: 'gpt-default',
     }))
 

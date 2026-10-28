@@ -12,17 +12,20 @@ contextBridge.exposeInMainWorld('desktop', {
   },
   aiChatStreamCleanup: requestId => ipcRenderer.removeAllListeners(`ai-chat-stream:${String(requestId || '')}`),
   aiCancel: requestId => ipcRenderer.invoke('ai-cancel', requestId),
-  hasOllamaCloudApiKey: () => ipcRenderer.invoke('ollama-cloud-key-get'),
-  saveOllamaCloudApiKey: value => ipcRenderer.invoke('ollama-cloud-key-save', value),
-  ollamaCloudRequest: request => ipcRenderer.invoke('ollama-cloud-request', request),
-  ollamaCloudStream: (request, onEvent) => {
-    const channel = `ollama-cloud-stream:${String(request?.requestId || '')}`
+  // The hosted providers (Ollama Cloud, OpenRouter, Gemini) are reached through
+  // the main process: the API key is stored and used there, so it never enters
+  // the renderer and never appears in a request the renderer can see.
+  hasAiApiKey: provider => ipcRenderer.invoke('ai-key-get', provider),
+  saveAiApiKey: (provider, value) => ipcRenderer.invoke('ai-key-save', provider, value),
+  aiApiRequest: request => ipcRenderer.invoke('ai-api-request', request),
+  aiApiStream: (request, onEvent) => {
+    const channel = `ai-api-stream:${String(request?.requestId || '')}`
     const listener = (_, message) => onEvent(message)
     ipcRenderer.on(channel, listener)
-    ipcRenderer.send('ollama-cloud-stream', request)
+    ipcRenderer.send('ai-api-stream', request)
   },
-  ollamaCloudStreamCleanup: requestId => ipcRenderer.removeAllListeners(`ollama-cloud-stream:${String(requestId || '')}`),
-  ollamaCloudCancel: requestId => ipcRenderer.invoke('ollama-cloud-cancel', requestId),
+  aiApiStreamCleanup: requestId => ipcRenderer.removeAllListeners(`ai-api-stream:${String(requestId || '')}`),
+  aiApiCancel: requestId => ipcRenderer.invoke('ai-api-cancel', requestId),
   webFetchPage: request => ipcRenderer.invoke('web-fetch-page', request),
   webSearch: request => ipcRenderer.invoke('web-search', request),
   webBrowserShow: () => ipcRenderer.invoke('web-browser-show'),

@@ -110,7 +110,7 @@ export function createCliProvider({ id, label }) {
       if (!api?.aiListModels) throw new Error(`${label} is available only in the desktop app`)
       return api.aiListModels(id)
     },
-    buildChatRequest({ model, messages, tools = null, think = null }) {
+    buildChatRequest({ model, messages, tools = null, think = null, options = {} }) {
       const system = (messages || []).filter(message => message?.role === 'system').map(messageText).join('\n\n')
       const protocol = toolProtocolInstructions(tools)
       return {
@@ -122,6 +122,10 @@ export function createCliProvider({ id, label }) {
           system: [system, protocol].filter(Boolean).join('\n\n'),
           prompt: serializeTranscript(messages),
           effort: effortFor(think),
+          // Codex is given no tools of its own here — the app's are offered in
+          // the prompt — so the sandbox is about what the client may reach at
+          // all, which stays the user's choice rather than the debate's.
+          ...(id === 'codex' && options.sandbox ? { sandbox: options.sandbox } : {}),
         },
       }
     },

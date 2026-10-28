@@ -14,7 +14,7 @@ AI Debate started as a structured debate application, but its underlying design 
 
 Each participant can use a different model and can be configured independently. Their behavior is shaped by personality, mood, communication style, education and age group, constraints, language, and dynamic affinity with the other participants.
 
-Each participant can also select its own provider and model. A single table can therefore mix local Ollama, Ollama Cloud, OpenAI and Claude participants; leaving the provider unset inherits the general provider and default model.
+Each participant can also select its own provider and model. A single table can therefore mix local Ollama, Ollama Cloud, OpenRouter, Gemini, Codex and Claude participants; leaving the provider unset inherits the general provider and default model.
 
 The system exposes general-purpose capabilities rather than forcing a fixed chain of steps. Depending on the model, prompts, configuration, and context, participants may decide to look up external information, inspect earlier exchanges, preserve a useful fact in shared memory, or ask the moderator to intervene. These are available capabilities, not guaranteed workflows.
 
@@ -163,11 +163,11 @@ flowchart TD
     C --> O[Summary, conclusions, exports, and snapshots]
 ```
 
-AI Debate supports local Ollama-compatible endpoints, direct Ollama Cloud access with an API key, OpenAI through the Codex CLI, and Claude through the Claude CLI. The provider layer handles model discovery and normalized responses while keeping orchestration, context, tools, and session state separate from the provider-specific transport.
+AI Debate supports local Ollama-compatible endpoints, direct Ollama Cloud access with an API key, OpenRouter and Google Gemini through their OpenAI-compatible APIs, OpenAI models through the Codex CLI, and Claude through the Claude CLI. The provider layer handles model discovery and normalized responses while keeping orchestration, context, tools, and session state separate from the provider-specific transport.
 
 ## Requirements
 
-For a packaged desktop build, use an Ollama-compatible endpoint, an Ollama Cloud API key, or an installed and authenticated Codex/Claude client. OpenAI and Claude use the clients' OAuth sessions. Ollama Cloud keys are encrypted with Electron's operating-system-backed secure storage and are excluded from settings, snapshots, exports, and debug payloads.
+For a packaged desktop build, use an Ollama-compatible endpoint, an API key for a hosted provider (Ollama Cloud, OpenRouter or Gemini), or an installed and authenticated Codex/Claude client. Codex and Claude use the clients' OAuth sessions. API keys are encrypted with Electron's operating-system-backed secure storage, are used only in the main process, and are excluded from settings, snapshots, exports, and debug payloads.
 
 Node.js and npm are required only when working from the source repository, running the development server, or creating a new build.
 
@@ -183,7 +183,9 @@ http://localhost:11434
 
 Install and launch the packaged desktop application for your platform. No Node.js or npm installation is required to run the compiled application.
 
-Choose a provider in Settings → AI Providers. For Ollama, configure an endpoint; for Ollama Cloud, enter an API key and retrieve the available model list; for OpenAI or Claude, install the corresponding CLI and complete its OAuth login from the app.
+Choose a provider in Settings → AI Providers. For Ollama, configure an endpoint; for Ollama Cloud, OpenRouter or Gemini, enter an API key and retrieve the available model list; for Codex or Claude, install the corresponding CLI and complete its OAuth login from the app.
+
+Each provider also carries its own generation parameters under *Advanced generation parameters*: temperature and maximum answer length where the provider accepts them, the context window and how long a model stays loaded for Ollama, and the sandbox the Codex client runs in. Every field is optional, and an empty one leaves the model's own default alone. The reasoning levels offered follow the provider: the hosted APIs stop at *high*, while the Codex and Claude clients also reason at *max*.
 
 Each provider keeps its own default model and enabled-model catalogue. Switching provider restores that provider's previous choices, and participant model selectors only show models enabled for their selected provider.
 
@@ -223,7 +225,7 @@ The desktop application is built with Electron and can target Windows, Linux, an
 
 ## Providers and Models
 
-Ollama supports local models and cloud models exposed by the configured endpoint. Ollama Cloud connects directly to `https://ollama.com`, authenticates with a bearer API key, and retrieves the current catalogue from `/api/tags`. In the desktop app, OpenAI models are discovered from the authenticated Codex CLI and Claude exposes the model aliases supported by the authenticated Claude CLI.
+Ollama supports local models and cloud models exposed by the configured endpoint. Ollama Cloud connects directly to `https://ollama.com`, authenticates with a bearer API key, and retrieves the current catalogue from `/api/tags`. OpenRouter lists its whole catalogue and reports per model which inputs and parameters it accepts; Gemini lists the text models the key can reach through Google AI Studio's OpenAI-compatible endpoint. In the desktop app, Codex models are discovered from the authenticated Codex CLI and Claude exposes the model aliases supported by the authenticated Claude CLI.
 
 To make an Ollama cloud model appear in the model selector, run it once from a shell. On Windows, use PowerShell:
 
@@ -241,7 +243,7 @@ The application discovers models from the configured endpoint and groups local a
 
 ## Typical Workflow
 
-1. Configure Ollama, OpenAI, or Claude under Settings → AI Providers.
+1. Configure Ollama, Ollama Cloud, OpenRouter, Gemini, Codex or Claude under Settings → AI Providers.
 2. Open the AI Debate desktop application. When working from source, `npm run dev` starts the development server and opens the Electron app.
 3. Configure the session guidance, participants, models, constraints, and moderator, either manually or through the conversation wizard.
 4. Add a topic and optional attachments.
@@ -373,6 +375,8 @@ Main technologies include:
 - Electron
 - Ollama-compatible HTTP API
 - Ollama Cloud API
+- OpenRouter API
+- Google Gemini API (OpenAI-compatible)
 - OpenAI Codex CLI (desktop, OAuth)
 - Claude CLI (desktop, OAuth)
 - Marked

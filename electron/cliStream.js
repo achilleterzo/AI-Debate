@@ -131,12 +131,12 @@ export function createCodexTranslator() {
         case 'error':
           if (params.willRetry) return []
           this.finished = true
-          return [ndjson({ error: params.error?.message || 'OpenAI returned an error' })]
+          return [ndjson({ error: params.error?.message || 'Codex returned an error' })]
         case 'turn/completed': {
           this.finished = true
           const turn = params.turn || {}
-          if (turn.status === 'failed') return [ndjson({ error: turn.error?.message || 'OpenAI turn failed' })]
-          if (turn.status === 'interrupted') return [ndjson({ error: 'OpenAI turn interrupted' })]
+          if (turn.status === 'failed') return [ndjson({ error: turn.error?.message || 'Codex turn failed' })]
+          if (turn.status === 'interrupted') return [ndjson({ error: 'Codex turn interrupted' })]
           return [ndjson({ done: true, done_reason: turn.status ?? null })]
         }
         default:

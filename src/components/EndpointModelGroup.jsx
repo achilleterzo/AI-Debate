@@ -2,12 +2,10 @@ import ReactSelect from 'react-select'
 import { useUiStrings } from '../i18n/UiStringsContext'
 import { modelSelectStyles } from './Style'
 import { AI } from '../services/AI'
-import ollamaLogo from '../assets/provider-logos/ollama.svg'
-import openaiLogo from '../assets/provider-logos/codex.svg'
-import claudeLogo from '../assets/provider-logos/claude-code.svg'
+import { PROVIDER_LOGOS, providerLabel } from './ProviderCatalog'
 
-const ENDPOINT_STATE_COLORS = { ok: '#4ade80', err: '#f87171', checking: '#f59e0b' }
-const PROVIDER_ICONS = { ollama: ollamaLogo, 'ollama-cloud': ollamaLogo, openai: openaiLogo, claude: claudeLogo }
+const ENDPOINT_STATE_COLORS = { ok: 'var(--c-4ade80, #4ade80)', err: 'var(--c-f87171, #f87171)', checking: 'var(--c-f59e0b, #f59e0b)' }
+
 
 /**
  * Provider button and model select joined into one input group: the button is
@@ -35,7 +33,7 @@ export default function EndpointModelGroup({
   const common = UI_STRINGS.common
   const participantsUi = UI_STRINGS.participants
   const effectiveProviderId = providerId || defaultProviderId
-  const providerLabel = effectiveProviderId === 'ollama-cloud' ? 'Ollama Cloud' : effectiveProviderId === 'openai' ? 'OpenAI' : effectiveProviderId === 'claude' ? 'Claude' : 'Ollama'
+  const label = providerLabel(effectiveProviderId)
 
   // An empty model already means "fall back to the default"; this makes that
   // state an explicit choice instead of something reachable only by clearing.
@@ -82,7 +80,7 @@ export default function EndpointModelGroup({
         disabled={disabled}
         title={hasOverride
           ? participantsUi.customEndpointTitle(endpointOverride, endpointState ? { state: endpointState } : null)
-          : `${providerLabel} · AI Providers`}
+          : `${label} · AI Providers`}
         style={{
           width: 28,
           minHeight: 28,
@@ -93,9 +91,9 @@ export default function EndpointModelGroup({
           // line instead of two stacked ones.
           borderWidth: '1px 0 1px 1px',
           borderStyle: 'solid',
-          borderColor: providerId || hasOverride ? '#2f4f6f' : '#2e2e2e',
-          background: providerId || hasOverride ? '#152131' : '#161616',
-          color: providerId || hasOverride ? '#9ac8ff' : '#666',
+          borderColor: providerId || hasOverride ? 'var(--c-2f4f6f, #2f4f6f)' : 'var(--c-2e2e2e, #2e2e2e)',
+          background: providerId || hasOverride ? 'var(--c-152131, #152131)' : 'var(--c-161616, #161616)',
+          color: providerId || hasOverride ? 'var(--c-9ac8ff, #9ac8ff)' : 'var(--c-666666, #666)',
           cursor: disabled ? 'default' : 'pointer',
           opacity: disabled ? 0.5 : 1,
           display: 'flex',
@@ -105,10 +103,10 @@ export default function EndpointModelGroup({
           flexShrink: 0,
         }}
       >
-        <img src={PROVIDER_ICONS[effectiveProviderId]} alt="" aria-hidden="true" style={{ width: 21, height: 21, boxSizing: 'border-box', objectFit: 'contain', padding: effectiveProviderId === 'claude' ? 3 : '2px 4px', borderRadius: 4, background: '#f4f4f0' }} />
-        {effectiveProviderId === 'ollama-cloud' && <span aria-hidden="true" style={{ position: 'absolute', right: 1, bottom: 0, fontSize: 8, lineHeight: 1, color: '#9ac8ff', textShadow: '0 0 2px #000' }}>☁</span>}
+        <img src={PROVIDER_LOGOS[effectiveProviderId]} alt="" aria-hidden="true" style={{ width: 21, height: 21, boxSizing: 'border-box', objectFit: 'contain', padding: effectiveProviderId === 'claude' ? 3 : '2px 4px', borderRadius: 4, background: 'var(--c-f4f4f0, #f4f4f0)' }} />
+        {effectiveProviderId === 'ollama-cloud' && <span aria-hidden="true" style={{ position: 'absolute', right: 1, bottom: 0, fontSize: 8, lineHeight: 1, color: 'var(--c-9ac8ff, #9ac8ff)', textShadow: '0 0 2px var(--c-000000, #000)' }}>☁</span>}
         {badgeColor && (
-          <span style={{ position: 'absolute', right: 2, top: 2, width: 6, height: 6, borderRadius: '50%', background: badgeColor, boxShadow: '0 0 0 1px #111' }} />
+          <span style={{ position: 'absolute', right: 2, top: 2, width: 6, height: 6, borderRadius: '50%', background: badgeColor, boxShadow: '0 0 0 1px var(--c-111111, #111)' }} />
         )}
       </button>
       <ReactSelect

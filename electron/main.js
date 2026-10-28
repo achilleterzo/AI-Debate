@@ -13,21 +13,37 @@ import { browserFetchImage, browserFetchPage, browserSearch, disposeBrowser, sho
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const PROVIDER_LABELS = { openai: 'OpenAI', claude: 'Claude' }
+const PROVIDER_LABELS = { codex: 'Codex', claude: 'Claude', 'ollama-cloud': 'Ollama Cloud', openrouter: 'OpenRouter', gemini: 'Gemini' }
+// The desktop clients, and the providers whose API key the app stores encrypted.
+const CLI_PROVIDERS = ['codex', 'claude']
+const KEY_PROVIDERS = ['ollama-cloud', 'openrouter', 'gemini']
+// Reasoning levels a Codex sandbox may run in; the renderer sends one per request.
+const CODEX_SANDBOXES = ['read-only', 'workspace-write', 'danger-full-access']
 const CLAUDE_MODELS = ['default', 'sonnet', 'opus', 'haiku', 'sonnet[1m]', 'opus[1m]']
 const aiChildren = new Map()
-const ollamaCloudRequests = new Map()
+const apiRequests = new Map()
 
-function ollamaCloudCredentialPath() { return path.join(app.getPath('userData'), 'ollama-cloud-key.bin') }
-function loadOllamaCloudApiKey() {
+/**
+ * API keys of the hosted providers, encrypted by the operating system.
+ *
+ * One file per provider, named after it, so a key entered for one provider can
+ * never be read as another's. Ollama Cloud keeps the file name it had before
+ * the other providers existed, so a key saved back then still loads.
+ */
+function apiCredentialPath(provider) { return path.join(app.getPath('userData'), `${provider}-key.bin`) }
+
+function loadApiKey(provider) {
+  if (!KEY_PROVIDERS.includes(provider)) return ''
   try {
     if (!safeStorage.isEncryptionAvailable()) return ''
-    return safeStorage.decryptString(Buffer.from(fs.readFileSync(ollamaCloudCredentialPath(), 'utf8'), 'base64'))
+    return safeStorage.decryptString(Buffer.from(fs.readFileSync(apiCredentialPath(provider), 'utf8'), 'base64'))
   } catch { return '' }
 }
-function saveOllamaCloudApiKey(value) {
+
+function saveApiKey(provider, value) {
+  if (!KEY_PROVIDERS.includes(provider)) throw new Error(`Unsupported AI provider: ${provider}`)
   if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure credential storage is unavailable on this system')
-  const credentialPath = ollamaCloudCredentialPath()
+  const credentialPath = apiCredentialPath(provider)
   const key = String(value || '').trim()
   if (!key) {
     try { fs.unlinkSync(credentialPath) } catch { /* no saved credential */ }
@@ -38,62 +54,115 @@ function saveOllamaCloudApiKey(value) {
   return true
 }
 
-function requestOllamaCloud({ path: apiPath, method = 'GET', body = null, apiKey = '', requestId = '' } = {}) {
-  const allowedPaths = new Set(['/api/tags', '/api/show', '/api/chat'])
-  if (!allowedPaths.has(apiPath)) return Promise.reject(new Error('Unsupported Ollama Cloud API path'))
-  const key = String(apiKey || loadOllamaCloudApiKey()).trim()
-  if (!key) return Promise.reject(new Error('Ollama Cloud API key required'))
+/**
+ * What each hosted provider exposes, and how it frames an answer.
+ *
+ * `paths` is an allow list: the renderer names one of these, never a URL, so a
+ * request can only ever reach that provider's own API — and the key, which
+ * never leaves this process, cannot be sent anywhere else. `stream` is the one
+ * path that answers a token at a time.
+ */
+const API_PROVIDERS = {
+  'ollama-cloud': {
+    origin: 'https://ollama.com',
+    paths: ['/api/tags', '/api/show', '/api/chat'],
+    stream: '/api/chat',
+    accept: 'application/json, application/x-ndjson',
+  },
+  openrouter: {
+    origin: 'https://openrouter.ai/api/v1',
+    paths: ['/models', '/chat/completions'],
+    stream: '/chat/completions',
+    accept: 'application/json, text/event-stream',
+    // Optional attribution, shown in the OpenRouter activity dashboard.
+    headers: { 'X-Title': 'AI Debate', 'HTTP-Referer': 'https://github.com/achilleterzo/AI-Debate' },
+  },
+  gemini: {
+    origin: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    paths: ['/models', '/chat/completions'],
+    stream: '/chat/completions',
+    accept: 'application/json, text/event-stream',
+  },
+}
+
+const API_TIMEOUT_MS = 180000
+
+function apiTarget(provider, apiPath, { stream = false } = {}) {
+  const target = API_PROVIDERS[provider]
+  if (!target) throw new Error(`Unsupported AI provider: ${provider}`)
+  const requested = String(apiPath || '')
+  if (stream ? requested !== target.stream : !target.paths.includes(requested)) {
+    throw new Error(`Unsupported ${PROVIDER_LABELS[provider]} API path`)
+  }
+  return target
+}
+
+function apiHeaders(provider, target, key, payload) {
+  return {
+    Authorization: `Bearer ${key}`,
+    Accept: target.accept,
+    ...target.headers,
+    ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
+  }
+}
+
+/** One request to a hosted provider, answered in full. `apiKey` overrides the saved one. */
+function requestApi({ provider, path: apiPath, method = 'GET', body = null, apiKey = '', requestId = '' } = {}) {
+  let target
+  try { target = apiTarget(provider, apiPath) } catch (error) { return Promise.reject(error) }
+  const label = PROVIDER_LABELS[provider]
+  const key = String(apiKey || loadApiKey(provider)).trim()
+  if (!key) return Promise.reject(new Error(`${label} API key required`))
   const payload = body == null ? '' : JSON.stringify(body)
   return new Promise((resolve, reject) => {
-    const request = https.request(`https://ollama.com${apiPath}`, {
+    const request = https.request(`${target.origin}${apiPath}`, {
       method,
-      headers: {
-        Authorization: `Bearer ${key}`,
-        Accept: 'application/json, application/x-ndjson',
-        ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
-      },
-      timeout: 180000,
+      headers: apiHeaders(provider, target, key, payload),
+      timeout: API_TIMEOUT_MS,
     }, response => {
       let data = ''
       response.setEncoding('utf8')
       response.on('data', chunk => { data += chunk })
       response.on('end', () => {
-        if (requestId) ollamaCloudRequests.delete(requestId)
+        if (requestId) apiRequests.delete(requestId)
         resolve({ status: response.statusCode || 500, body: data })
       })
     })
-    if (requestId) ollamaCloudRequests.set(requestId, request)
-    request.on('timeout', () => request.destroy(new Error('Ollama Cloud request timed out')))
-    request.on('error', error => { if (requestId) ollamaCloudRequests.delete(requestId); reject(error) })
+    if (requestId) apiRequests.set(requestId, request)
+    request.on('timeout', () => request.destroy(new Error(`${label} request timed out`)))
+    request.on('error', error => { if (requestId) apiRequests.delete(requestId); reject(error) })
     if (payload) request.write(payload)
     request.end()
   })
 }
 
-function streamOllamaCloud(requestData, emit) {
-  const { path: apiPath, method = 'POST', body = null, apiKey = '', requestId = '' } = requestData || {}
-  if (apiPath !== '/api/chat') { emit({ type: 'error', message: 'Unsupported Ollama Cloud streaming path' }); return }
-  const key = String(apiKey || loadOllamaCloudApiKey()).trim()
-  if (!key) { emit({ type: 'error', message: 'Ollama Cloud API key required' }); return }
+/**
+ * One streamed chat to a hosted provider. `emit` receives the same events as
+ * the desktop clients — start, chunk, end, error — and the chunks are the
+ * provider's own bytes, framed as its API frames them: the renderer's parser
+ * for that provider is what reads them.
+ */
+function streamApi(requestData, emit) {
+  const { provider, path: apiPath, method = 'POST', body = null, apiKey = '', requestId = '' } = requestData || {}
+  let target
+  try { target = apiTarget(provider, apiPath, { stream: true }) } catch (error) { emit({ type: 'error', message: error.message }); return }
+  const label = PROVIDER_LABELS[provider]
+  const key = String(apiKey || loadApiKey(provider)).trim()
+  if (!key) { emit({ type: 'error', message: `${label} API key required` }); return }
   const payload = JSON.stringify(body || {})
-  const request = https.request(`https://ollama.com${apiPath}`, {
+  const request = https.request(`${target.origin}${apiPath}`, {
     method,
-    headers: {
-      Authorization: `Bearer ${key}`,
-      Accept: 'application/x-ndjson',
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(payload),
-    },
-    timeout: 180000,
+    headers: apiHeaders(provider, target, key, payload),
+    timeout: API_TIMEOUT_MS,
   }, response => {
     emit({ type: 'start', status: response.statusCode || 500 })
     response.setEncoding('utf8')
     response.on('data', chunk => emit({ type: 'chunk', chunk }))
-    response.on('end', () => { if (requestId) ollamaCloudRequests.delete(requestId); emit({ type: 'end' }) })
+    response.on('end', () => { if (requestId) apiRequests.delete(requestId); emit({ type: 'end' }) })
   })
-  if (requestId) ollamaCloudRequests.set(requestId, request)
-  request.on('timeout', () => request.destroy(new Error('Ollama Cloud request timed out')))
-  request.on('error', error => { if (requestId) ollamaCloudRequests.delete(requestId); emit({ type: 'error', message: error.message }) })
+  if (requestId) apiRequests.set(requestId, request)
+  request.on('timeout', () => request.destroy(new Error(`${label} request timed out`)))
+  request.on('error', error => { if (requestId) apiRequests.delete(requestId); emit({ type: 'error', message: error.message }) })
   request.end(payload)
 }
 
@@ -157,7 +226,7 @@ function resolveCommand(name) {
   return knownWindowsCommand(name) || name
 }
 
-function commandFor(provider) { return resolveCommand(provider === 'openai' ? 'codex' : 'claude') }
+function commandFor(provider) { return resolveCommand(provider === 'codex' ? 'codex' : 'claude') }
 function quotePowerShell(value) { return `'${String(value).replaceAll("'", "''")}'` }
 function quoteCmd(value) { return `"${String(value).replaceAll('"', '""')}"` }
 
@@ -183,7 +252,7 @@ function callEnvironment(provider, call) {
 
 function providerEnvironment(provider) {
   const environment = { ...process.env }
-  if (provider === 'openai') delete environment.OPENAI_API_KEY
+  if (provider === 'codex') delete environment.OPENAI_API_KEY
   if (provider === 'claude') {
     delete environment.ANTHROPIC_API_KEY
     delete environment.ANTHROPIC_AUTH_TOKEN
@@ -207,7 +276,7 @@ function providerEnvironment(provider) {
  */
 function openLoginTerminal(provider) {
   const command = commandFor(provider)
-  const args = provider === 'openai' ? ['login'] : ['auth', 'login']
+  const args = provider === 'codex' ? ['login'] : ['auth', 'login']
   const title = `AI Debate - ${PROVIDER_LABELS[provider]} login`
   const options = { env: providerEnvironment(provider), detached: true, stdio: 'ignore' }
   let child
@@ -270,9 +339,9 @@ const codexModelEfforts = new Map()
  */
 function streamCliChat(request, emit) {
   const { provider } = request || {}
-  if (!['openai', 'claude'].includes(provider)) { emit({ type: 'error', message: 'Unsupported desktop AI provider' }); return }
+  if (!CLI_PROVIDERS.includes(provider)) { emit({ type: 'error', message: 'Unsupported desktop AI provider' }); return }
   const model = /^[A-Za-z0-9._:/-]+(?:\[[A-Za-z0-9]+\])?$/.test(String(request.model || '')) ? String(request.model) : ''
-  const run = provider === 'openai' ? streamCodex : streamClaude
+  const run = provider === 'codex' ? streamCodex : streamClaude
   run({ ...request, model }, emit)
 }
 
@@ -360,11 +429,11 @@ function streamClaude({ model, system = '', prompt = '', effort = null, requestI
  * finished message, while the app server streams it token by token and takes
  * the system prompt and the reasoning level as protocol fields.
  */
-function streamCodex({ model, system = '', prompt = '', effort = null, requestId }, emit) {
+function streamCodex({ model, system = '', prompt = '', effort = null, sandbox = 'read-only', requestId }, emit) {
   let child
   try {
-    const call = invocation('openai', ['app-server'])
-    child = spawn(call.command, call.args, { cwd: cliWorkdir(), env: callEnvironment('openai', call), windowsHide: true, windowsVerbatimArguments: call.verbatim, stdio: ['pipe', 'pipe', 'pipe'] })
+    const call = invocation('codex', ['app-server'])
+    child = spawn(call.command, call.args, { cwd: cliWorkdir(), env: callEnvironment('codex', call), windowsHide: true, windowsVerbatimArguments: call.verbatim, stdio: ['pipe', 'pipe', 'pipe'] })
   } catch (error) {
     emit({ type: 'error', message: error.message })
     return
@@ -389,13 +458,16 @@ function streamCodex({ model, system = '', prompt = '', effort = null, requestId
       return
     }
     if (message.id === 1) {
-      if (message.error) return fail(message.error.message || 'OpenAI initialization failed')
+      if (message.error) return fail(message.error.message || 'Codex initialization failed')
       send({ method: 'initialized', params: {} })
       send({
         method: 'thread/start', id: 2, params: {
           ...(model ? { model } : {}),
           cwd: cliWorkdir(),
-          sandbox: 'read-only',
+          // The client never acts for itself here — the app's own tools are
+          // the only ones offered — so the sandbox is about what the user is
+          // willing to let it reach at all, and stays theirs to choose.
+          sandbox: CODEX_SANDBOXES.includes(sandbox) ? sandbox : 'read-only',
           approvalPolicy: 'never',
           ephemeral: true,
           baseInstructions: String(system || 'You are a helpful assistant.'),
@@ -404,7 +476,7 @@ function streamCodex({ model, system = '', prompt = '', effort = null, requestId
       return
     }
     if (message.id === 2) {
-      if (message.error) return fail(message.error.message || 'OpenAI thread could not start')
+      if (message.error) return fail(message.error.message || 'Codex thread could not start')
       const level = codexEffort(effort, codexModelEfforts.get(model))
       send({
         method: 'turn/start', id: 3, params: {
@@ -416,7 +488,7 @@ function streamCodex({ model, system = '', prompt = '', effort = null, requestId
       return
     }
     if (message.id === 3) {
-      if (message.error) return fail(message.error.message || 'OpenAI turn could not start')
+      if (message.error) return fail(message.error.message || 'Codex turn could not start')
       start()
       return
     }
@@ -436,13 +508,13 @@ function streamCodex({ model, system = '', prompt = '', effort = null, requestId
   })
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-8000) })
   child.stdin.on('error', () => { /* the close handler reports why the client ended */ })
-  child.once('error', error => fail(error.code === 'ENOENT' ? 'OpenAI client not found' : error.message))
-  child.once('close', code => fail(extractCliError(stderr, `OpenAI exited with code ${code}`)))
+  child.once('error', error => fail(error.code === 'ENOENT' ? 'Codex client not found' : error.message))
+  child.once('close', code => fail(extractCliError(stderr, `Codex exited with code ${code}`)))
   send({ method: 'initialize', id: 1, params: { clientInfo: { name: 'ai_debate', title: 'AI Debate', version: app.getVersion() } } })
 }
 async function providerStatus(provider) {
-  if (!['openai', 'claude'].includes(provider)) return { provider, installed: false, authenticated: false }
-  const status = await runStatus(provider, provider === 'openai' ? ['login', 'status'] : ['auth', 'status'])
+  if (!CLI_PROVIDERS.includes(provider)) return { provider, installed: false, authenticated: false }
+  const status = await runStatus(provider, provider === 'codex' ? ['login', 'status'] : ['auth', 'status'])
   let authenticated = status.ok
   if (provider === 'claude' && status.ok) {
     try { authenticated = JSON.parse(status.output)?.loggedIn === true } catch { authenticated = /logged\s*in/i.test(status.output) && !/not logged|logged\s*in\s*[:=]\s*false/i.test(status.output) }
@@ -452,16 +524,16 @@ async function providerStatus(provider) {
 
 function codexModels() {
   return new Promise((resolve, reject) => {
-    const call = invocation('openai', ['app-server']); const child = spawn(call.command, call.args, { env: callEnvironment('openai', call), windowsHide: true, windowsVerbatimArguments: call.verbatim, stdio: ['pipe', 'pipe', 'pipe'] })
+    const call = invocation('codex', ['app-server']); const child = spawn(call.command, call.args, { env: callEnvironment('codex', call), windowsHide: true, windowsVerbatimArguments: call.verbatim, stdio: ['pipe', 'pipe', 'pipe'] })
     let buffer = ''; let stderr = ''; let settled = false
     const finish = (error, value) => { if (settled) return; settled = true; clearTimeout(timer); child.kill(); error ? reject(error) : resolve(value) }
-    const timer = setTimeout(() => finish(new Error('OpenAI model discovery timed out')), 30000)
+    const timer = setTimeout(() => finish(new Error('Codex model discovery timed out')), 30000)
     child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8'); child.stderr.on('data', chunk => { stderr += chunk })
     child.stdout.on('data', chunk => {
       buffer += chunk; const lines = buffer.split(/\r?\n/); buffer = lines.pop() || ''
       for (const line of lines) {
         let message; try { message = JSON.parse(line) } catch { continue }
-        if (message.id === 1 && message.error) return finish(new Error(message.error.message || 'OpenAI initialization failed'))
+        if (message.id === 1 && message.error) return finish(new Error(message.error.message || 'Codex initialization failed'))
         if (message.id === 1) { child.stdin.write(`${JSON.stringify({ method: 'initialized', params: {} })}\n`); child.stdin.write(`${JSON.stringify({ method: 'model/list', id: 2, params: { limit: 100, includeHidden: false } })}\n`) }
         if (message.id === 2) {
           const listed = (message.result?.data || []).filter(item => item?.model)
@@ -472,7 +544,7 @@ function codexModels() {
         }
       }
     })
-    child.once('error', error => finish(error)); child.once('close', code => { if (!settled && code !== 0) finish(new Error(stderr.trim() || `OpenAI model discovery failed with exit code ${code}`)) })
+    child.once('error', error => finish(error)); child.once('close', code => { if (!settled && code !== 0) finish(new Error(stderr.trim() || `Codex model discovery failed with exit code ${code}`)) })
     child.stdin.write(`${JSON.stringify({ method: 'initialize', id: 1, params: { clientInfo: { name: 'ai_debate', title: 'AI Debate', version: app.getVersion() } } })}\n`)
   })
 }
@@ -523,7 +595,7 @@ function createWindow() {
 app.whenReady().then(() => {
   ipcMain.handle('ai-status', (_, provider) => providerStatus(provider))
   ipcMain.handle('ai-login', async (_, provider) => {
-    if (!['openai', 'claude'].includes(provider)) throw new Error('Unsupported desktop AI provider')
+    if (!CLI_PROVIDERS.includes(provider)) throw new Error('Unsupported desktop AI provider')
     const availability = await runStatus(provider, ['--version'])
     if (availability.missing) throw new Error(`${PROVIDER_LABELS[provider]} client not found`)
     openLoginTerminal(provider)
@@ -533,7 +605,7 @@ app.whenReady().then(() => {
     const status = await providerStatus(provider)
     if (!status.installed) throw new Error(`${PROVIDER_LABELS[provider] || 'AI'} client not found`)
     if (!status.authenticated) throw new Error(`${PROVIDER_LABELS[provider] || 'AI'} login required`)
-    return provider === 'openai' ? codexModels() : CLAUDE_MODELS
+    return provider === 'codex' ? codexModels() : CLAUDE_MODELS
   })
   ipcMain.on('ai-chat-stream', (event, request) => {
     const channel = `ai-chat-stream:${String(request?.requestId || '')}`
@@ -548,20 +620,20 @@ app.whenReady().then(() => {
     aiChildren.delete(String(requestId))
     return true
   })
-  ipcMain.handle('ollama-cloud-key-get', () => Boolean(loadOllamaCloudApiKey()))
-  ipcMain.handle('ollama-cloud-key-save', (_, value) => saveOllamaCloudApiKey(value))
-  ipcMain.handle('ollama-cloud-request', (_, request) => requestOllamaCloud(request))
-  ipcMain.on('ollama-cloud-stream', (event, request) => {
-    const channel = `ollama-cloud-stream:${String(request?.requestId || '')}`
-    streamOllamaCloud(request, message => {
+  ipcMain.handle('ai-key-get', (_, provider) => Boolean(loadApiKey(provider)))
+  ipcMain.handle('ai-key-save', (_, provider, value) => saveApiKey(provider, value))
+  ipcMain.handle('ai-api-request', (_, request) => requestApi(request))
+  ipcMain.on('ai-api-stream', (event, request) => {
+    const channel = `ai-api-stream:${String(request?.requestId || '')}`
+    streamApi(request, message => {
       if (!event.sender.isDestroyed()) event.sender.send(channel, message)
     })
   })
-  ipcMain.handle('ollama-cloud-cancel', (_, requestId) => {
-    const request = ollamaCloudRequests.get(String(requestId || ''))
+  ipcMain.handle('ai-api-cancel', (_, requestId) => {
+    const request = apiRequests.get(String(requestId || ''))
     if (!request) return false
-    request.destroy(new Error('Ollama Cloud request cancelled'))
-    ollamaCloudRequests.delete(String(requestId))
+    request.destroy(new Error('Request cancelled'))
+    apiRequests.delete(String(requestId))
     return true
   })
   ipcMain.handle('web-fetch-page', (_event, request) => browserFetchPage(request))
