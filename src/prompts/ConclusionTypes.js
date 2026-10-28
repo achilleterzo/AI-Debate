@@ -47,33 +47,33 @@ export function conclusionTypeLabel(strings, type) {
 
 export const CONCLUSION_TYPES = [
     {
-      id: 'summary', labelEn: 'Summary', color: '#4a9eff',
+      id: 'summary', labelEn: 'Summary', color: 'var(--c-4a9eff, #4a9eff)',
       prompt: (ctxJson) => `Provide a concise, neutral summary of the debate.\n\nUse this JSON input:\n${ctxJson}`,
     },
     {
-      id: 'considerations', labelEn: 'Considerations', color: '#8b5cf6',
+      id: 'considerations', labelEn: 'Considerations', color: 'var(--c-8b5cf6, #8b5cf6)',
       prompt: (ctxJson) => `Provide high-value considerations and synthesis points that help understand the debate quality and implications.\n\nUse this JSON input:\n${ctxJson}`,
     },
     {
-      id: 'contradictions', labelEn: 'Contradictions', color: '#ef4444',
+      id: 'contradictions', labelEn: 'Contradictions', color: 'var(--c-ef4444, #ef4444)',
       prompt: (ctxJson) => `Identify explicit contradictions, self-inconsistencies, and unresolved tensions between participants.\n\nUse this JSON input:\n${ctxJson}`,
     },
     {
-      id: 'blindspot', labelEn: 'Blindspots', color: '#a78bfa',
+      id: 'blindspot', labelEn: 'Blindspots', color: 'var(--c-a78bfa, #a78bfa)',
       prompt: (ctxJson) => `Identify the main blindspots: what participants are missing, overlooking, or assuming without examination.\n\nUse this JSON input:\n${ctxJson}`,
     },
     {
-      id: 'verdict', labelEn: 'Verdict', color: '#f59e0b',
+      id: 'verdict', labelEn: 'Verdict', color: 'var(--c-f59e0b, #f59e0b)',
       prompt: (ctxJson) => `Act as an impartial judge. Deliver a verdict about which arguments are strongest and why.\n\nUse this JSON input:\n${ctxJson}`,
     },
     {
-      id: 'next_steps', labelEn: 'Next steps', color: '#10b981',
+      id: 'next_steps', labelEn: 'Next steps', color: 'var(--c-10b981, #10b981)',
       prompt: (ctxJson) => `Propose concrete and prioritized next steps that are actionable and realistic.\n\nUse this JSON input:\n${ctxJson}`,
     },
     {
       // Named for the model, not for the button: the request says "respond
       // only with the requested custom prompt". The button reads "Prompt".
-      id: 'custom', labelEn: 'Custom prompt', color: '#22d3ee',
+      id: 'custom', labelEn: 'Custom prompt', color: 'var(--c-22d3ee, #22d3ee)',
       prompt: (ctxJson, customPrompt) => {
         const c = (customPrompt || '').trim()
         if (!c) return ''

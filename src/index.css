@@ -7,13 +7,13 @@
 }
 
 :root {
-  --bg: #0f0f0f;
-  --surface: #1a1a1a;
-  --border: #2e2e2e;
-  --text: #e0e0e0;
-  --text-muted: #888;
-  --accent: #7c6aff;
-  --user-bg: #2a2a3d;
+  --bg: var(--c-0f0f0f, #0f0f0f);
+  --surface: var(--c-1a1a1a, #1a1a1a);
+  --border: var(--c-2e2e2e, #2e2e2e);
+  --text: var(--c-e0e0e0, #e0e0e0);
+  --text-muted: var(--c-888888, #888);
+  --accent: var(--c-7c6aff, #7c6aff);
+  --user-bg: var(--c-2a2a3d, #2a2a3d);
   /* 'Noto Color Emoji' goes last on purpose. Its subsets also cover digits,
      `#` and `*` — the keycap pieces — so ahead of the text fonts it would
      repaint ordinary numbers as emoji. Last, it is only ever reached for a
@@ -70,7 +70,7 @@ pre, pre *, code {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2e2e2e transparent;
+  scrollbar-color: var(--c-2e2e2e, #2e2e2e) transparent;
 }
 *::-webkit-scrollbar { width: 4px; height: 4px; }
 *::-webkit-scrollbar-track { background: transparent; }

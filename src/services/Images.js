@@ -98,7 +98,7 @@ export async function normalizeImage(blob) {
   const context = canvas.getContext('2d')
   let type = preferredOutputType(blob.type)
   // JPEG has no alpha: transparent areas would turn black.
-  context.fillStyle = '#ffffff'
+  context.fillStyle = 'var(--c-ffffff, #ffffff)'
   context.fillRect(0, 0, size.width, size.height)
   context.drawImage(source, 0, 0, size.width, size.height)
   source.close?.()
@@ -144,7 +144,7 @@ export async function makeThumbnail({ base64, mime }, edge = THUMBNAIL_EDGE) {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = edge * THUMBNAIL_DENSITY
   const context = canvas.getContext('2d')
-  context.fillStyle = '#ffffff'
+  context.fillStyle = 'var(--c-ffffff, #ffffff)'
   context.fillRect(0, 0, canvas.width, canvas.height)
   context.drawImage(image, x, y, side, side, 0, 0, canvas.width, canvas.height)
   return canvas.toDataURL('image/jpeg', 0.8)

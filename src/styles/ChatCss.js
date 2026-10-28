@@ -20,30 +20,30 @@ export const CHAT_CSS = `
 	.bubble ul, .bubble ol { margin: .4em 0 .6em 1.4em; padding: 0; }
 	.bubble li { margin-bottom: .2em; }
 	.bubble h1, .bubble h2, .bubble h3, .bubble h4 {
-		margin: .7em 0 .3em; font-size: 1em; font-weight: 700; color: #fff;
+		margin: .7em 0 .3em; font-size: 1em; font-weight: 700; color: var(--c-ffffff, #fff);
 	}
 	.bubble code {
 		font-family: var(--mono, ui-monospace, Consolas, monospace, 'Noto Color Emoji'); font-size: .85em;
-		background: #0f0f0f; border: 1px solid #2e2e2e;
+		background: var(--c-0f0f0f, #0f0f0f); border: 1px solid var(--c-2e2e2e, #2e2e2e);
 		border-radius: 3px; padding: 1px 5px;
 	}
 	.bubble pre {
-		background: #0f0f0f; border: 1px solid #2e2e2e;
+		background: var(--c-0f0f0f, #0f0f0f); border: 1px solid var(--c-2e2e2e, #2e2e2e);
 		border-radius: 6px; padding: 10px 12px;
 		overflow-x: auto; margin: .5em 0;
 	}
 	.bubble pre code { background: none; border: none; padding: 0; font-size: .82em; }
 	.bubble blockquote {
-		border-left: 3px solid #444; margin: .4em 0;
-		padding: 2px 10px; color: #999;
+		border-left: 3px solid var(--c-444444, #444); margin: .4em 0;
+		padding: 2px 10px; color: var(--c-999999, #999);
 	}
-	.bubble strong { color: #fff; }
-	.bubble em { color: #ccc; }
-	.bubble a { color: #a78bfa; }
-	.bubble hr { border: none; border-top: 1px solid #333; margin: .6em 0; }
+	.bubble strong { color: var(--c-ffffff, #fff); }
+	.bubble em { color: var(--c-cccccc, #ccc); }
+	.bubble a { color: var(--c-a78bfa, #a78bfa); }
+	.bubble hr { border: none; border-top: 1px solid var(--c-333333, #333); margin: .6em 0; }
 	.bubble table { border-collapse: collapse; margin: .5em 0; font-size: .9em; }
-	.bubble th, .bubble td { border: 1px solid #333; padding: 4px 10px; }
-	.bubble th { background: #1e1e1e; text-align: left; }
+	.bubble th, .bubble td { border: 1px solid var(--c-333333, #333); padding: 4px 10px; }
+	.bubble th { background: var(--c-1e1e1e, #1e1e1e); text-align: left; }
 
 	/* ── the balloon itself ──────────────────────────────────────────────── */
 	.balloon {
@@ -54,12 +54,12 @@ export const CHAT_CSS = `
 		min-width: 48px;
 		min-height: 20px;
 		padding: 10px 14px;
-		font-size: 14px;
+		font-size: var(--balloon-font-size, 14px);
 		line-height: 1.65;
-		color: #e0e0e0;
+		color: var(--c-e0e0e0, #e0e0e0);
 		word-break: break-word;
-		background: var(--balloon-bg, #1e1e1e);
-		border: 1px solid var(--balloon-border, #333);
+		background: var(--balloon-bg, var(--c-1e1e1e, #1e1e1e));
+		border: 1px solid var(--balloon-border, var(--c-333333, #333));
 		border-radius: var(--balloon-radius, 12px);
 	}
 
@@ -80,18 +80,18 @@ export const CHAT_CSS = `
 		width: 12px;
 		height: 12px;
 		box-sizing: border-box;
-		background: var(--balloon-bg, #1e1e1e);
-		border-top: 1px solid var(--balloon-border, #333);
+		background: var(--balloon-bg, var(--c-1e1e1e, #1e1e1e));
+		border-top: 1px solid var(--balloon-border, var(--c-333333, #333));
 		pointer-events: none;
 	}
 	.balloon-tail-left::after {
 		left: -5px;
-		border-left: 1px solid var(--balloon-border, #333);
+		border-left: 1px solid var(--balloon-border, var(--c-333333, #333));
 		transform: rotate(-45deg);
 	}
 	.balloon-tail-right::after {
 		right: -5px;
-		border-right: 1px solid var(--balloon-border, #333);
+		border-right: 1px solid var(--balloon-border, var(--c-333333, #333));
 		transform: rotate(45deg);
 	}
 
@@ -112,9 +112,9 @@ export const CHAT_CSS = `
 		display: inline-flex; align-items: center; gap: 6px;
 		font-size: 11px; font-weight: 700; letter-spacing: .5px;
 		text-transform: uppercase; margin-bottom: 4px;
-		color: var(--label-color, #888);
+		color: var(--label-color, var(--c-888888, #888));
 	}
-	.msg-label-round { font-weight: 400; color: #555; text-transform: none; }
+	.msg-label-round { font-weight: 400; color: var(--c-555555, #555); text-transform: none; }
 	/* The role marker keeps the emoji font's own metrics: letter-spacing and
 	   uppercasing are for the name next to it, not for a pictogram. */
 	.msg-label-emoji {
@@ -122,7 +122,7 @@ export const CHAT_CSS = `
 		font-size: 12px; line-height: 1; vertical-align: -1px;
 	}
 	.turn-badge {
-		font-size: 11px; color: #555; text-align: center;
+		font-size: 11px; color: var(--c-555555, #555); text-align: center;
 		margin: 2px 0; letter-spacing: .5px; user-select: none;
 	}
 
@@ -130,20 +130,20 @@ export const CHAT_CSS = `
 	.tool-pill {
 		max-width: 100%; box-sizing: border-box;
 		padding: 4px 8px;
-		border: 1px solid #514a78; border-radius: 8px;
-		background: #171624;
-		color: #aaa; font-size: 10px; line-height: 1.35;
+		border: 1px solid var(--c-514a78, #514a78); border-radius: 8px;
+		background: var(--c-171624, #171624);
+		color: var(--c-aaaaaa, #aaa); font-size: 10px; line-height: 1.35;
 		box-shadow: 0 0 8px rgba(139, 92, 246, .22), inset 0 0 7px rgba(139, 92, 246, .08);
 	}
 	.tool-pill-icon { margin-right: 5px; }
-	.tool-pill-name { color: #aaa; }
-	.tool-pill-details { color: #666; }
+	.tool-pill-name { color: var(--c-aaaaaa, #aaa); }
+	.tool-pill-details { color: var(--c-666666, #666); }
 	/* view_image: what the participant looked at, as a 1:1 cover thumbnail. */
 	.tool-pill-with-thumb { display: flex; align-items: center; gap: 8px; }
 	.tool-pill-thumb {
 		flex: none; width: 64px; height: 64px;
 		object-fit: cover; border-radius: 6px;
-		border: 1px solid #3a3558; background: #0f0e18;
+		border: 1px solid var(--c-3a3558, #3a3558); background: var(--c-0f0e18, #0f0e18);
 	}
 	.tool-pill-with-thumb .tool-pill-text { min-width: 0; overflow-wrap: anywhere; }
 	.tool-pill-thumb-button {
@@ -151,7 +151,7 @@ export const CHAT_CSS = `
 		background: none; border: 0; border-radius: 6px; cursor: zoom-in;
 	}
 	.tool-pill-thumb-button:hover .tool-pill-thumb,
-	.tool-pill-thumb-button:focus-visible .tool-pill-thumb { border-color: #8b5cf6; box-shadow: 0 0 8px rgba(139, 92, 246, .45); }
+	.tool-pill-thumb-button:focus-visible .tool-pill-thumb { border-color: var(--c-8b5cf6, #8b5cf6); box-shadow: 0 0 8px rgba(139, 92, 246, .45); }
 	.tool-pill-thumb-button:focus-visible { outline: none; }
 
 	/* ── view_image, full size ───────────────────────────────────────────── */
@@ -169,26 +169,26 @@ export const CHAT_CSS = `
 		display: block; min-height: 0;
 		max-width: min(100%, 1568px); max-height: calc(100vh - 110px);
 		width: auto; height: auto; object-fit: contain;
-		border-radius: 8px; border: 1px solid #3a3558; background: #0f0e18;
+		border-radius: 8px; border: 1px solid var(--c-3a3558, #3a3558); background: var(--c-0f0e18, #0f0e18);
 		box-shadow: 0 12px 48px rgba(0, 0, 0, .6);
 	}
 	/* The thumbnail standing in while the full image loads: scaled up, so blurred on purpose. */
 	.image-lightbox-image.is-placeholder { width: min(60vh, 90vw); height: auto; aspect-ratio: 1; object-fit: cover; filter: blur(6px); }
 	.image-lightbox-caption {
 		display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px;
-		max-width: min(90vw, 900px); font-size: 11px; color: #888; text-align: center;
+		max-width: min(90vw, 900px); font-size: 11px; color: var(--c-888888, #888); text-align: center;
 	}
-	.image-lightbox-caption a { color: #a99cf0; overflow-wrap: anywhere; }
-	.image-lightbox-kind { color: #c9bfff; }
-	.image-lightbox-size { color: #666; }
-	.image-lightbox-status { color: #aa8855; width: 100%; }
+	.image-lightbox-caption a { color: var(--c-a99cf0, #a99cf0); overflow-wrap: anywhere; }
+	.image-lightbox-kind { color: var(--c-c9bfff, #c9bfff); }
+	.image-lightbox-size { color: var(--c-666666, #666); }
+	.image-lightbox-status { color: var(--c-aa8855, #aa8855); width: 100%; }
 	.image-lightbox-close {
 		position: absolute; top: 12px; right: 16px;
 		width: 34px; height: 34px; border-radius: 50%;
-		border: 1px solid #3a3558; background: #171624; color: #ccc;
+		border: 1px solid var(--c-3a3558, #3a3558); background: var(--c-171624, #171624); color: var(--c-cccccc, #ccc);
 		font-size: 20px; line-height: 1; cursor: pointer;
 	}
-	.image-lightbox-close:hover { color: #fff; border-color: #8b5cf6; }
+	.image-lightbox-close:hover { color: var(--c-ffffff, #fff); border-color: var(--c-8b5cf6, #8b5cf6); }
 
 	/* ── citations of another message ────────────────────────────────────── */
 	/* Rendered as a button in the chat and as an anchor in the export, so the
@@ -199,17 +199,17 @@ export const CHAT_CSS = `
 		margin: 0; padding: 5px 10px;
 		text-align: left; text-decoration: none;
 		font: inherit; font-size: 11px; line-height: 1.5;
-		color: #999;
-		background: #14131f;
-		border: 1px solid var(--quote-color, #514a78);
+		color: var(--c-999999, #999);
+		background: var(--c-14131f, #14131f);
+		border: 1px solid var(--quote-color, var(--c-514a78, #514a78));
 		border-left-width: 3px;
 		border-radius: 6px;
 		cursor: pointer;
 		transition: background .15s, color .15s;
 	}
-	.quote-card:hover { background: #1c1b2c; color: #ccc; }
-	.quote-card-mark { color: var(--quote-color, #8b5cf6); font-weight: 700; }
-	.quote-card-author { color: var(--quote-color, #c9bfff); font-weight: 700; white-space: nowrap; }
+	.quote-card:hover { background: var(--c-1c1b2c, #1c1b2c); color: var(--c-cccccc, #ccc); }
+	.quote-card-mark { color: var(--quote-color, var(--c-8b5cf6, #8b5cf6)); font-weight: 700; }
+	.quote-card-author { color: var(--quote-color, var(--c-c9bfff, #c9bfff)); font-weight: 700; white-space: nowrap; }
 	.quote-card-text {
 		flex: 1; min-width: 0;
 		font-style: italic;
@@ -222,7 +222,7 @@ export const CHAT_CSS = `
 	[id^="message-"] { scroll-margin-top: 24px; }
 	.message-highlight { animation: quoteTargetFlash 1.6s ease-out; }
 	@keyframes quoteTargetFlash {
-		0%, 55% { background: #8b5cf633; box-shadow: 0 0 0 6px #8b5cf622; border-radius: 12px; }
+		0%, 55% { background: var(--c-8b5cf633, #8b5cf633); box-shadow: 0 0 0 6px var(--c-8b5cf622, #8b5cf622); border-radius: 12px; }
 		100% { background: transparent; box-shadow: none; border-radius: 12px; }
 	}
 
@@ -230,26 +230,26 @@ export const CHAT_CSS = `
 	.dice-note {
 		max-width: 100%; box-sizing: border-box;
 		padding: 7px 14px;
-		background: var(--dice-bg, #17152a);
-		border: 2px dashed var(--dice-border, #514a78);
+		background: var(--dice-bg, var(--c-17152a, #17152a));
+		border: 2px dashed var(--dice-border, var(--c-514a78, #514a78));
 		border-radius: 12px;
-		box-shadow: inset 0 0 0 1px var(--dice-glow, #514a7844);
-		color: #e0e0e0; font-size: 12px;
+		box-shadow: inset 0 0 0 1px var(--dice-glow, var(--c-514a7844, #514a7844));
+		color: var(--c-e0e0e0, #e0e0e0); font-size: 12px;
 	}
-	.dice-note-owner { font-weight: 700; margin-right: 7px; color: var(--dice-label, #c9bfff); }
+	.dice-note-owner { font-weight: 700; margin-right: 7px; color: var(--dice-label, var(--c-c9bfff, #c9bfff)); }
 
 	/* ── moderation ──────────────────────────────────────────────────────── */
 	.balloon-moderation {
-		background: #2a1010;
-		border: 2px dashed #ef4444cc;
-		box-shadow: inset 0 0 0 1px #ef444433;
+		background: var(--c-2a1010, #2a1010);
+		border: 2px dashed var(--c-ef4444cc, #ef4444cc);
+		box-shadow: inset 0 0 0 1px var(--c-ef444433, #ef444433);
 		border-radius: 12px;
 	}
 	.moderation-badge {
 		display: inline-flex; align-items: center;
-		background: #2a1010; border: 1px solid #ef444455;
+		background: var(--c-2a1010, #2a1010); border: 1px solid var(--c-ef444455, #ef444455);
 		border-radius: 999px; padding: 2px 8px;
-		font-size: 10px; color: #ef4444; font-weight: 700;
+		font-size: 10px; color: var(--c-ef4444, #ef4444); font-weight: 700;
 		letter-spacing: .4px; text-transform: uppercase; margin-bottom: 6px;
 	}
 
@@ -259,8 +259,8 @@ export const CHAT_CSS = `
 		border-radius: 20px; padding: 5px 14px;
 		font-size: 11px; letter-spacing: .3px;
 	}
-	.presence-chip-joined { background: #121a12; border: 1px solid #2a7a2a44; color: #55aa55; }
-	.presence-chip-left { background: #1a1212; border: 1px solid #7a2a2a44; color: #aa5555; }
+	.presence-chip-joined { background: var(--c-121a12, #121a12); border: 1px solid var(--c-2a7a2a44, #2a7a2a44); color: var(--c-55aa55, #55aa55); }
+	.presence-chip-left { background: var(--c-1a1212, #1a1212); border: 1px solid var(--c-7a2a2a44, #7a2a2a44); color: var(--c-aa5555, #aa5555); }
 	.presence-chip-arrow { opacity: .6; }
-	.presence-chip-name { font-weight: 700; color: var(--label-color, #888); }
+	.presence-chip-name { font-weight: 700; color: var(--label-color, var(--c-888888, #888)); }
 `
