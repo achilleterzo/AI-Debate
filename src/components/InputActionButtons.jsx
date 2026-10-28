@@ -42,14 +42,14 @@ export default function InputActionButtons({
         title={ui.attachDocument}
         onClick={() => docInputRef.current?.click()}
         style={{
-          background: attachedDocs.length > 0 ? '#1a1a3a' : '#161616',
-          border: `1px solid ${attachedDocs.length > 0 ? '#4a4aaa' : '#2e2e2e'}`,
+          background: attachedDocs.length > 0 ? 'var(--c-1a1a3a, #1a1a3a)' : 'var(--c-161616, #161616)',
+          border: `1px solid ${attachedDocs.length > 0 ? 'var(--c-4a4aaa, #4a4aaa)' : 'var(--c-2e2e2e, #2e2e2e)'}`,
           borderRadius: 8,
           width: 44,
           height: 44,
           padding: 0,
           cursor: 'pointer',
-          color: attachedDocs.length > 0 ? '#8888dd' : '#555',
+          color: attachedDocs.length > 0 ? 'var(--c-8888dd, #8888dd)' : 'var(--c-555555, #555)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0,
           position: 'relative',
           transition: 'all 0.15s',
@@ -62,8 +62,8 @@ export default function InputActionButtons({
           <span style={{
             position: 'absolute', top: -4, right: -4,
             minWidth: 16, height: 16, borderRadius: 999,
-            background: '#4a4aaa', border: '1px solid #6a6ad6',
-            color: '#eef2ff', fontSize: 10, lineHeight: '14px', fontWeight: 700,
+            background: 'var(--c-4a4aaa, #4a4aaa)', border: '1px solid var(--c-6a6ad6, #6a6ad6)',
+            color: 'var(--c-eef2ff, #eef2ff)', fontSize: 10, lineHeight: '14px', fontWeight: 700,
             padding: '0 4px',
           }}>{attachedDocs.length}</span>
         )}
@@ -86,8 +86,8 @@ export default function InputActionButtons({
                 ...styles.connectBtn(false),
                 minHeight: 44,
                 alignSelf: 'flex-end',
-                background: '#334155',
-                color: '#e0e0e0',
+                background: 'var(--c-334155, #334155)',
+                color: 'var(--c-e0e0e0, #e0e0e0)',
                 cursor: 'pointer',
               }}
               onClick={() => {
@@ -108,9 +108,9 @@ export default function InputActionButtons({
               ...styles.connectBtn(stopping),
               minHeight: 44,
               alignSelf: 'flex-end',
-              background: stopping ? '#3f1d1d' : '#7f1d1d',
-              borderColor: '#b91c1c',
-              color: stopping ? '#a88' : '#fee2e2',
+              background: stopping ? 'var(--c-3f1d1d, #3f1d1d)' : 'var(--c-7f1d1d, #7f1d1d)',
+              borderColor: 'var(--c-b91c1c, #b91c1c)',
+              color: stopping ? 'var(--c-aa8888, #a88)' : 'var(--c-fee2e2, #fee2e2)',
             }}
             onClick={onStop}
             disabled={stopping}
@@ -125,9 +125,9 @@ export default function InputActionButtons({
                 ...styles.connectBtn(false),
                 minHeight: 44,
                 alignSelf: 'flex-end',
-                background: '#7f1d1d',
-                borderColor: '#ef4444',
-                color: '#fee2e2',
+                background: 'var(--c-7f1d1d, #7f1d1d)',
+                borderColor: 'var(--c-ef4444, #ef4444)',
+                color: 'var(--c-fee2e2, #fee2e2)',
                 cursor: 'pointer',
               }}
               onClick={onForceStop}

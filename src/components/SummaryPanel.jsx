@@ -28,8 +28,8 @@ export default function SummaryPanel({
 
   return (
     <div ref={panelRef} style={{
-      borderBottom: '1px solid #2e2e2e',
-      background: '#111',
+      borderBottom: '1px solid var(--c-2e2e2e, #2e2e2e)',
+      background: 'var(--c-111111, #111)',
     }}>
       <div
         role="button"
@@ -43,13 +43,13 @@ export default function SummaryPanel({
         }}
         style={{
           width: '100%', background: 'none', border: 'none',
-          color: '#888', fontSize: 11, fontWeight: 600,
+          color: 'var(--c-888888, #888)', fontSize: 11, fontWeight: 600,
           padding: '6px 16px', cursor: 'pointer', textAlign: 'left',
           display: 'flex', alignItems: 'center', gap: 6,
           letterSpacing: 0.5, textTransform: 'uppercase',
         }}
       >
-        <span style={{ color: streamingRole ? '#f97316' : '#555' }}>
+        <span style={{ color: streamingRole ? 'var(--c-f97316, #f97316)' : 'var(--c-555555, #555)' }}>
           {streamingRole ? '⟳' : '◆'}
         </span>
         {ui.contextSummary}
@@ -72,7 +72,7 @@ export default function SummaryPanel({
             }}
           >⚙</button>
         )}
-        <span style={{ color: '#4a9eff', fontSize: 10, fontWeight: 600 }} title={ui.contextEstimate(contextEstimate.baseChars, contextEstimate.estTokens)}>
+        <span style={{ color: 'var(--c-4a9eff, #4a9eff)', fontSize: 10, fontWeight: 600 }} title={ui.contextEstimate(contextEstimate.baseChars, contextEstimate.estTokens)}>
           ~{contextEstimate.estTokens} tok
         </span>
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -87,9 +87,9 @@ export default function SummaryPanel({
             style={{
               marginTop: 0,
               fontSize: 10,
-              color: '#8b9cff',
-              border: '1px solid #30356b',
-              background: '#17172b',
+              color: 'var(--c-8b9cff, #8b9cff)',
+              border: '1px solid var(--c-30356b, #30356b)',
+              background: 'var(--c-17172b, #17172b)',
               borderRadius: 999,
               padding: '2px 8px',
               whiteSpace: 'nowrap',
@@ -113,9 +113,9 @@ export default function SummaryPanel({
         // reaches its end.
         <div className={summary ? 'selectable' : undefined} style={{
           padding: '8px 16px 12px',
-          fontSize: 12, color: '#aaa', lineHeight: 1.6,
+          fontSize: 12, color: 'var(--c-aaaaaa, #aaa)', lineHeight: 1.6,
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          borderTop: '1px solid #1e1e1e',
+          borderTop: '1px solid var(--c-1e1e1e, #1e1e1e)',
           maxHeight: '40vh',
           overflowY: 'auto',
           overscrollBehavior: 'contain',

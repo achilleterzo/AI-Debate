@@ -11,9 +11,9 @@ export default function ScrollToBottomButton({ onClick }) {
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 44, height: 44, borderRadius: '50%',
-          background: '#2a1010', border: '2px dashed #ef4444cc',
-          boxShadow: 'inset 0 0 0 1px #ef444433, 0 8px 20px #000c', cursor: 'pointer',
-          color: '#ef4444', pointerEvents: 'auto',
+          background: 'var(--c-2a1010, #2a1010)', border: '2px dashed var(--c-ef4444cc, #ef4444cc)',
+          boxShadow: 'inset 0 0 0 1px var(--c-ef444433, #ef444433), 0 8px 20px var(--c-000000cc, #000c)', cursor: 'pointer',
+          color: 'var(--c-ef4444, #ef4444)', pointerEvents: 'auto',
         }}
         title={ui.backToBottom}
       >

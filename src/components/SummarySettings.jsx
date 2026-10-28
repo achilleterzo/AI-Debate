@@ -68,7 +68,7 @@ export default function SummarySettings({
             aria-label={participantsUi.reasoningLangCustomEdit}
             style={{
               width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-              border: '1px solid #4a2f63', background: '#1f1726', color: '#caa9ee',
+              border: '1px solid var(--c-4a2f63, #4a2f63)', background: 'var(--c-1f1726, #1f1726)', color: 'var(--c-caa9ee, #caa9ee)',
               cursor: running ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               opacity: running ? 0.5 : 1,
             }}
@@ -79,26 +79,26 @@ export default function SummarySettings({
             </svg>
           </button>
         )}
-        <div style={{ width: 1, height: 18, background: '#2e2e2e', flexShrink: 0 }} />
+        <div style={{ width: 1, height: 18, background: 'var(--c-2e2e2e, #2e2e2e)', flexShrink: 0 }} />
         <div
           onClick={() => !running && onUseSummaryChange(!useSummary)}
           title={useSummary ? ui.perRoundSummaryOn : ui.perRoundSummaryOff}
           style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: running ? 'default' : 'pointer', userSelect: 'none', opacity: running ? 0.5 : 1 }}
         >
-          <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: useSummary ? '#4a9eff' : '#444', transition: 'background 0.2s', flexShrink: 0 }}>
+          <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: useSummary ? 'var(--c-4a9eff, #4a9eff)' : 'var(--c-444444, #444)', transition: 'background 0.2s', flexShrink: 0 }}>
             <div style={{ position: 'absolute', top: 2, left: useSummary ? 18 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
           </div>
-          <span style={{ fontSize: 12, color: useSummary ? '#4a9eff' : '#666', whiteSpace: 'nowrap' }}>{ui.contextSummary}</span>
+          <span style={{ fontSize: 12, color: useSummary ? 'var(--c-4a9eff, #4a9eff)' : 'var(--c-666666, #666)', whiteSpace: 'nowrap' }}>{ui.contextSummary}</span>
         </div>
         <div
           onClick={() => !running && onSummaryModelEnabledChange(!summaryModelEnabled)}
           title={summaryModelEnabled ? ui.summaryModelTitleOn : ui.summaryModelTitleOff}
           style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: running ? 'default' : 'pointer', userSelect: 'none', opacity: running ? 0.5 : 1 }}
         >
-          <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: summaryModelEnabled ? '#a78bfa' : '#444', transition: 'background 0.2s', flexShrink: 0 }}>
+          <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: summaryModelEnabled ? 'var(--c-a78bfa, #a78bfa)' : 'var(--c-444444, #444)', transition: 'background 0.2s', flexShrink: 0 }}>
             <div style={{ position: 'absolute', top: 2, left: summaryModelEnabled ? 18 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
           </div>
-          <span style={{ fontSize: 12, color: summaryModelEnabled ? '#a78bfa' : '#666', whiteSpace: 'nowrap' }}>{ui.summaryModel}</span>
+          <span style={{ fontSize: 12, color: summaryModelEnabled ? 'var(--c-a78bfa, #a78bfa)' : 'var(--c-666666, #666)', whiteSpace: 'nowrap' }}>{ui.summaryModel}</span>
         </div>
         {/* Hidden while the override is off: the summary then runs on the
             default model. */}
@@ -124,16 +124,16 @@ export default function SummarySettings({
           title={summarizeAttachments ? ui.summarizeAttachmentsTitleOn : ui.summarizeAttachmentsTitleOff}
           style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: running ? 'default' : 'pointer', userSelect: 'none', opacity: running ? 0.5 : 1 }}
         >
-          <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: summarizeAttachments ? '#22d3ee' : '#444', transition: 'background 0.2s', flexShrink: 0 }}>
+          <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: summarizeAttachments ? 'var(--c-22d3ee, #22d3ee)' : 'var(--c-444444, #444)', transition: 'background 0.2s', flexShrink: 0 }}>
             <div style={{ position: 'absolute', top: 2, left: summarizeAttachments ? 18 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
           </div>
-          <span style={{ fontSize: 12, color: summarizeAttachments ? '#22d3ee' : '#666', whiteSpace: 'nowrap' }}>{ui.summarizeAttachments}</span>
+          <span style={{ fontSize: 12, color: summarizeAttachments ? 'var(--c-22d3ee, #22d3ee)' : 'var(--c-666666, #666)', whiteSpace: 'nowrap' }}>{ui.summarizeAttachments}</span>
         </div>
-        <div style={{ width: 1, height: 18, background: '#2e2e2e', flexShrink: 0 }} />
+        <div style={{ width: 1, height: 18, background: 'var(--c-2e2e2e, #2e2e2e)', flexShrink: 0 }} />
         {/* The context size always applies: it is what bounds the payload when
             no summary is running. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.accumulateSummaryOn(summaryAccumulateThreshold)}>
-          <span style={{ fontSize: 12, color: '#a78bfa', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--c-a78bfa, #a78bfa)', whiteSpace: 'nowrap' }}>
             {ui.accumulateSummaryCompact(summaryAccumulateThreshold)}
           </span>
           <div style={{ display: 'flex', gap: 3 }}>
@@ -146,9 +146,9 @@ export default function SummarySettings({
                   style={{
                     fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid',
                     cursor: running ? 'default' : 'pointer',
-                    background: active ? '#3b1f6e' : 'transparent',
-                    borderColor: active ? '#a78bfa' : '#2a2a2a',
-                    color: active ? '#a78bfa' : '#444',
+                    background: active ? 'var(--c-3b1f6e, #3b1f6e)' : 'transparent',
+                    borderColor: active ? 'var(--c-a78bfa, #a78bfa)' : 'var(--c-2a2a2a, #2a2a2a)',
+                    color: active ? 'var(--c-a78bfa, #a78bfa)' : 'var(--c-444444, #444)',
                   }}
                 >{kb}K</button>
               )

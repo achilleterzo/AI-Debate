@@ -59,7 +59,7 @@ export default function OllamaSettings({
         key={model}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          border: `1px solid ${selected ? '#3f5a8a' : '#252525'}`, borderRadius: 7, background: '#101010', padding: '7px 9px',
+          border: `1px solid ${selected ? 'var(--c-3f5a8a, #3f5a8a)' : 'var(--c-252525, #252525)'}`, borderRadius: 7, background: 'var(--c-101010, #101010)', padding: '7px 9px',
           opacity: disabled ? 0.55 : 1,
         }}
       >
@@ -76,11 +76,11 @@ export default function OllamaSettings({
             // participant or summary, not the provider's default.
             title={onSelectModel ? common.chooseModel : ui.ollamaDefaultRadio}
             aria-label={`${onSelectModel ? common.chooseModel : ui.ollamaDefaultRadio}: ${model}`}
-            style={{ width: 13, height: 13, margin: 0, flexShrink: 0, accentColor: '#3f5a8a', cursor: disabled || !enabled ? 'default' : 'pointer' }}
+            style={{ width: 13, height: 13, margin: 0, flexShrink: 0, accentColor: 'var(--c-3f5a8a, #3f5a8a)', cursor: disabled || !enabled ? 'default' : 'pointer' }}
           />
-          <span style={{ fontSize: 12, color: enabled ? (isDefault ? '#9fc2ff' : '#ccc') : '#666', fontFamily: 'var(--mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model}</span>
+          <span style={{ fontSize: 12, color: enabled ? (isDefault ? 'var(--c-9fc2ff, #9fc2ff)' : 'var(--c-cccccc, #ccc)') : 'var(--c-666666, #666)', fontFamily: 'var(--mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model}</span>
           {isDefault && (
-            <span style={{ fontSize: 10, color: '#9fc2ff', border: '1px solid #3f5a8a', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap', flexShrink: 0 }}>{ui.ollamaDefaultBadge}</span>
+            <span style={{ fontSize: 10, color: 'var(--c-9fc2ff, #9fc2ff)', border: '1px solid var(--c-3f5a8a, #3f5a8a)', borderRadius: 999, padding: '1px 6px', whiteSpace: 'nowrap', flexShrink: 0 }}>{ui.ollamaDefaultBadge}</span>
           )}
         </div>
         <div
@@ -89,7 +89,7 @@ export default function OllamaSettings({
           aria-checked={enabled}
           aria-label={model}
           title={enabled ? ui.toolEnabled : ui.toolDisabled}
-          style={{ width: 34, height: 18, borderRadius: 9, position: 'relative', flexShrink: 0, background: enabled ? '#4ade80' : '#444', cursor: disabled ? 'default' : 'pointer', transition: 'background 0.2s' }}
+          style={{ width: 34, height: 18, borderRadius: 9, position: 'relative', flexShrink: 0, background: enabled ? 'var(--c-4ade80, #4ade80)' : 'var(--c-444444, #444)', cursor: disabled ? 'default' : 'pointer', transition: 'background 0.2s' }}
         >
           <div style={{ position: 'absolute', top: 2, left: enabled ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
         </div>
@@ -100,8 +100,8 @@ export default function OllamaSettings({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <span style={{ fontSize: 12, color: '#888' }}>{ui.ollamaEndpointTitle}</span>
-        <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.ollamaEndpointDescription}</span>
+        <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{ui.ollamaEndpointTitle}</span>
+        <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', lineHeight: 1.45 }}>{ui.ollamaEndpointDescription}</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             value={value}
@@ -110,12 +110,12 @@ export default function OllamaSettings({
             spellCheck={false}
             disabled={disabled || connecting}
             onKeyDown={e => { if (e.key === 'Enter' && value.trim()) onConnect?.(value) }}
-            style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', background: '#0f0f0f', border: `1px solid ${connectError ? '#7f3f3f' : '#2e2e2e'}`, borderRadius: 6, color: '#ddd', fontSize: 12, padding: '6px 9px' }}
+            style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', background: 'var(--c-0f0f0f, #0f0f0f)', border: `1px solid ${connectError ? 'var(--c-7f3f3f, #7f3f3f)' : 'var(--c-2e2e2e, #2e2e2e)'}`, borderRadius: 6, color: 'var(--c-dddddd, #ddd)', fontSize: 12, padding: '6px 9px' }}
           />
           <button
             onClick={() => onConnect?.(value)}
             disabled={disabled || connecting || !value.trim()}
-            style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '5px 12px', fontSize: 12, flexShrink: 0, cursor: connecting ? 'wait' : 'pointer', opacity: disabled || connecting || !value.trim() ? 0.6 : 1 }}
+            style={{ background: 'var(--c-1f2a3f, #1f2a3f)', border: '1px solid var(--c-3f5a8a, #3f5a8a)', color: 'var(--c-9fc2ff, #9fc2ff)', borderRadius: 6, padding: '5px 12px', fontSize: 12, flexShrink: 0, cursor: connecting ? 'wait' : 'pointer', opacity: disabled || connecting || !value.trim() ? 0.6 : 1 }}
           >{connecting ? appUi.connecting : appUi.connect}</button>
         </div>
 
@@ -125,7 +125,7 @@ export default function OllamaSettings({
         <div style={{ display: 'flex', gap: 6, minHeight: 16 }}>
           <span style={{ ...styles.dot(connecting ? null : ollamaOk), marginTop: 3 }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={{ fontSize: 11, color: unreachable || connectError ? '#f87171' : '#888' }}>
+            <span style={{ fontSize: 11, color: unreachable || connectError ? 'var(--c-f87171, #f87171)' : 'var(--c-888888, #888)' }}>
               {connecting
                 ? appUi.connectionConnecting
                 : unreachable
@@ -135,22 +135,22 @@ export default function OllamaSettings({
                     : appUi.connectionConnected(enabledCount)}
             </span>
             {!connecting && unreachable && !!connectError && (
-              <span style={{ fontSize: 10, color: '#777' }}>{connectError}</span>
+              <span style={{ fontSize: 10, color: 'var(--c-777777, #777)' }}>{connectError}</span>
             )}
           </div>
         </div>
 
         {suggestions.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <span style={{ fontSize: 11, color: '#777' }}>{endpointUi.history}</span>
+            <span style={{ fontSize: 11, color: 'var(--c-777777, #777)' }}>{endpointUi.history}</span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {suggestions.map(entry => (
                 <span
                   key={entry}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
-                    background: '#152131', border: '1px solid #2f4f6f', borderRadius: 6,
-                    padding: '2px 4px 2px 8px', fontSize: 11, color: '#9ac8ff', maxWidth: '100%',
+                    background: 'var(--c-152131, #152131)', border: '1px solid var(--c-2f4f6f, #2f4f6f)', borderRadius: 6,
+                    padding: '2px 4px 2px 8px', fontSize: 11, color: 'var(--c-9ac8ff, #9ac8ff)', maxWidth: '100%',
                   }}
                 >
                   <button
@@ -161,7 +161,7 @@ export default function OllamaSettings({
                   <button
                     onClick={() => onDeleteHistoryEntry?.(entry)}
                     title={endpointUi.removeFromHistory}
-                    style={{ background: 'none', border: 'none', color: '#5c7fa3', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0 }}
+                    style={{ background: 'none', border: 'none', color: 'var(--c-5c7fa3, #5c7fa3)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0 }}
                   >✕</button>
                 </span>
               ))}
@@ -170,31 +170,31 @@ export default function OllamaSettings({
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #242424', paddingTop: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--c-242424, #242424)', paddingTop: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: '#888' }}>{ui.ollamaModelsTitle}</span>
+          <span style={{ fontSize: 12, color: 'var(--c-888888, #888)' }}>{ui.ollamaModelsTitle}</span>
           {models.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: '#666' }}>{ui.ollamaModelsCount(enabledCount, models.length)}</span>
+              <span style={{ fontSize: 11, color: 'var(--c-666666, #666)' }}>{ui.ollamaModelsCount(enabledCount, models.length)}</span>
               <button
                 onClick={() => !disabled && onSetAllModelsEnabled?.(true)}
-                style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '3px 9px', fontSize: 11, cursor: disabled ? 'default' : 'pointer' }}
+                style={{ background: 'transparent', border: '1px solid var(--c-3a3a3a, #3a3a3a)', color: 'var(--c-888888, #888)', borderRadius: 6, padding: '3px 9px', fontSize: 11, cursor: disabled ? 'default' : 'pointer' }}
               >{ui.ollamaEnableAll}</button>
               <button
                 onClick={() => !disabled && onSetAllModelsEnabled?.(false)}
-                style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '3px 9px', fontSize: 11, cursor: disabled ? 'default' : 'pointer' }}
+                style={{ background: 'transparent', border: '1px solid var(--c-3a3a3a, #3a3a3a)', color: 'var(--c-888888, #888)', borderRadius: 6, padding: '3px 9px', fontSize: 11, cursor: disabled ? 'default' : 'pointer' }}
               >{ui.ollamaDisableAll}</button>
             </div>
           )}
         </div>
-        <span style={{ fontSize: 11, color: '#666', lineHeight: 1.45 }}>{ui.ollamaModelsDescription}</span>
+        <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', lineHeight: 1.45 }}>{ui.ollamaModelsDescription}</span>
 
         {models.length === 0 ? (
-          <span style={{ fontSize: 11, color: '#777' }}>{ui.ollamaNoModels}</span>
+          <span style={{ fontSize: 11, color: 'var(--c-777777, #777)' }}>{ui.ollamaNoModels}</span>
         ) : (
           groups.map(group => (
             <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <span style={{ fontSize: 10, color: '#666', textTransform: 'uppercase', letterSpacing: 0.6 }}>{group.label}</span>
+              <span style={{ fontSize: 10, color: 'var(--c-666666, #666)', textTransform: 'uppercase', letterSpacing: 0.6 }}>{group.label}</span>
               {group.models.map(renderRow)}
             </div>
           ))

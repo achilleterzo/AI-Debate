@@ -6,7 +6,7 @@ export default function DropdownItem({ onClick, danger, disabled, children }) {
   const base = danger ? styles.dropdownItemDanger : styles.dropdownItem
   return (
 	<button
-	  style={{ ...base, background: hovered && !disabled ? '#2a2a2a' : 'none', opacity: disabled ? 0.35 : 1, cursor: disabled ? 'default' : 'pointer' }}
+	  style={{ ...base, background: hovered && !disabled ? 'var(--c-2a2a2a, #2a2a2a)' : 'none', opacity: disabled ? 0.35 : 1, cursor: disabled ? 'default' : 'pointer' }}
 	  onMouseEnter={() => setHovered(true)}
 	  onMouseLeave={() => setHovered(false)}
 	  onClick={disabled ? undefined : onClick}

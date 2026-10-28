@@ -17,14 +17,14 @@ export default function RoundsInput({ maxTurns, onMaxTurnsChange, running }) {
         gap: 6,
         height: 44,
         padding: '0 10px',
-        background: '#161616',
-        border: '1px solid #2e2e2e',
+        background: 'var(--c-161616, #161616)',
+        border: '1px solid var(--c-2e2e2e, #2e2e2e)',
         borderRadius: 8,
         flexShrink: 0,
         opacity: running ? 0.5 : 1,
       }}
     >
-      <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap', userSelect: 'none' }}>{ui.round}</span>
+      <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', whiteSpace: 'nowrap', userSelect: 'none' }}>{ui.round}</span>
       <button
         type="button"
         onClick={() => onMaxTurnsChange(Math.max(0, maxTurns - 1))}
@@ -35,7 +35,7 @@ export default function RoundsInput({ maxTurns, onMaxTurnsChange, running }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 20, height: 26, padding: 0,
           background: 'transparent', border: 'none', borderRadius: 4,
-          color: running || maxTurns <= 0 ? '#3a3a3a' : '#888',
+          color: running || maxTurns <= 0 ? 'var(--c-3a3a3a, #3a3a3a)' : 'var(--c-888888, #888)',
           cursor: running || maxTurns <= 0 ? 'default' : 'pointer',
         }}
       >
@@ -54,7 +54,7 @@ export default function RoundsInput({ maxTurns, onMaxTurnsChange, running }) {
           background: 'transparent',
           border: 'none',
           outline: 'none',
-          color: '#e0e0e0',
+          color: 'var(--c-e0e0e0, #e0e0e0)',
           fontSize: 13,
           textAlign: 'center',
           padding: 0,
@@ -71,7 +71,7 @@ export default function RoundsInput({ maxTurns, onMaxTurnsChange, running }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 20, height: 26, padding: 0,
           background: 'transparent', border: 'none', borderRadius: 4,
-          color: running ? '#3a3a3a' : '#888',
+          color: running ? 'var(--c-3a3a3a, #3a3a3a)' : 'var(--c-888888, #888)',
           cursor: running ? 'default' : 'pointer',
         }}
       >

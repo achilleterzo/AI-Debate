@@ -46,7 +46,7 @@ export default function TopMenu({
   return (
     <div ref={menuRef} style={{ position: 'relative' }}>
       <button
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 22, padding: '2px 4px', lineHeight: 1, position: 'relative' }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-888888, #888)', fontSize: 22, padding: '2px 4px', lineHeight: 1, position: 'relative' }}
         onClick={() => setMenuOpen(v => {
           const next = !v
           if (!next) { setNewOpen(false); setExportOpen(false) }
@@ -59,15 +59,15 @@ export default function TopMenu({
           <span style={{
             position: 'absolute', top: 2, right: 0,
             width: 8, height: 8, borderRadius: '50%',
-            background: '#f59e0b', boxShadow: '0 0 0 2px #111',
+            background: 'var(--c-f59e0b, #f59e0b)', boxShadow: '0 0 0 2px var(--c-111111, #111)',
           }} />
         )}
       </button>
       {menuOpen && (
         <div style={{
           position: 'absolute', left: 0, top: '110%', zIndex: 260,
-          background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8,
-          padding: '6px 0', minWidth: 210, boxShadow: '0 4px 16px #0008',
+          background: 'var(--c-1e1e1e, #1e1e1e)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 8,
+          padding: '6px 0', minWidth: 210, boxShadow: '0 4px 16px var(--c-00000088, #0008)',
         }}>
           <div
             style={{ position: 'relative' }}
@@ -77,14 +77,14 @@ export default function TopMenu({
             <MenuItemComponent onClick={() => setNewOpen(v => !v)}>
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                 {ui.newMenu}
-                <span style={{ color: '#666', fontSize: 11 }}>▸</span>
+                <span style={{ color: 'var(--c-666666, #666)', fontSize: 11 }}>▸</span>
               </span>
             </MenuItemComponent>
             {newOpen && (
               <div style={{
                 position: 'absolute', left: '100%', top: -6, zIndex: 261,
-                background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8,
-                padding: '6px 0', minWidth: 200, boxShadow: '0 4px 16px #0008',
+                background: 'var(--c-1e1e1e, #1e1e1e)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 8,
+                padding: '6px 0', minWidth: 200, boxShadow: '0 4px 16px var(--c-00000088, #0008)',
               }}>
                 {/* Off-limits mid-debate: it rebuilds the table from scratch. */}
                 <MenuItemComponent disabled={running} onClick={withClose(onOpenWizard)}>{ui.setupWizard}</MenuItemComponent>
@@ -94,7 +94,7 @@ export default function TopMenu({
               </div>
             )}
           </div>
-          <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
+          <div style={{ borderTop: '1px solid var(--c-2e2e2e, #2e2e2e)', margin: '4px 0' }} />
           <div
             style={{ position: 'relative' }}
             onMouseEnter={() => setExportOpen(true)}
@@ -103,14 +103,14 @@ export default function TopMenu({
             <MenuItemComponent onClick={() => setExportOpen(v => !v)}>
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                 {ui.export}
-                <span style={{ color: '#666', fontSize: 11 }}>▸</span>
+                <span style={{ color: 'var(--c-666666, #666)', fontSize: 11 }}>▸</span>
               </span>
             </MenuItemComponent>
             {exportOpen && (
               <div style={{
                 position: 'absolute', left: '100%', top: -6, zIndex: 261,
-                background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8,
-                padding: '6px 0', minWidth: 190, boxShadow: '0 4px 16px #0008',
+                background: 'var(--c-1e1e1e, #1e1e1e)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 8,
+                padding: '6px 0', minWidth: 190, boxShadow: '0 4px 16px var(--c-00000088, #0008)',
               }}>
                 {exportItems.map(item => (
                   <MenuItemComponent key={item.label} disabled={item.disabled} onClick={withClose(item.onClick)}>{item.label}</MenuItemComponent>
@@ -118,11 +118,11 @@ export default function TopMenu({
               </div>
             )}
           </div>
-          <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
+          <div style={{ borderTop: '1px solid var(--c-2e2e2e, #2e2e2e)', margin: '4px 0' }} />
           <MenuItemComponent onClick={withClose(onLoadSnapshot)}>{ui.loadSnapshot}</MenuItemComponent>
           <MenuItemComponent onClick={withClose(onSaveSnapshot)}>{ui.saveSnapshot}</MenuItemComponent>
           <MenuItemComponent onClick={withClose(onOpenPromptSettings)}>{ui.promptSettings}</MenuItemComponent>
-          <div style={{ borderTop: '1px solid #2e2e2e', margin: '4px 0' }} />
+          <div style={{ borderTop: '1px solid var(--c-2e2e2e, #2e2e2e)', margin: '4px 0' }} />
           <MenuItemComponent onClick={withClose(onOpenSplash)}>{ui.welcomeScreen}</MenuItemComponent>
         </div>
       )}

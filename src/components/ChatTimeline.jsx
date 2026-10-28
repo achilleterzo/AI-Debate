@@ -1,5 +1,6 @@
 import { memo, useCallback, useState } from 'react'
 import { styles } from './Style'
+import { participantColor } from '../theme/Theme'
 import { buildOrderedItems } from '../utils/Sorting'
 import {
   alignmentFor,
@@ -52,7 +53,7 @@ function quoteCard(quote, key, alignment, participants, ui) {
       key={key}
       className="quote-card"
       title={ui.openQuoted}
-      style={{ alignSelf: alignment, '--quote-color': author?.label || '#8b5cf6' }}
+      style={{ alignSelf: alignment, '--quote-color': author?.label || 'var(--c-8b5cf6, #8b5cf6)' }}
       onClick={() => scrollToMessage(quote.messageId)}
     >
       <span className="quote-card-mark">❝</span>
@@ -93,7 +94,7 @@ function turnEvent(event, key, alignment, participants, ui, onOpenImage) {
 
 function diceNote(result, owner, key, extraStyle, fallbackActor) {
   const ownerName = owner?.name || owner?.tag || 'Shared dice result'
-  const border = owner?.border || fallbackActor?.border || '#514a78'
+  const border = participantColor(owner?.border || fallbackActor?.border || '#514a78')
   return (
     <div
       key={key}
@@ -101,10 +102,10 @@ function diceNote(result, owner, key, extraStyle, fallbackActor) {
       className="dice-note"
       style={{
         ...extraStyle,
-        '--dice-bg': owner?.bg || fallbackActor?.bg || '#17152a',
+        '--dice-bg': participantColor(owner?.bg || fallbackActor?.bg || '#17152a'),
         '--dice-border': border,
-        '--dice-glow': `${border}44`,
-        '--dice-label': owner?.label || fallbackActor?.label || '#c9bfff',
+        '--dice-glow': `color-mix(in srgb, ${border} 27%, transparent)`,
+        '--dice-label': participantColor(owner?.label || fallbackActor?.label || '#c9bfff'),
       }}
     >
       <span className="dice-note-owner">🎲 {ownerName}</span>
@@ -161,21 +162,21 @@ function ChatTimeline({
       // A conclusion drawn before the type names were translated carries an
       // English title of its own; only the fallback can be localized here.
       const title = c.title || conclusionTypeLabel(UI_STRINGS, ct ?? c.type)
-      const color = ct?.color || '#888'
+      const color = ct?.color || 'var(--c-888888, #888)'
       elems.push(
         <div key={`conclusion-${cidx}`} style={{ textAlign: 'center', margin: '12px 16px' }}>
           <div style={{
             display: 'inline-block', maxWidth: regularBalloonMaxWidth || '92%', width: '100%', textAlign: 'left',
-            background: '#161620', border: `1px solid ${color}44`,
+            background: 'var(--c-161620, #161620)', border: `1px solid ${color}44`,
             borderRadius: 12, padding: '14px 20px', fontSize: 13,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <span style={{ color: color, fontWeight: 700, fontSize: 11, textTransform: c.title ? 'none' : 'uppercase', letterSpacing: c.title ? 0 : 1 }}>{title}</span>
-              <span style={{ color: '#555', fontSize: 11 }}>· {c.model}</span>
+              <span style={{ color: 'var(--c-555555, #555)', fontSize: 11 }}>· {c.model}</span>
               <button onClick={() => setConclusions(prev => prev.filter((_, j) => j !== cidx))}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--c-444444, #444)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
             </div>
-            <div className="bubble" style={{ color: '#c9d1d9' }}
+            <div className="bubble" style={{ color: 'var(--c-c9d1d9, #c9d1d9)' }}
               dangerouslySetInnerHTML={{ __html: renderMessageMarkdown(c.content) }} />
           </div>
         </div>
@@ -187,8 +188,8 @@ function ChatTimeline({
     if (msg.role === 'topic') {
       elems.push(
         <div key={`topic-${i}`} id={messageAnchorId(msg.seq)} style={{ textAlign: 'center' }}>
-          <div className="bubble balloon" style={{ ...styles.bubble('topic'), display: 'inline-block', fontSize: 13, color: '#aaa' }}>
-            <span style={{ color: '#555', marginRight: 6 }}>{ui.topic}</span>
+          <div className="bubble balloon" style={{ ...styles.bubble('topic'), display: 'inline-block', fontSize: 13, color: 'var(--c-aaaaaa, #aaa)' }}>
+            <span style={{ color: 'var(--c-555555, #555)', marginRight: 6 }}>{ui.topic}</span>
             <span className="selectable" dangerouslySetInnerHTML={{ __html: markedInline(normalizeMathShorthands(msg.content || '')) }} />
           </div>
         </div>
@@ -199,8 +200,8 @@ function ChatTimeline({
     if (msg.role === 'interjection') {
       elems.push(
         <div key={`interjection-${i}`} id={messageAnchorId(msg.seq)} style={{ textAlign: 'center' }}>
-          <div className="bubble balloon" style={{ ...styles.bubble('topic'), display: 'inline-block', fontSize: 13, color: '#aaa', '--balloon-border': '#3a3a2e', '--balloon-bg': '#1e1e16' }}>
-            <span style={{ color: '#777', marginRight: 6 }}>{ui.variation}</span>
+          <div className="bubble balloon" style={{ ...styles.bubble('topic'), display: 'inline-block', fontSize: 13, color: 'var(--c-aaaaaa, #aaa)', '--balloon-border': 'var(--c-3a3a2e, #3a3a2e)', '--balloon-bg': 'var(--c-1e1e16, #1e1e16)' }}>
+            <span style={{ color: 'var(--c-777777, #777)', marginRight: 6 }}>{ui.variation}</span>
             <span className="selectable" dangerouslySetInnerHTML={{ __html: markedInline(normalizeMathShorthands(msg.content || '')) }} />
           </div>
         </div>
@@ -229,10 +230,10 @@ function ChatTimeline({
         <div key={`err-${i}`} style={{ textAlign: 'center', margin: '8px 0' }}>
           <div style={{
             display: 'inline-block',
-            background: nonFatal ? '#2a2410' : '#3a1a1a',
-            border: nonFatal ? '1px solid #7a6a2a' : '1px solid #7a2a2a',
+            background: nonFatal ? 'var(--c-2a2410, #2a2410)' : 'var(--c-3a1a1a, #3a1a1a)',
+            border: nonFatal ? '1px solid var(--c-7a6a2a, #7a6a2a)' : '1px solid var(--c-7a2a2a, #7a2a2a)',
             borderRadius: 8, padding: nonFatal ? '6px 14px' : '8px 16px',
-            color: nonFatal ? '#e0c060' : '#ff6b6b', fontSize: nonFatal ? 12 : 13,
+            color: nonFatal ? 'var(--c-e0c060, #e0c060)' : 'var(--c-ff6b6b, #ff6b6b)', fontSize: nonFatal ? 12 : 13,
           }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
               <span>{msg.content}</span>
@@ -241,9 +242,9 @@ function ChatTimeline({
                   onClick={() => onResume?.()}
                   disabled={typeof onResume !== 'function'}
                   style={{
-                    background: '#334155',
-                    border: '1px solid #3e4a5a',
-                    color: '#e0e0e0',
+                    background: 'var(--c-334155, #334155)',
+                    border: '1px solid var(--c-3e4a5a, #3e4a5a)',
+                    color: 'var(--c-e0e0e0, #e0e0e0)',
                     borderRadius: 6,
                     padding: '3px 10px',
                     fontSize: 12,
@@ -336,7 +337,7 @@ function ChatTimeline({
     const tailClass = isModerationIntervention ? '' : ` ${tailClassFor(actor)}`
     elems.push(
       <div key={`msg-${i}`} id={messageAnchorId(msg.seq)} style={{ ...styles.msgWrap(msg.role, actor), ...(isModerationIntervention ? { alignItems: 'center' } : {}) }}>
-        <div className="msg-label" style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', width: '92%', maxWidth: regularBalloonMaxWidth || 980, justifyContent: 'flex-start', '--label-color': '#ef4444' } : {}) }}>
+        <div className="msg-label" style={{ ...styles.roleTag(msg.role, actor), ...(isModerationIntervention ? { alignSelf: 'center', width: '92%', maxWidth: regularBalloonMaxWidth || 980, justifyContent: 'flex-start', '--label-color': 'var(--c-ef4444, #ef4444)' } : {}) }}>
           <span>
             {roleEmojiFor(actor) && <span className="msg-label-emoji" title={UI_STRINGS.common.moderator}>{roleEmojiFor(actor)}</span>}
             {actor.name || actor.tag} <span className="msg-label-round">({ui.round(msg.turn)})</span>
@@ -365,8 +366,8 @@ function ChatTimeline({
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '3px 8px', borderRadius: 999,
-                  border: '1px solid #514a78', background: '#171624',
-                  color: '#aaa', fontSize: 10, cursor: 'pointer',
+                  border: '1px solid var(--c-514a78, #514a78)', background: 'var(--c-171624, #171624)',
+                  color: 'var(--c-aaaaaa, #aaa)', fontSize: 10, cursor: 'pointer',
                 }}
               >
                 <span>💭</span>

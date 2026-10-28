@@ -15,10 +15,10 @@ export default function DebateLimitsSettings({
         title={debugMode ? ui.debugOn : ui.debugOff}
         style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', cursor: 'pointer', userSelect: 'none' }}
       >
-        <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: debugMode ? '#f59e0b' : '#444', transition: 'background 0.2s' }}>
+        <div style={{ width: 32, height: 16, borderRadius: 8, position: 'relative', background: debugMode ? 'var(--c-f59e0b, #f59e0b)' : 'var(--c-444444, #444)', transition: 'background 0.2s' }}>
           <div style={{ position: 'absolute', top: 2, left: debugMode ? 18 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
         </div>
-        <span style={{ fontSize: 12, color: debugMode ? '#f59e0b' : '#aaa' }}>{ui.debugLabel}</span>
+        <span style={{ fontSize: 12, color: debugMode ? 'var(--c-f59e0b, #f59e0b)' : 'var(--c-aaaaaa, #aaa)' }}>{ui.debugLabel}</span>
       </div>
     </div>
   )

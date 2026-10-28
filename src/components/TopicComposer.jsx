@@ -92,11 +92,11 @@ export default function TopicComposer({
         </div>
       )}
       {topicDropOpen && messages.length === 0 && !running && topicHistory.length > 0 && (
-        <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 200, background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8, marginBottom: 4, boxShadow: '0 -4px 16px #0008', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--c-1e1e1e, #1e1e1e)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 8, marginBottom: 4, boxShadow: '0 -4px 16px var(--c-00000088, #0008)', overflow: 'hidden' }}>
           {topicHistory.map((entry, index) => (
-            <div key={entry} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: index < topicHistory.length - 1 ? '1px solid #2a2a2a' : 'none', cursor: 'pointer' }} onMouseEnter={event => { event.currentTarget.style.background = '#2a2a2a' }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}>
-              <span style={{ flex: 1, fontSize: 13, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => { setTopicValue(entry); setTopicDropOpen(false) }}>{entry}</span>
-              <RemoveButton onClick={event => { event.stopPropagation(); removeHistoryEntry(index) }} title={ui.removeHistoryItem} color="#666" size={13} />
+            <div key={entry} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: index < topicHistory.length - 1 ? '1px solid var(--c-2a2a2a, #2a2a2a)' : 'none', cursor: 'pointer' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--c-2a2a2a, #2a2a2a)' }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}>
+              <span style={{ flex: 1, fontSize: 13, color: 'var(--c-cccccc, #ccc)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => { setTopicValue(entry); setTopicDropOpen(false) }}>{entry}</span>
+              <RemoveButton onClick={event => { event.stopPropagation(); removeHistoryEntry(index) }} title={ui.removeHistoryItem} color="var(--c-666666, #666)" size={13} />
             </div>
           ))}
         </div>

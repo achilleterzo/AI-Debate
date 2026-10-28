@@ -6,7 +6,7 @@
  * control. The glyph is a stroked SVG at a fixed size, with its own hit area
  * and a hover state, so it is visibly a button before it is clicked.
  */
-export default function RemoveButton({ onClick, title, color = '#7f629d', hoverColor = '#f87171', size = 14 }) {
+export default function RemoveButton({ onClick, title, color = 'var(--c-7f629d, #7f629d)', hoverColor = 'var(--c-f87171, #f87171)', size = 14 }) {
   return (
     <button
       type="button"
@@ -30,7 +30,7 @@ export default function RemoveButton({ onClick, title, color = '#7f629d', hoverC
       }}
       onMouseEnter={event => {
         event.currentTarget.style.color = hoverColor
-        event.currentTarget.style.background = '#ffffff12'
+        event.currentTarget.style.background = 'var(--c-ffffff12, #ffffff12)'
       }}
       onMouseLeave={event => {
         event.currentTarget.style.color = color

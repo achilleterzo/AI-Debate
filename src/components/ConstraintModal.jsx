@@ -31,12 +31,12 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
   const subtitle = state?.scope === 'global' ? ui.globalSubtitle : ui.participantSubtitle(state?.participantTag ?? '')
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: '#000000bb', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: '#141414', border: '1px solid #2e2e2e', borderRadius: 10, width: 'min(92vw, 560px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #2e2e2e' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'var(--c-000000bb, #000000bb)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--c-141414, #141414)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 10, width: 'min(92vw, 560px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--c-2e2e2e, #2e2e2e)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#cfcfcf' }}>{title}</span>
-            <span style={{ fontSize: 11, color: '#777' }}>{subtitle}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-cfcfcf, #cfcfcf)' }}>{title}</span>
+            <span style={{ fontSize: 11, color: 'var(--c-777777, #777)' }}>{subtitle}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {wand && wandMode && (
@@ -47,15 +47,15 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
                 onPick={suggestion => setText(suggestion)}
               />
             )}
-            <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+            <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--c-666666, #666)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
           </div>
         </div>
 
         <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {isDelete ? (
-            <div style={{ fontSize: 13, color: '#aaa', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 13, color: 'var(--c-aaaaaa, #aaa)', lineHeight: 1.5 }}>
               {ui.confirmRemove}
-              <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, border: '1px solid #2e2e2e', background: '#101010', color: '#d5d5d5' }}>{state?.initialText || ''}</div>
+              <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--c-2e2e2e, #2e2e2e)', background: 'var(--c-101010, #101010)', color: 'var(--c-d5d5d5, #d5d5d5)' }}>{state?.initialText || ''}</div>
             </div>
           ) : (
             <>
@@ -73,18 +73,18 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
                   }
                 }}
                 placeholder={ui.placeholder}
-                style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 13, lineHeight: 1.55, padding: '8px 10px', resize: 'vertical', minHeight: 92 }}
+                style={{ width: '100%', boxSizing: 'border-box', background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 8, color: 'var(--c-dddddd, #ddd)', fontSize: 13, lineHeight: 1.55, padding: '8px 10px', resize: 'vertical', minHeight: 92 }}
               />
               {isParticipant && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.overridePriorityTitle}>
-                  <span style={{ fontSize: 11, color: override ? '#f59e0b' : '#666', whiteSpace: 'nowrap' }}>{ui.overridePriority}</span>
+                  <span style={{ fontSize: 11, color: override ? 'var(--c-f59e0b, #f59e0b)' : 'var(--c-666666, #666)', whiteSpace: 'nowrap' }}>{ui.overridePriority}</span>
                   <div
                     onClick={() => setOverride(prev => !prev)}
                     role="switch"
                     aria-checked={override}
                     style={{
                       width: 34, height: 18, borderRadius: 9, position: 'relative',
-                      background: override ? '#f59e0b' : '#444',
+                      background: override ? 'var(--c-f59e0b, #f59e0b)' : 'var(--c-444444, #444)',
                       transition: 'background 0.2s',
                       cursor: 'pointer',
                     }}
@@ -99,7 +99,7 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
               )}
               {state?.scope === 'global' && globalSuggestions.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 11, color: '#888' }}>{ui.history}</div>
+                  <div style={{ fontSize: 11, color: 'var(--c-888888, #888)' }}>{ui.history}</div>
                   <div>
                     <ReactSelect
                       styles={{
@@ -117,8 +117,8 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
                           <span style={{
                             flex: 1,
                             display: 'inline-flex', alignItems: 'center',
-                            background: '#1f1726', border: '1px solid #4a2f63', borderRadius: 999,
-                            color: '#caa9ee', fontSize: 11, lineHeight: 1.2, padding: '3px 8px',
+                            background: 'var(--c-1f1726, #1f1726)', border: '1px solid var(--c-4a2f63, #4a2f63)', borderRadius: 999,
+                            color: 'var(--c-caa9ee, #caa9ee)', fontSize: 11, lineHeight: 1.2, padding: '3px 8px',
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }} title={opt.label}>{opt.label}</span>
                           <button
@@ -131,7 +131,7 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
                               }
                             }}
                             title={ui.removeFromHistory}
-                            style={{ background: 'none', border: 'none', color: '#7f629d', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0 }}
+                            style={{ background: 'none', border: 'none', color: 'var(--c-7f629d, #7f629d)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0 }}
                           >✕</button>
                         </div>
                       )}
@@ -147,13 +147,13 @@ export default function ConstraintModal({ state, onClose, onConfirm, globalSugge
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <button onClick={onClose} style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{common.cancel}</button>
+            <button onClick={onClose} style={{ background: 'transparent', border: '1px solid var(--c-3a3a3a, #3a3a3a)', color: 'var(--c-888888, #888)', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>{common.cancel}</button>
             <button
               onClick={() => onConfirm(text, override)}
               style={{
-                background: isDelete ? '#3a1e1e' : '#1f2a3f',
-                border: `1px solid ${isDelete ? '#7a3b3b' : '#3f5a8a'}`,
-                color: isDelete ? '#fca5a5' : '#9fc2ff',
+                background: isDelete ? 'var(--c-3a1e1e, #3a1e1e)' : 'var(--c-1f2a3f, #1f2a3f)',
+                border: `1px solid ${isDelete ? 'var(--c-7a3b3b, #7a3b3b)' : 'var(--c-3f5a8a, #3f5a8a)'}`,
+                color: isDelete ? 'var(--c-fca5a5, #fca5a5)' : 'var(--c-9fc2ff, #9fc2ff)',
                 borderRadius: 6,
                 padding: '5px 12px',
                 cursor: 'pointer',

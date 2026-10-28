@@ -30,10 +30,10 @@ export default function HeaderTop({
   // Unreachable is the state that needs to shout: it is the one the user has to
   // act on, and the action is one click away on this very button.
   const status = ollamaOk === null
-    ? { color: '#999', background: '#151515', border: '#303030' }
+    ? { color: 'var(--c-999999, #999)', background: 'var(--c-151515, #151515)', border: 'var(--c-303030, #303030)' }
     : ollamaOk
-      ? { color: '#4ade80', background: '#151515', border: '#303030' }
-      : { color: '#f87171', background: '#2a1616', border: '#6b2b2b' }
+      ? { color: 'var(--c-4ade80, #4ade80)', background: 'var(--c-151515, #151515)', border: 'var(--c-303030, #303030)' }
+      : { color: 'var(--c-f87171, #f87171)', background: 'var(--c-2a1616, #2a1616)', border: 'var(--c-6b2b2b, #6b2b2b)' }
   const statusLabel = ollamaOk === null
     ? ui.connectionConnecting
     : ollamaOk
@@ -67,7 +67,7 @@ export default function HeaderTop({
             onClick={() => window.desktop.webBrowserShow()}
             title={ui.showWebBrowser}
             aria-label={ui.showWebBrowser}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', padding: '0 2px', lineHeight: 1, display: 'flex', alignItems: 'center' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-888888, #888)', padding: '0 2px', lineHeight: 1, display: 'flex', alignItems: 'center' }}
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -96,7 +96,7 @@ export default function HeaderTop({
           <button
             onClick={onToggleHeaderOpen}
             title={headerOpen ? ui.collapseSettings : ui.expandSettings}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 22, padding: '0 2px', lineHeight: 1, display: 'flex', alignItems: 'center' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-888888, #888)', fontSize: 22, padding: '0 2px', lineHeight: 1, display: 'flex', alignItems: 'center' }}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               {headerOpen ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}

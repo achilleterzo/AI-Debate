@@ -3,7 +3,7 @@ import { useUiStrings } from '../i18n/UiStringsContext'
 import { WAND_STATUS } from '../hooks/useMagicWand'
 import { SUGGESTION_MODE, isConstraintMode, isParticipantMode } from '../services/Suggestions'
 
-const ACCENT = '#c084fc'
+const ACCENT = 'var(--c-c084fc, #c084fc)'
 const MODAL_WIDTH = 420
 
 /** The same working spinner the chat uses, so "busy" looks the same everywhere. */
@@ -73,10 +73,10 @@ export default function MagicWand({ wand, mode, onPick, disabled = false, descri
         title={title}
         aria-label={title}
         style={{
-          background: isActive && isOpen ? '#2a1f3a' : 'transparent',
-          border: `1px solid ${isActive && isOpen ? ACCENT : '#2e2e2e'}`,
+          background: isActive && isOpen ? 'var(--c-2a1f3a, #2a1f3a)' : 'transparent',
+          border: `1px solid ${isActive && isOpen ? ACCENT : 'var(--c-2e2e2e, #2e2e2e)'}`,
           borderRadius: 6,
-          color: unavailable ? '#3a3a3a' : (isActive && isOpen ? ACCENT : '#777'),
+          color: unavailable ? 'var(--c-3a3a3a, #3a3a3a)' : (isActive && isOpen ? ACCENT : 'var(--c-777777, #777)'),
           cursor: unavailable ? 'default' : 'pointer',
           padding: '4px 7px',
           display: 'flex',
@@ -94,37 +94,37 @@ export default function MagicWand({ wand, mode, onPick, disabled = false, descri
         <div
           role="presentation"
           onMouseDown={event => { if (event.target === event.currentTarget) wand.close() }}
-          style={{ position: 'fixed', inset: 0, zIndex, background: '#00000066', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}
+          style={{ position: 'fixed', inset: 0, zIndex, background: 'var(--c-00000066, #00000066)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label={panelTitle}
             onMouseDown={event => event.stopPropagation()}
-            style={{ width: MODAL_WIDTH, maxWidth: 'calc(100vw - 24px)', maxHeight: 'calc(100vh - 24px)', background: '#1a1622', border: `1px solid ${ACCENT}55`, borderRadius: 10, boxShadow: '0 6px 24px #000a', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            style={{ width: MODAL_WIDTH, maxWidth: 'calc(100vw - 24px)', maxHeight: 'calc(100vh - 24px)', background: 'var(--c-1a1622, #1a1622)', border: `1px solid ${ACCENT}55`, borderRadius: 10, boxShadow: '0 6px 24px var(--c-000000aa, #000a)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
           >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 10px', borderBottom: '1px solid #2e2438', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 10px', borderBottom: '1px solid var(--c-2e2438, #2e2438)', flexShrink: 0 }}>
             <span style={{ fontSize: 10, color: ACCENT, letterSpacing: 0.6, textTransform: 'uppercase', fontWeight: 700 }}>
               {panelTitle}
             </span>
-            <span style={{ fontSize: 10, color: '#6b6b6b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }} title={wand.model}>
+            <span style={{ fontSize: 10, color: 'var(--c-6b6b6b, #6b6b6b)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }} title={wand.model}>
               {wand.model}
             </span>
           </div>
 
           {wand.status === WAND_STATUS.LOADING && (
-            <div style={{ padding: '12px 12px', fontSize: 12, color: '#8a8a8a' }}>
+            <div style={{ padding: '12px 12px', fontSize: 12, color: 'var(--c-8a8a8a, #8a8a8a)' }}>
               {loadingText}
             </div>
           )}
 
           {wand.status === WAND_STATUS.ERROR && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 12px' }}>
-              <span style={{ fontSize: 11, color: '#f87171' }}>{wand.error || ui.wandEmpty}</span>
+              <span style={{ fontSize: 11, color: 'var(--c-f87171, #f87171)' }}>{wand.error || ui.wandEmpty}</span>
               <button
                 type="button"
                 onClick={() => wand.generate(mode)}
-                style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#999', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 11, flexShrink: 0 }}
+                style={{ background: 'transparent', border: '1px solid var(--c-3a3a3a, #3a3a3a)', color: 'var(--c-999999, #999)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 11, flexShrink: 0 }}
               >{ui.wandRetry}</button>
             </div>
           )}
@@ -148,24 +148,24 @@ export default function MagicWand({ wand, mode, onPick, disabled = false, descri
                       textAlign: 'left',
                       background: 'transparent',
                       border: 'none',
-                      borderBottom: index < wand.suggestions.length - 1 ? '1px solid #241d30' : 'none',
-                      color: '#d6d0e0',
+                      borderBottom: index < wand.suggestions.length - 1 ? '1px solid var(--c-241d30, #241d30)' : 'none',
+                      color: 'var(--c-d6d0e0, #d6d0e0)',
                       fontSize: 12,
                       lineHeight: 1.5,
                       padding: '9px 12px',
                       cursor: 'pointer',
                     }}
-                    onMouseEnter={event => { event.currentTarget.style.background = '#241d30' }}
+                    onMouseEnter={event => { event.currentTarget.style.background = 'var(--c-241d30, #241d30)' }}
                     onMouseLeave={event => { event.currentTarget.style.background = 'transparent' }}
                   >
                     {isDraft ? (
                       <>
-                        <span style={{ display: 'block', color: '#e8e2f2', fontWeight: 700 }}>{suggestion.name}</span>
+                        <span style={{ display: 'block', color: 'var(--c-e8e2f2, #e8e2f2)', fontWeight: 700 }}>{suggestion.name}</span>
                         {describeItem?.(suggestion) && (
                           <span style={{ display: 'block', color: ACCENT, fontSize: 10, marginTop: 1 }}>{describeItem(suggestion)}</span>
                         )}
                         {suggestion.traits?.length > 0 && (
-                          <span style={{ display: 'block', color: '#9c94ab', fontSize: 11, marginTop: 3 }}>
+                          <span style={{ display: 'block', color: 'var(--c-9c94ab, #9c94ab)', fontSize: 11, marginTop: 3 }}>
                             {suggestion.traits.join(' ')}
                           </span>
                         )}
@@ -175,12 +175,12 @@ export default function MagicWand({ wand, mode, onPick, disabled = false, descri
                 )
                 })}
               </div>
-              <div style={{ padding: '7px 10px', borderTop: '1px solid #2e2438' }}>
+              <div style={{ padding: '7px 10px', borderTop: '1px solid var(--c-2e2438, #2e2438)' }}>
                 <button
                   type="button"
                   onClick={() => wand.generate(mode)}
                   disabled={wand.isLoading}
-                  style={{ width: '100%', background: '#241d30', border: '1px solid #4a3a5c', color: ACCENT, borderRadius: 6, padding: '5px 8px', cursor: wand.isLoading ? 'default' : 'pointer', fontSize: 11 }}
+                  style={{ width: '100%', background: 'var(--c-241d30, #241d30)', border: '1px solid var(--c-4a3a5c, #4a3a5c)', color: ACCENT, borderRadius: 6, padding: '5px 8px', cursor: wand.isLoading ? 'default' : 'pointer', fontSize: 11 }}
                 >{ui.wandRegenerate}</button>
               </div>
             </>
