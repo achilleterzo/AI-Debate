@@ -1,4 +1,5 @@
 import { topicToSlug } from '../utils/Slug'
+import { normalizeTemperature } from '../settings/Temperature'
 import { DEFAULT_RESPONSE_LENGTH } from '../prompts/ResponseLengths'
 import { extractLeakedReasoning, stripLeakedReasoning, visibleContribution } from '../prompts/ReasoningLeak'
 
@@ -46,6 +47,7 @@ export class Session {
       reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
       // No level of their own means the participant follows the general default.
       thinkingLevel: normalizeThinkingLevelChoice(p.thinkingLevel ?? INHERIT_THINKING_LEVEL),
+      temperature: normalizeTemperature(p.temperature),
       characterType: p.characterType ?? null,
       responseLength: p.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : p.responseLength,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,
@@ -57,10 +59,10 @@ export class Session {
     }
   }
 
-  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, INHERIT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevelChoice }) {
+  static hydrateParticipant(p, i, { mkParticipant, DEFAULT_MOOD, DEFAULT_MOOD_INTENSITY, DEFAULT_EDUCATION_LEVEL, DEFAULT_AGE_GROUP, INHERIT_THINKING_LEVEL, normalizeAffinity, normalizeAffinityLocks, normalizeConstraints, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeModeratorFacilitationInterval, normalizeThinkingLevelChoice, normalizeProviderId = value => String(value ?? '') }) {
     return {
       ...mkParticipant(i, p.model === '__user__' ? '' : p.model),
-      providerId: p.providerId ?? '',
+      providerId: normalizeProviderId(p.providerId),
       model: p.model === '__user__' ? '' : (p.model ?? ''),
       localUser: !!p.localUser || p.model === '__user__',
       endpointOverride: p.endpointOverride ?? '',
@@ -77,6 +79,7 @@ export class Session {
       reasoningLangSkipTranslation: !!p.reasoningLangSkipTranslation,
       // No level of their own means the participant follows the general default.
       thinkingLevel: normalizeThinkingLevelChoice(p.thinkingLevel ?? INHERIT_THINKING_LEVEL),
+      temperature: normalizeTemperature(p.temperature),
       characterType: p.characterType ?? null,
       responseLength: p.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : p.responseLength,
       educationLevel: p.educationLevel ?? DEFAULT_EDUCATION_LEVEL,
@@ -199,6 +202,7 @@ export class Session {
       constraints: [],
       ...(participant.mood ? { mood: participant.mood } : {}),
       ...(participant.moodIntensity != null ? { moodIntensity: participant.moodIntensity } : {}),
+      ...(participant.temperature != null ? { temperature: normalizeTemperature(participant.temperature) } : {}),
       ...(participant.age != null ? { ageGroup: participant.age } : {}),
       ...(participant.education ? { educationLevel: participant.education } : {}),
     }

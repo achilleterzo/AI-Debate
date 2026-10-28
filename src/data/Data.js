@@ -1,5 +1,6 @@
 import { topicToSlug } from '../utils/Slug'
 import { buildOrderedItems } from '../utils/Sorting'
+import { normalizeTemperature } from '../settings/Temperature'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, normalizeDebateMode } from '../prompts/Modes'
 import { UI_LANGUAGE_OPTIONS, formatLanguageLabel } from '../i18n/UiStrings'
 import { APP_VERSION } from '../settings/Settings'
@@ -537,6 +538,7 @@ ${CHAT_CSS}
           responseLength: `Verbosity: ${resp?.value ?? 'free'}`,
           mood: moodObj?.id ?? null,
           moodIntensity: intensity?.value ?? null,
+          temperature: normalizeTemperature(p.temperature),
           age: (p.ageGroup ?? DEFAULT_AGE_GROUP) !== DEFAULT_AGE_GROUP ? age?.value : null,
           education: edu?.constraints?.default ? (edu.value ?? 'education') : null,
           endpointOverride: p.endpointOverride?.trim() || null,

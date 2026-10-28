@@ -13,7 +13,10 @@ import { participantMode } from '../services/Suggestions'
 import EndpointModelGroup from './EndpointModelGroup'
 import MagicWand from './MagicWand'
 import RemoveButton from './RemoveButton'
+import { participantColor } from '../theme/Theme'
 import { thinkingLevelLabel, thinkingLevelOptions } from './ThinkingLevels'
+import TemperatureSlider from './TemperatureSlider'
+import StackedSlider from './StackedSlider'
 
 export default function ParticipantsPanel({
   participants,
@@ -157,7 +160,7 @@ export default function ParticipantsPanel({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ borderTop: '1px solid #242424', margin: '2px 0 0' }} />
+      <div style={{ borderTop: '1px solid var(--c-242424, #242424)', margin: '2px 0 0' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0 4px', gap: 8 }}>
         {/* The two resets are one pair and stay side by side; only the
             expand/collapse toggle sits at the far end of the row. */}
@@ -210,7 +213,7 @@ export default function ParticipantsPanel({
               onDragEnd={handleDragEnd}
               style={{
                 cursor: 'grab',
-                color: '#454545',
+                color: 'var(--c-454545, #454545)',
                 flexShrink: 0,
                 width: 18,
                 display: 'flex',
@@ -231,10 +234,10 @@ export default function ParticipantsPanel({
               style={{
                 flex: 1,
                 borderRadius: 8,
-                border: dragOver === idx ? '1px dashed #555' : '1px solid #202020',
+                border: dragOver === idx ? '1px dashed var(--c-555555, #555)' : '1px solid var(--c-202020, #202020)',
                 padding: 6,
                 transition: 'border-color 0.12s',
-                background: '#111',
+                background: 'var(--c-111111, #111)',
               }}
             >
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -260,7 +263,7 @@ export default function ParticipantsPanel({
                 </svg>
               </button>
 
-              <span style={{ fontSize: 12, fontWeight: 700, color: p.label, minWidth: 16, flexShrink: 0 }}>{p.tag}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: participantColor(p.label), minWidth: 16, flexShrink: 0 }}>{p.tag}</span>
 
               <div
                 onClick={() => setCollapsed(prev => ({ ...prev, [idx]: !isCollapsed }))}
@@ -274,14 +277,14 @@ export default function ParticipantsPanel({
                 }}
                 title={isCollapsed ? ui.expandParticipant : ui.collapseParticipant}
               >
-                <span style={{ fontSize: 12, color: '#d0d0d0', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{titleLabel}</span>
-                <span style={{ fontSize: 10, color: '#888', border: '1px solid #2f2f2f', borderRadius: 999, padding: '1px 7px' }}>{characterLabel}</span>
-                <span style={{ fontSize: 10, color: '#7acb92', border: '1px solid #2a3a2a', borderRadius: 999, padding: '1px 7px' }}>{responseLabel}</span>
-                <span style={{ fontSize: 10, color: '#9b9b9b', border: '1px solid #2f2f2f', borderRadius: 999, padding: '1px 7px' }}>{moodBadgeLabel}</span>
-                {(p.educationLevel ?? null) !== null && <span style={{ fontSize: 10, color: '#8fb9ff', border: '1px solid #2b3f5f', borderRadius: 999, padding: '1px 7px' }}>{eduLabel}</span>}
-                <span style={{ fontSize: 10, color: '#d9a95d', border: '1px solid #3a2f1f', borderRadius: 999, padding: '1px 7px' }}>{ageLabel}</span>
-                {!!p.endpointOverride?.trim() && <span style={{ fontSize: 10, color: '#93c5fd', border: '1px solid #27466a', borderRadius: 999, padding: '1px 7px' }}>{ui.endpointBadge}</span>}
-                {p.isModerator && <span style={{ fontSize: 10, color: '#ef4444', border: '1px solid #5f2b2b', borderRadius: 999, padding: '1px 7px' }}>{common.moderator}</span>}
+                <span style={{ fontSize: 12, color: 'var(--c-d0d0d0, #d0d0d0)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{titleLabel}</span>
+                <span style={{ fontSize: 10, color: 'var(--c-888888, #888)', border: '1px solid var(--c-2f2f2f, #2f2f2f)', borderRadius: 999, padding: '1px 7px' }}>{characterLabel}</span>
+                <span style={{ fontSize: 10, color: 'var(--c-7acb92, #7acb92)', border: '1px solid var(--c-2a3a2a, #2a3a2a)', borderRadius: 999, padding: '1px 7px' }}>{responseLabel}</span>
+                <span style={{ fontSize: 10, color: 'var(--c-9b9b9b, #9b9b9b)', border: '1px solid var(--c-2f2f2f, #2f2f2f)', borderRadius: 999, padding: '1px 7px' }}>{moodBadgeLabel}</span>
+                {(p.educationLevel ?? null) !== null && <span style={{ fontSize: 10, color: 'var(--c-8fb9ff, #8fb9ff)', border: '1px solid var(--c-2b3f5f, #2b3f5f)', borderRadius: 999, padding: '1px 7px' }}>{eduLabel}</span>}
+                <span style={{ fontSize: 10, color: 'var(--c-d9a95d, #d9a95d)', border: '1px solid var(--c-3a2f1f, #3a2f1f)', borderRadius: 999, padding: '1px 7px' }}>{ageLabel}</span>
+                {!!p.endpointOverride?.trim() && <span style={{ fontSize: 10, color: 'var(--c-93c5fd, #93c5fd)', border: '1px solid var(--c-27466a, #27466a)', borderRadius: 999, padding: '1px 7px' }}>{ui.endpointBadge}</span>}
+                {p.isModerator && <span style={{ fontSize: 10, color: 'var(--c-ef4444, #ef4444)', border: '1px solid var(--c-5f2b2b, #5f2b2b)', borderRadius: 999, padding: '1px 7px' }}>{common.moderator}</span>}
               </div>
 
               {participants.length > 2 && (
@@ -307,16 +310,16 @@ export default function ParticipantsPanel({
                         style={{
                           fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid',
                           cursor: 'pointer',
-                          background: active ? '#2e1f4f' : 'transparent',
-                          borderColor: active ? '#a78bfa' : '#2a2a2a',
-                          color: active ? '#a78bfa' : '#444',
+                          background: active ? 'var(--c-2e1f4f, #2e1f4f)' : 'transparent',
+                          borderColor: active ? 'var(--c-a78bfa, #a78bfa)' : 'var(--c-2a2a2a, #2a2a2a)',
+                          color: active ? 'var(--c-a78bfa, #a78bfa)' : 'var(--c-444444, #444)',
                         }}
                       >{ct.label}</button>
                     )
                   })}
                 </div>
                 <div style={{ display: 'flex', gap: 3 }}>
-                  <span style={{ fontSize: 10, color: '#666', alignSelf: 'center', whiteSpace: 'nowrap', marginRight: 3 }}>{ui.verbosity}:</span>
+                  <span style={{ fontSize: 10, color: 'var(--c-666666, #666)', alignSelf: 'center', whiteSpace: 'nowrap', marginRight: 3 }}>{ui.verbosity}:</span>
                   {responseLengths.map(rl => {
                     const active = (p.responseLength ?? null) === rl.value
                     return (
@@ -326,9 +329,9 @@ export default function ParticipantsPanel({
                         style={{
                           fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid',
                           cursor: 'pointer',
-                          background: active ? '#1a2e1a' : 'transparent',
-                          borderColor: active ? '#4ade80' : '#2a2a2a',
-                          color: active ? '#4ade80' : '#444',
+                          background: active ? 'var(--c-1a2e1a, #1a2e1a)' : 'transparent',
+                          borderColor: active ? 'var(--c-4ade80, #4ade80)' : 'var(--c-2a2a2a, #2a2a2a)',
+                          color: active ? 'var(--c-4ade80, #4ade80)' : 'var(--c-444444, #444)',
                         }}
                       >{rl.label}</button>
                     )
@@ -384,17 +387,15 @@ export default function ParticipantsPanel({
                 title={ui.participantMood}
               />
               {moods.find(m => m.id === p.mood)?.constraints?.default && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }} title={moodIntensity[p.moodIntensity ?? defaultMoodIntensity].label}>
-                  <span style={{ fontSize: 10, color: '#555', whiteSpace: 'nowrap' }}>
-                    {moodIntensity[p.moodIntensity ?? defaultMoodIntensity].label}
-                  </span>
-                  <input
-                    type="range" min={0} max={4} step={1}
-                    value={p.moodIntensity ?? defaultMoodIntensity}
-                    onChange={e => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moodIntensity: Number(e.target.value) } : x))}
-                    style={{ width: 72, accentColor: '#4ade80', cursor: 'pointer' }}
-                  />
-                </div>
+                <StackedSlider
+                  width={96}
+                  accent="var(--c-4ade80, #4ade80)"
+                  text={draft => moodIntensity[draft].label}
+                  title={moodIntensity[p.moodIntensity ?? defaultMoodIntensity].label}
+                  min={0} max={4} step={1}
+                  value={p.moodIntensity ?? defaultMoodIntensity}
+                  onCommit={value => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moodIntensity: value } : x))}
+                />
               )}
             </div>
 
@@ -408,7 +409,7 @@ export default function ParticipantsPanel({
                   return (
                     <>
                       <span
-                        style={{ fontSize: 11, color: canThink ? '#666' : '#3a3a3a', whiteSpace: 'nowrap' }}
+                        style={{ fontSize: 11, color: canThink ? 'var(--c-666666, #666)' : 'var(--c-3a3a3a, #3a3a3a)', whiteSpace: 'nowrap' }}
                         title={canThink ? ui.thinkingLevelTitle : ui.thinkingUnsupported}
                       >{ui.thinkingLevel}:</span>
                       <div style={{ minWidth: 130 }} title={canThink ? undefined : ui.thinkingUnsupported}>
@@ -427,7 +428,7 @@ export default function ParticipantsPanel({
                     </>
                   )
                 })()}
-                <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }} title={ui.reasoningLangTitle}>{ui.thinkingLanguage}:</span>
+                <span style={{ fontSize: 11, color: 'var(--c-666666, #666)', whiteSpace: 'nowrap' }} title={ui.reasoningLangTitle}>{ui.thinkingLanguage}:</span>
                 <div style={{ minWidth: 170 }}>
                   <ReactSelect
                     styles={moodSelectStyles}
@@ -455,7 +456,7 @@ export default function ParticipantsPanel({
                     aria-label={ui.reasoningLangCustomEdit}
                     style={{
                       width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                      border: '1px solid #4a2f63', background: '#1f1726', color: '#caa9ee',
+                      border: '1px solid var(--c-4a2f63, #4a2f63)', background: 'var(--c-1f1726, #1f1726)', color: 'var(--c-caa9ee, #caa9ee)',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
@@ -466,14 +467,14 @@ export default function ParticipantsPanel({
                   </button>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={ui.thinkingLanguageSkipTranslationTitle}>
-                  <span style={{ fontSize: 11, color: p.reasoningLangSkipTranslation ? '#c084fc' : '#666', whiteSpace: 'nowrap' }}>{ui.thinkingLanguageSkipTranslation}</span>
+                  <span style={{ fontSize: 11, color: p.reasoningLangSkipTranslation ? 'var(--c-c084fc, #c084fc)' : 'var(--c-666666, #666)', whiteSpace: 'nowrap' }}>{ui.thinkingLanguageSkipTranslation}</span>
                   <div
                     onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, reasoningLangSkipTranslation: !x.reasoningLangSkipTranslation } : x))}
                     role="switch"
                     aria-checked={!!p.reasoningLangSkipTranslation}
                     style={{
                       width: 34, height: 18, borderRadius: 9, position: 'relative',
-                      background: p.reasoningLangSkipTranslation ? '#c084fc' : '#444',
+                      background: p.reasoningLangSkipTranslation ? 'var(--c-c084fc, #c084fc)' : 'var(--c-444444, #444)',
                       transition: 'background 0.2s',
                       cursor: 'pointer',
                     }}
@@ -488,86 +489,17 @@ export default function ParticipantsPanel({
               </div>
             )}
 
-            {(
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, color: '#666' }}>{ui.relationalAffinity}</span>
-                {participants.filter(x => x.id !== p.id).map(other => {
-                  const rawW = Number((p.affinity && typeof p.affinity === 'object') ? (p.affinity[other.id] ?? 0) : 0)
-                  const w = Number.isFinite(rawW) ? rawW : 0
-                  const locked = !!(p.affinityLocks && typeof p.affinityLocks === 'object' ? p.affinityLocks[other.id] : false)
-                  return (
-                    <div key={`${p.id}-aff-${other.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 90, flexShrink: 0, fontSize: 11, color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={other.name || other.tag}>{other.name || other.tag}</span>
-                      <span style={{ fontSize: 10, color: '#8a8a8a', width: 16, textAlign: 'center' }}>−</span>
-                      <input
-                        type="range"
-                        min={-1}
-                        max={1}
-                        step={0.05}
-                        value={w}
-                        onChange={e => {
-                          const nextW = Number(e.target.value)
-                          setParticipants(prev => prev.map((x, i) => {
-                            if (i !== idx) return x
-                            const map = { ...(x.affinity && typeof x.affinity === 'object' ? x.affinity : {}) }
-                            const locks = { ...(x.affinityLocks && typeof x.affinityLocks === 'object' ? x.affinityLocks : {}) }
-                            if (nextW === 0) delete map[other.id]
-                            else map[other.id] = Math.round(nextW * 100) / 100
-                            return { ...x, affinity: map, affinityLocks: locks }
-                          }))
-                        }}
-                        style={{
-                          flex: 1,
-                          accentColor: w > 0 ? '#22c55e' : w < 0 ? '#ef4444' : '#71717a',
-                          background: 'linear-gradient(90deg, #ef4444 0%, #71717a 50%, #22c55e 100%)',
-                          height: 4,
-                          borderRadius: 999,
-                          cursor: 'pointer',
-                        }}
-                        title={`${ui.relationTitle(other.name || other.tag)}: ${w.toFixed(2)}`}
-                      />
-                      <span style={{ fontSize: 10, color: '#8a8a8a', width: 16, textAlign: 'center' }}>+</span>
-                      <span style={{ minWidth: 86, fontSize: 11, color: w > 0 ? '#4ade80' : w < 0 ? '#f87171' : '#777' }}>
-                        {w.toFixed(2)} {w > 0 ? ui.affinity : w < 0 ? ui.conflict : ui.neutral}
-                      </span>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: locked ? '#f59e0b' : '#777', whiteSpace: 'nowrap' }} title={ui.lockTitle}>
-                        <input
-                          type="checkbox"
-                          checked={locked}
-                          onChange={e => {
-                            const on = e.target.checked
-                            setParticipants(prev => prev.map((x, i) => {
-                              if (i !== idx) return x
-                              const locks = { ...(x.affinityLocks && typeof x.affinityLocks === 'object' ? x.affinityLocks : {}) }
-                              if (on) locks[other.id] = true
-                              else delete locks[other.id]
-                              return { ...x, affinityLocks: locks }
-                            }))
-                          }}
-                        />
-                        {ui.lockLabel}
-                      </label>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                  <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }}>{ui.age}:</span>
-                  <input
-                    type="range" min={0} max={4} step={1}
-                    value={p.ageGroup ?? defaultAgeGroup}
-                    onChange={e => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, ageGroup: Number(e.target.value) } : x))}
-                    style={{ width: 72, accentColor: '#f59e0b', cursor: 'pointer' }}
-                    title={ui.ageTitle(ageGroups[p.ageGroup ?? defaultAgeGroup]?.label)}
-                  />
-                  <span style={{ fontSize: 11, color: (p.ageGroup ?? defaultAgeGroup) === defaultAgeGroup ? '#555' : '#f59e0b', minWidth: 70 }}>
-                    {ageGroups[p.ageGroup ?? defaultAgeGroup]?.label}
-                  </span>
-                </div>
+                <StackedSlider
+                  width={110}
+                  text={draft => `${ui.age}: ${ageGroups[draft]?.label}`}
+                  color={draft => (draft === defaultAgeGroup ? 'var(--c-555555, #555)' : 'var(--c-f59e0b, #f59e0b)')}
+                  title={ui.ageTitle(ageGroups[p.ageGroup ?? defaultAgeGroup]?.label)}
+                  min={0} max={4} step={1}
+                  value={p.ageGroup ?? defaultAgeGroup}
+                  onCommit={value => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, ageGroup: value } : x))}
+                />
                 {/* The last native select on the row: it kept the browser's own
                     control, arrow and menu next to react-select neighbours that
                     are 1px shorter and open a styled list. */}
@@ -580,10 +512,16 @@ export default function ParticipantsPanel({
                   menuPlacement="auto"
                   title={ui.educationTitle}
                 />
+                <TemperatureSlider
+                  value={p.temperature}
+                  levels={ui.temperatureLevels}
+                  title={`${ui.temperatureTitle} ${ui.temperatureResetHint}`}
+                  onCommit={temperature => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, temperature } : x))}
+                />
                 </>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={ui.localUserTitle}>
-                  <span style={{ fontSize: 11, color: localUser ? '#22d3ee' : '#666', whiteSpace: 'nowrap' }}>{ui.localUser}</span>
+                  <span style={{ fontSize: 11, color: localUser ? 'var(--c-22d3ee, #22d3ee)' : 'var(--c-666666, #666)', whiteSpace: 'nowrap' }}>{ui.localUser}</span>
                   <div
                     onClick={() => setParticipants(prev => prev.map((x, i) => i === idx
                       ? {
@@ -596,7 +534,7 @@ export default function ParticipantsPanel({
                     aria-checked={localUser}
                     style={{
                       width: 34, height: 18, borderRadius: 9, position: 'relative',
-                      background: localUser ? '#22d3ee' : '#444',
+                      background: localUser ? 'var(--c-22d3ee, #22d3ee)' : 'var(--c-444444, #444)',
                       transition: 'background 0.2s', cursor: 'pointer',
                     }}
                   >
@@ -608,14 +546,14 @@ export default function ParticipantsPanel({
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorRole}>
-                  <span style={{ fontSize: 11, color: p.isModerator ? '#22d3ee' : '#666', whiteSpace: 'nowrap' }}>{common.moderator}</span>
+                  <span style={{ fontSize: 11, color: p.isModerator ? 'var(--c-22d3ee, #22d3ee)' : 'var(--c-666666, #666)', whiteSpace: 'nowrap' }}>{common.moderator}</span>
                 <div
                   onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, isModerator: !x.isModerator } : x))}
                   role="switch"
                   aria-checked={!!p.isModerator}
                   style={{
                     width: 34, height: 18, borderRadius: 9, position: 'relative',
-                    background: p.isModerator ? '#22d3ee' : '#444',
+                    background: p.isModerator ? 'var(--c-22d3ee, #22d3ee)' : 'var(--c-444444, #444)',
                     transition: 'background 0.2s',
                     cursor: 'pointer',
                   }}
@@ -632,21 +570,18 @@ export default function ParticipantsPanel({
 
              {p.isModerator && (
                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingLeft: 2 }}>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }} title={ui.moderatorPermissivenessTitle(ui.moderatorPermissivenessLevels[permissiveness])}>
-                   <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorPermissiveness}</span>
-                   <input
-                     type="range"
-                     min={0}
-                     max={4}
-                     step={1}
-                     value={permissiveness}
-                     onChange={e => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorPermissiveness: Number(e.target.value) } : x))}
-                     style={{ width: 78, accentColor: '#fb923c', cursor: 'pointer' }}
-                   />
-                   <span style={{ fontSize: 11, color: '#fb923c', minWidth: 76 }}>{ui.moderatorPermissivenessLevels[permissiveness]}</span>
-                 </div>
+                 <StackedSlider
+                   width={150}
+                   accent="var(--c-fb923c, #fb923c)"
+                   color="var(--c-fb923c, #fb923c)"
+                   text={draft => `${ui.moderatorPermissiveness}: ${ui.moderatorPermissivenessLevels[draft]}`}
+                   title={ui.moderatorPermissivenessTitle(ui.moderatorPermissivenessLevels[permissiveness])}
+                   min={0} max={4} step={1}
+                   value={permissiveness}
+                   onCommit={value => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorPermissiveness: value } : x))}
+                 />
                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorModeTitle}>
-                  <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorModeLabel}</span>
+                  <span style={{ fontSize: 11, color: 'var(--c-fb923c, #fb923c)', whiteSpace: 'nowrap' }}>{ui.moderatorModeLabel}</span>
                   <div style={{ minWidth: 150 }}>
                     <ReactSelect
                       styles={moodSelectStyles}
@@ -662,42 +597,19 @@ export default function ParticipantsPanel({
                 {/* Only the facilitator style runs on a schedule, so the
                     cadence is meaningless for the other two. */}
                 {moderatorMode === 'facilitator' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }} title={ui.moderatorFacilitationIntervalTitle}>
-                    <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorFacilitationInterval}</span>
-                    <input
-                      type="range"
-                      min={MIN_MODERATOR_FACILITATION_INTERVAL}
-                      max={MAX_MODERATOR_FACILITATION_INTERVAL}
-                      step={1}
-                      value={facilitationInterval}
-                      onChange={e => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorFacilitationInterval: Number(e.target.value) } : x))}
-                      style={{ width: 78, accentColor: '#fb923c', cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: 11, color: '#fb923c', whiteSpace: 'nowrap' }}>{ui.moderatorFacilitationIntervalValue(facilitationInterval)}</span>
-                  </div>
+                  <StackedSlider
+                    width={150}
+                    accent="var(--c-fb923c, #fb923c)"
+                    color="var(--c-fb923c, #fb923c)"
+                    text={draft => `${ui.moderatorFacilitationInterval}: ${ui.moderatorFacilitationIntervalValue(draft)}`}
+                    title={ui.moderatorFacilitationIntervalTitle}
+                    min={MIN_MODERATOR_FACILITATION_INTERVAL}
+                    max={MAX_MODERATOR_FACILITATION_INTERVAL}
+                    step={1}
+                    value={facilitationInterval}
+                    onCommit={value => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorFacilitationInterval: value } : x))}
+                  />
                 )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexBasis: '100%', flexWrap: 'nowrap', overflowX: 'auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorDynamicAffinityTitle}>
-                  <span style={{ fontSize: 11, color: p.moderatorDynamicAffinity ? '#22d3ee' : '#666', whiteSpace: 'nowrap' }}>{ui.moderatorDynamicAffinity}</span>
-                  <div
-                    onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorDynamicAffinity: !x.moderatorDynamicAffinity } : x))}
-                    role="switch"
-                    aria-checked={!!p.moderatorDynamicAffinity}
-                    style={{
-                      width: 34, height: 18, borderRadius: 9, position: 'relative',
-                      background: p.moderatorDynamicAffinity ? '#22d3ee' : '#444',
-                      transition: 'background 0.2s', cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{
-                      position: 'absolute', top: 2, left: p.moderatorDynamicAffinity ? 18 : 2,
-                      width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
-                    }} />
-                  </div>
-                </div>
-
-                </div>
               </div>
             )}
 
@@ -713,12 +625,12 @@ export default function ParticipantsPanel({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 6,
-                      background: isOverride ? '#2a1f10' : '#1f1726',
-                      border: isOverride ? '1px solid #7a5a1f' : '1px solid #4a2f63',
+                      background: isOverride ? 'var(--c-2a1f10, #2a1f10)' : 'var(--c-1f1726, #1f1726)',
+                      border: isOverride ? '1px solid var(--c-7a5a1f, #7a5a1f)' : '1px solid var(--c-4a2f63, #4a2f63)',
                       borderRadius: 6,
                       padding: '2px 7px',
                       fontSize: 10,
-                      color: isOverride ? '#f0c060' : '#caa9ee',
+                      color: isOverride ? 'var(--c-f0c060, #f0c060)' : 'var(--c-caa9ee, #caa9ee)',
                       maxWidth: 360,
                     }}
                     title={isOverride ? `${ui.overrideConstraintBadge} — ${constraint}` : constraint}
@@ -747,7 +659,7 @@ export default function ParticipantsPanel({
                     <RemoveButton
                       onClick={() => onDeleteConstraint(idx, ci)}
                       title={ui.removeConstraint}
-                      color={isOverride ? '#a8823f' : '#7f629d'}
+                      color={isOverride ? 'var(--c-a8823f, #a8823f)' : 'var(--c-7f629d, #7f629d)'}
                       size={12}
                     />
                   </div>
@@ -760,6 +672,93 @@ export default function ParticipantsPanel({
                 >
                   {ui.addConstraintButton}
                 </button>
+              </div>
+            )}
+
+            {(
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: 'var(--c-666666, #666)' }}>{ui.relationalAffinity}</span>
+                  {p.isModerator && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title={ui.moderatorDynamicAffinityTitle}>
+                      <span style={{ fontSize: 11, color: p.moderatorDynamicAffinity ? 'var(--c-22d3ee, #22d3ee)' : 'var(--c-666666, #666)', whiteSpace: 'nowrap' }}>{ui.moderatorDynamicAffinity}</span>
+                      <div
+                        onClick={() => setParticipants(prev => prev.map((x, i) => i === idx ? { ...x, moderatorDynamicAffinity: !x.moderatorDynamicAffinity } : x))}
+                        role="switch"
+                        aria-checked={!!p.moderatorDynamicAffinity}
+                        style={{
+                          width: 34, height: 18, borderRadius: 9, position: 'relative',
+                          background: p.moderatorDynamicAffinity ? 'var(--c-22d3ee, #22d3ee)' : 'var(--c-444444, #444)',
+                          transition: 'background 0.2s', cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{
+                          position: 'absolute', top: 2, left: p.moderatorDynamicAffinity ? 18 : 2,
+                          width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
+                        }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {participants.filter(x => x.id !== p.id).map(other => {
+                  const rawW = Number((p.affinity && typeof p.affinity === 'object') ? (p.affinity[other.id] ?? 0) : 0)
+                  const w = Number.isFinite(rawW) ? rawW : 0
+                  const locked = !!(p.affinityLocks && typeof p.affinityLocks === 'object' ? p.affinityLocks[other.id] : false)
+                  return (
+                    <div key={`${p.id}-aff-${other.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 90, flexShrink: 0, fontSize: 11, color: 'var(--c-888888, #888)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={other.name || other.tag}>{other.name || other.tag}</span>
+                      <span style={{ fontSize: 10, color: 'var(--c-8a8a8a, #8a8a8a)', width: 16, textAlign: 'center' }}>−</span>
+                      <input
+                        type="range"
+                        min={-1}
+                        max={1}
+                        step={0.05}
+                        value={w}
+                        onChange={e => {
+                          const nextW = Number(e.target.value)
+                          setParticipants(prev => prev.map((x, i) => {
+                            if (i !== idx) return x
+                            const map = { ...(x.affinity && typeof x.affinity === 'object' ? x.affinity : {}) }
+                            const locks = { ...(x.affinityLocks && typeof x.affinityLocks === 'object' ? x.affinityLocks : {}) }
+                            if (nextW === 0) delete map[other.id]
+                            else map[other.id] = Math.round(nextW * 100) / 100
+                            return { ...x, affinity: map, affinityLocks: locks }
+                          }))
+                        }}
+                        style={{
+                          flex: 1,
+                          accentColor: w > 0 ? 'var(--c-22c55e, #22c55e)' : w < 0 ? 'var(--c-ef4444, #ef4444)' : 'var(--c-71717a, #71717a)',
+                          background: 'linear-gradient(90deg, var(--c-ef4444, #ef4444) 0%, var(--c-71717a, #71717a) 50%, var(--c-22c55e, #22c55e) 100%)',
+                          height: 4,
+                          borderRadius: 999,
+                          cursor: 'pointer',
+                        }}
+                        title={`${ui.relationTitle(other.name || other.tag)}: ${w.toFixed(2)}`}
+                      />
+                      <span style={{ fontSize: 10, color: 'var(--c-8a8a8a, #8a8a8a)', width: 16, textAlign: 'center' }}>+</span>
+                      <span style={{ minWidth: 86, fontSize: 11, color: w > 0 ? 'var(--c-4ade80, #4ade80)' : w < 0 ? 'var(--c-f87171, #f87171)' : 'var(--c-777777, #777)' }}>
+                        {w.toFixed(2)} {w > 0 ? ui.affinity : w < 0 ? ui.conflict : ui.neutral}
+                      </span>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: locked ? 'var(--c-f59e0b, #f59e0b)' : 'var(--c-777777, #777)', whiteSpace: 'nowrap' }} title={ui.lockTitle}>
+                        <input
+                          type="checkbox"
+                          checked={locked}
+                          onChange={e => {
+                            const on = e.target.checked
+                            setParticipants(prev => prev.map((x, i) => {
+                              if (i !== idx) return x
+                              const locks = { ...(x.affinityLocks && typeof x.affinityLocks === 'object' ? x.affinityLocks : {}) }
+                              if (on) locks[other.id] = true
+                              else delete locks[other.id]
+                              return { ...x, affinityLocks: locks }
+                            }))
+                          }}
+                        />
+                        {ui.lockLabel}
+                      </label>
+                    </div>
+                  )
+                })}
               </div>
             )}
               </div>
@@ -782,7 +781,7 @@ export default function ParticipantsPanel({
           {toggleAllLabel}
         </button>
       </div>
-      <div style={{ borderTop: '1px solid #242424', margin: '2px 0 0' }} />
+      <div style={{ borderTop: '1px solid var(--c-242424, #242424)', margin: '2px 0 0' }} />
     </div>
   )
 }

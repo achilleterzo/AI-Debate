@@ -6,6 +6,8 @@
  * prompt shape and the (deliberately forgiving) parsing can be tested directly.
  */
 
+import { DEFAULT_TEMPERATURE, TEMPERATURE_MAX, TEMPERATURE_MIN, normalizeTemperature } from '../settings/Temperature'
+
 export const SUGGESTION_MODE = {
   /** Prompts the user could send to continue or steer the running debate. */
   STEER: 'steer',
@@ -182,11 +184,12 @@ export function buildParticipantPrompt({
     [
       'Each object must have exactly these keys:',
       '"name": the participant name, no title or honorific.',
-      `"traits": 2 or 3 instruction sentences describing stance, expertise and rhetorical habits. Each trait must be at most ${MAX_CONSTRAINT_CHARS} characters; if the characterization needs more space, use additional trait entries instead of truncating it. Address them to the participant directly, in the second person.`,
+      `"traits": a JSON array of 2 or 3 SEPARATE strings, never one long string. Each string is a single short instruction sentence (ideally under 200 characters) covering exactly one aspect: stance, expertise, or rhetorical habits. Never merge several aspects into one string, and never exceed ${MAX_CONSTRAINT_CHARS} characters per string. Address them to the participant directly, in the second person.`,
       '"ageGroup": one of 0 (child), 1 (teenager), 2 (adult), 3 (mature), 4 (elder).',
       '"educationLevel": one of "street", "primary", "proficient", "academic", "expert", or null when unremarkable.',
       `"responseLength": one of "short", "medium", "detailed", or null (Free). Prefer "${isModerator ? 'null (Free) for this moderator' : 'short'}"; choose a longer value only when the persona genuinely needs more room to explain nuanced reasoning.`,
       moodHint,
+      `"temperature": how unpredictable this persona's speech is, a number from ${TEMPERATURE_MIN} to ${TEMPERATURE_MAX}: about 0.3 for a dry, methodical persona, ${DEFAULT_TEMPERATURE} for a balanced one, about 1.4 for an inventive or erratic one. ${isModerator ? `Use ${DEFAULT_TEMPERATURE} for this moderator.` : `Vary it across the table according to each persona; use ${DEFAULT_TEMPERATURE} when nothing stands out.`}`,
       '"moodIntensity": how strongly that attitude shows, one of 0 (low), 1 (light), 2 (balanced), 3 (strong), 4 (extreme).',
       languageHint,
     ].join('\n'),
@@ -462,10 +465,19 @@ export function parseParticipantDrafts(raw, { max = 3, languageOptions = [], moo
     if (seen.has(key)) continue
     seen.add(key)
 
-    const traits = (Array.isArray(entry.traits) ? entry.traits : [entry.traits])
+    let traits = (Array.isArray(entry.traits) ? entry.traits : [entry.traits])
       .flatMap(trait => splitConstraintText(cleanEntry(trait), MAX_CONSTRAINT_CHARS))
       .filter(trait => trait.length >= 8)
-      .slice(0, 6)
+    // A model that packs the whole characterization into one string is split
+    // back into its sentences, so the participant gets a few constraints
+    // rather than a single long one.
+    if (traits.length < 2) {
+      const sentences = traits.flatMap(trait => trait.split(/(?<=[.!?。！？])\s+|(?<=[。！？])/u))
+        .map(sentence => sentence.trim())
+        .filter(sentence => sentence.length >= 8)
+      if (sentences.length >= 2) traits = sentences
+    }
+    traits = traits.slice(0, 4)
 
     drafts.push({
       name,
@@ -475,6 +487,7 @@ export function parseParticipantDrafts(raw, { max = 3, languageOptions = [], moo
       responseLength: normalizeResponseLength(entry.responseLength, defaultResponseLength),
       mood: normalizeMood(entry.mood, moodOptions),
       moodIntensity: normalizeIntensity(entry.moodIntensity),
+      temperature: normalizeTemperature(entry.temperature),
       reasoningLang: normalizeLang(entry.reasoningLang, languageOptions),
     })
     if (drafts.length >= max) break
