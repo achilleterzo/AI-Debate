@@ -58,9 +58,9 @@ const asWizardField = base => ({
 })
 
 const chipStyle = (active, disabled) => ({
-  background: active ? '#2a2440' : '#151515',
-  border: `1px solid ${active ? '#7c6aff' : '#303030'}`,
-  color: active ? '#c4b5fd' : '#999',
+  background: active ? 'var(--c-2a2440, #2a2440)' : 'var(--c-151515, #151515)',
+  border: `1px solid ${active ? 'var(--c-7c6aff, #7c6aff)' : 'var(--c-303030, #303030)'}`,
+  color: active ? 'var(--c-c4b5fd, #c4b5fd)' : 'var(--c-999999, #999)',
   borderRadius: 999,
   padding: '5px 11px',
   fontSize: 12,
@@ -71,8 +71,8 @@ const chipStyle = (active, disabled) => ({
 function FieldLabel({ children, hint }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: '#777', textTransform: 'uppercase', letterSpacing: 0.6 }}>{children}</span>
-      {hint && <span style={{ fontSize: 11, color: '#7d7d7d' }}>{hint}</span>}
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-777777, #777)', textTransform: 'uppercase', letterSpacing: 0.6 }}>{children}</span>
+      {hint && <span style={{ fontSize: 11, color: 'var(--c-7d7d7d, #7d7d7d)' }}>{hint}</span>}
     </div>
   )
 }
@@ -107,7 +107,6 @@ export default function DebateWizard({
   const appUi = UI_STRINGS.app
   const common = UI_STRINGS.common
   const participantsUi = UI_STRINGS.participants
-  const modeLabels = UI_STRINGS.modes
 
   // Whether the connection step is part of this run is decided once, when the
   // wizard opens. Recomputing it live would insert or drop a step underneath
@@ -185,7 +184,7 @@ export default function DebateWizard({
       onClick={() => !running && onClose()}
       style={{
         position: 'fixed', inset: 0, zIndex: 1200,
-        background: '#000000cc',
+        background: 'var(--c-000000cc, #000000cc)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 16,
       }}
@@ -196,21 +195,21 @@ export default function DebateWizard({
         aria-label={ui.title}
         onClick={event => event.stopPropagation()}
         style={{
-          background: 'radial-gradient(120% 120% at 50% 0%, #221c3a 0%, #141414 55%)',
-          border: '1px solid #2e2e2e',
+          background: 'radial-gradient(120% 120% at 50% 0%, var(--c-221c3a, #221c3a) 0%, var(--c-141414, #141414) 55%)',
+          border: '1px solid var(--c-2e2e2e, #2e2e2e)',
           borderRadius: 14,
           width: 'min(94vw, 560px)',
           maxHeight: '92vh',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
-          boxShadow: '0 18px 48px #000a',
+          boxShadow: '0 18px 48px var(--c-000000aa, #000a)',
         }}
       >
         <div style={{ padding: '20px 24px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f0' }}>{ui.title}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--c-f0f0f0, #f0f0f0)' }}>{ui.title}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 11, color: '#777', fontFamily: 'var(--mono)' }}>{ui.stepOf(stepIndex + 1, stepIds.length)}</span>
+              <span style={{ fontSize: 11, color: 'var(--c-777777, #777)', fontFamily: 'var(--mono)' }}>{ui.stepOf(stepIndex + 1, stepIds.length)}</span>
               {/* Disabled while generating, for the same reason Escape and the
                   backdrop are: the run would keep going with nothing showing it. */}
               <button
@@ -218,13 +217,13 @@ export default function DebateWizard({
                 disabled={running}
                 title={common.close}
                 aria-label={common.close}
-                style={{ background: 'transparent', border: 'none', color: running ? '#3a3a3a' : '#666', fontSize: 16, lineHeight: 1, cursor: running ? 'default' : 'pointer', padding: 0 }}
+                style={{ background: 'transparent', border: 'none', color: running ? 'var(--c-3a3a3a, #3a3a3a)' : 'var(--c-666666, #666)', fontSize: 16, lineHeight: 1, cursor: running ? 'default' : 'pointer', padding: 0 }}
               >
                 ✕
               </button>
             </div>
           </div>
-          <p style={{ fontSize: 12, color: '#9a9a9a', lineHeight: 1.5 }}>{requiresConnection ? ui.taglineWithConnection : ui.tagline}</p>
+          <p style={{ fontSize: 12, color: 'var(--c-9a9a9a, #9a9a9a)', lineHeight: 1.5 }}>{requiresConnection ? ui.taglineWithConnection : ui.tagline}</p>
           <div style={{ display: 'flex', gap: 6 }}>
             {stepTitles.map((title, index) => (
               <div
@@ -232,12 +231,12 @@ export default function DebateWizard({
                 title={title}
                 style={{
                   flex: 1, height: 3, borderRadius: 2,
-                  background: index <= stepIndex ? '#7c6aff' : '#2e2e2e',
+                  background: index <= stepIndex ? 'var(--c-7c6aff, #7c6aff)' : 'var(--c-2e2e2e, #2e2e2e)',
                 }}
               />
             ))}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#ddd' }}>{stepTitles[stepIndex]}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-dddddd, #ddd)' }}>{stepTitles[stepIndex]}</div>
         </div>
 
         <div style={{ padding: '0 24px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -254,21 +253,21 @@ export default function DebateWizard({
                     spellCheck={false}
                     autoFocus
                     disabled={connecting}
-                    style={{ flex: 1, background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 6, color: '#ddd', padding: '7px 10px', fontSize: 13, fontFamily: 'var(--mono)' }}
+                    style={{ flex: 1, background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 6, color: 'var(--c-dddddd, #ddd)', padding: '7px 10px', fontSize: 13, fontFamily: 'var(--mono)' }}
                   />
                   <button
                     type="button"
                     onClick={() => onConnect?.(endpoint)}
                     disabled={connecting || !endpoint.trim()}
-                    style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '7px 16px', fontSize: 12, fontWeight: 600, cursor: connecting || !endpoint.trim() ? 'default' : 'pointer', opacity: connecting || !endpoint.trim() ? 0.6 : 1 }}
+                    style={{ background: 'var(--c-1f2a3f, #1f2a3f)', border: '1px solid var(--c-3f5a8a, #3f5a8a)', color: 'var(--c-9fc2ff, #9fc2ff)', borderRadius: 6, padding: '7px 16px', fontSize: 12, fontWeight: 600, cursor: connecting || !endpoint.trim() ? 'default' : 'pointer', opacity: connecting || !endpoint.trim() ? 0.6 : 1 }}
                   >
                     {connecting ? appUi.connecting : appUi.connect}
                   </button>
                 </div>
                 {connectError
-                  ? <div style={{ fontSize: 12, color: '#f87171' }}>{connectError}</div>
+                  ? <div style={{ fontSize: 12, color: 'var(--c-f87171, #f87171)' }}>{connectError}</div>
                   : ollamaOk === true
-                    ? <div style={{ fontSize: 12, color: '#4ade80' }}>{ui.connectionOk(models.length)}</div>
+                    ? <div style={{ fontSize: 12, color: 'var(--c-4ade80, #4ade80)' }}>{ui.connectionOk(models.length)}</div>
                     : null}
               </div>
 
@@ -289,7 +288,7 @@ export default function DebateWizard({
                 </div>
               )}
 
-              {!wizard.available && <div style={{ fontSize: 12, color: '#7d7d7d' }}>{ui.connectionRequired}</div>}
+              {!wizard.available && <div style={{ fontSize: 12, color: 'var(--c-7d7d7d, #7d7d7d)' }}>{ui.connectionRequired}</div>}
             </>
           )}
 
@@ -299,7 +298,7 @@ export default function DebateWizard({
                 <FieldLabel>{common.debateMode}</FieldLabel>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {debateModeOptions.map(option => {
-                    const label = modeLabels?.[option.value] ?? option.label
+                    const label = option.label
                     return (
                       <button key={option.value} type="button" onClick={() => setMode(option.value)} disabled={running} style={chipStyle(option.value === mode, running)}>
                         {label}
@@ -330,7 +329,7 @@ export default function DebateWizard({
                     spellCheck={false}
                     disabled={running}
                     autoFocus
-                    style={{ width: '100%', boxSizing: 'border-box', background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8, color: '#ddd', fontSize: 13, padding: '8px 10px' }}
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 8, color: 'var(--c-dddddd, #ddd)', fontSize: 13, padding: '8px 10px' }}
                   />
                 )}
               </div>
@@ -359,13 +358,13 @@ export default function DebateWizard({
                   ))}
                 </div>
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#bbb', cursor: running ? 'default' : 'pointer' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--c-bbbbbb, #bbb)', cursor: running ? 'default' : 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={withModerator}
                   onChange={event => setWithModerator(event.target.checked)}
                   disabled={running}
-                  style={{ width: 14, height: 14, accentColor: '#7c6aff', cursor: running ? 'default' : 'pointer' }}
+                  style={{ width: 14, height: 14, accentColor: 'var(--c-7c6aff, #7c6aff)', cursor: running ? 'default' : 'pointer' }}
                 />
                 {ui.withModerator}
               </label>
@@ -385,16 +384,16 @@ export default function DebateWizard({
                   autoFocus
                   style={{
                     width: '100%', boxSizing: 'border-box', resize: 'vertical',
-                    background: '#0f0f0f', border: '1px solid #2e2e2e', borderRadius: 8,
-                    color: '#ddd', fontSize: 13, padding: '9px 10px', fontFamily: 'inherit', lineHeight: 1.5,
+                    background: 'var(--c-0f0f0f, #0f0f0f)', border: '1px solid var(--c-2e2e2e, #2e2e2e)', borderRadius: 8,
+                    color: 'var(--c-dddddd, #ddd)', fontSize: 13, padding: '9px 10px', fontFamily: 'inherit', lineHeight: 1.5,
                   }}
                 />
               </div>
-              <div style={{ fontSize: 11, color: '#f0a86a', background: '#2a1f14', border: '1px solid #5c3f21', borderRadius: 8, padding: '8px 10px', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, color: 'var(--c-f0a86a, #f0a86a)', background: 'var(--c-2a1f14, #2a1f14)', border: '1px solid var(--c-5c3f21, #5c3f21)', borderRadius: 8, padding: '8px 10px', lineHeight: 1.5 }}>
                 {ui.replaceWarning}
               </div>
               {running && (
-                <div style={{ fontSize: 12, color: '#c4b5fd' }}>
+                <div style={{ fontSize: 12, color: 'var(--c-c4b5fd, #c4b5fd)' }}>
                   {wizard.step === 'participants' ? ui.progressParticipants
                     : wizard.step === 'moderator' ? ui.progressModerator
                       : wizard.step === 'topic' ? ui.progressTopic
@@ -402,21 +401,21 @@ export default function DebateWizard({
                 </div>
               )}
               {wizard.status === WIZARD_STATUS.ERROR && !running && (
-                <div style={{ fontSize: 12, color: '#f87171' }}>{wizard.error || ui.generateFailed}</div>
+                <div style={{ fontSize: 12, color: 'var(--c-f87171, #f87171)' }}>{wizard.error || ui.generateFailed}</div>
               )}
-              {unavailableNote && <div style={{ fontSize: 12, color: '#f87171' }}>{unavailableNote}</div>}
+              {unavailableNote && <div style={{ fontSize: 12, color: 'var(--c-f87171, #f87171)' }}>{unavailableNote}</div>}
             </>
           )}
         </div>
 
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          padding: '12px 24px', borderTop: '1px solid #2e2e2e', background: '#141414', flexWrap: 'wrap',
+          padding: '12px 24px', borderTop: '1px solid var(--c-2e2e2e, #2e2e2e)', background: 'var(--c-141414, #141414)', flexWrap: 'wrap',
         }}>
           <button
             onClick={() => stepIndex === 0 ? onClose() : setStepIndex(stepIndex - 1)}
             disabled={running}
-            style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#888', borderRadius: 6, padding: '7px 16px', fontSize: 12, cursor: running ? 'default' : 'pointer', opacity: running ? 0.6 : 1 }}
+            style={{ background: 'transparent', border: '1px solid var(--c-3a3a3a, #3a3a3a)', color: 'var(--c-888888, #888)', borderRadius: 6, padding: '7px 16px', fontSize: 12, cursor: running ? 'default' : 'pointer', opacity: running ? 0.6 : 1 }}
           >
             {stepIndex === 0 ? common.cancel : ui.back}
           </button>
@@ -424,7 +423,7 @@ export default function DebateWizard({
             <button
               onClick={() => setStepIndex(stepIndex + 1)}
               disabled={!canLeaveStep}
-              style={{ background: '#1f2a3f', border: '1px solid #3f5a8a', color: '#9fc2ff', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: canLeaveStep ? 'pointer' : 'default', opacity: canLeaveStep ? 1 : 0.6 }}
+              style={{ background: 'var(--c-1f2a3f, #1f2a3f)', border: '1px solid var(--c-3f5a8a, #3f5a8a)', color: 'var(--c-9fc2ff, #9fc2ff)', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: canLeaveStep ? 'pointer' : 'default', opacity: canLeaveStep ? 1 : 0.6 }}
             >
               {ui.next}
             </button>
@@ -432,7 +431,7 @@ export default function DebateWizard({
             <button
               onClick={submit}
               disabled={!canGenerate}
-              style={{ background: '#2a2440', border: '1px solid #7c6aff', color: '#c4b5fd', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: canGenerate ? 'pointer' : 'default', opacity: canGenerate ? 1 : 0.6 }}
+              style={{ background: 'var(--c-2a2440, #2a2440)', border: '1px solid var(--c-7c6aff, #7c6aff)', color: 'var(--c-c4b5fd, #c4b5fd)', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, cursor: canGenerate ? 'pointer' : 'default', opacity: canGenerate ? 1 : 0.6 }}
             >
               {running ? ui.generating : ui.generate}
             </button>

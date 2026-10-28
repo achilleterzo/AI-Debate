@@ -2,6 +2,7 @@ import { RANDOM_NAMES } from '../dataset/RandomNames'
 import { UI_LANGUAGE_OPTIONS as LANGUAGES } from '../i18n/UiStrings'
 import { PALETTE } from '../dataset/Palette'
 import { Session } from '../data/Session'
+import { normalizeTemperature } from '../settings/Temperature'
 import { buildSystemPrompt } from './PromptBuilder'
 import { formatHistoryMessage } from './ContextPayload'
 import { StreamAbortedError, abortActiveStreams, streamChat } from './Stream'
@@ -17,8 +18,8 @@ import { CHARACTER_TYPES } from '../dataset/CharacterTypes'
 import { outputLanguageLabel, outputLanguagePhrase } from '../prompts/LanguagePrompt'
 import { visibleContribution } from '../prompts/ReasoningLeak'
 import { DEFAULT_DEBATE_MODE, DEBATE_MODES, DEBATE_MODE_CONCLUSION_INSTRUCTIONS, normalizeDebateMode } from '../prompts/Modes'
-import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_MODE as DEFAULT_MODE, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, MODERATOR_MODES as MODERATOR_MODE_VALUES, contextBudgetChars, normalizeModeratorFacilitationInterval, normalizeModeratorMode, normalizeModeratorPermissiveness } from '../settings/Settings'
-import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, READ_ATTACHMENT_TOOL, ROLE_PLAY_TOOLS, ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION, readAttachment, readMemory, rollDice, VIEW_IMAGE_TOOL, viewImage } from '../tools'
+import { DEFAULT_MODERATOR_FACILITATION_INTERVAL as DEFAULT_FACILITATION_INTERVAL, DEFAULT_MODERATOR_MODE as DEFAULT_MODE, DEFAULT_MODERATOR_PERMISSIVENESS as DEFAULT_PERMISSIVENESS, MODERATOR_MODES as MODERATOR_MODE_VALUES, contextBudgetChars, normalizeModeratorFacilitationInterval, normalizeModeratorMode, normalizeModeratorPermissiveness, normalizeProviderId } from '../settings/Settings'
+import { buildQuote, createConversationToolExecutor, formatDiceRoll, LLM_TOOLS, LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION, MEMORY_MAX_CONTENT_CHARS, MEMORY_MAX_ENTRIES, MODERATOR_TOOLS, QUOTE_MESSAGE_TOOL, READ_ATTACHMENT_TOOL, ROLL_DICE_TOOL, readAttachment, readMemory, rollDice, VIEW_IMAGE_TOOL, viewImage } from '../tools'
 
 function normalizeForDuplicateCheck(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
@@ -261,6 +262,7 @@ export class Debate {
       reasoningLangCustom: '',
       reasoningLangSkipTranslation: false,
       thinkingLevel: Debate.INHERIT_THINKING_LEVEL,
+      temperature: null,
       affinity: {},
       affinityLocks: {},
       characterType: null,
@@ -461,6 +463,7 @@ export class Debate {
       normalizeModeratorPermissiveness,
       normalizeModeratorFacilitationInterval,
       normalizeThinkingLevelChoice: Debate.normalizeThinkingLevelChoice,
+      normalizeProviderId,
     }
   }
 
@@ -492,6 +495,7 @@ export class Debate {
       ...(draft.educationLevel ? { educationLevel: draft.educationLevel } : {}),
       ...(draft.mood ? { mood: draft.mood } : {}),
       ...(draft.moodIntensity != null ? { moodIntensity: draft.moodIntensity } : {}),
+      ...(draft.temperature != null ? { temperature: draft.temperature } : {}),
       ...(Object.prototype.hasOwnProperty.call(draft, 'responseLength') ? { responseLength: draft.responseLength } : {}),
       ...(draft.reasoningLang ? { reasoningLang: draft.reasoningLang } : {}),
     }
@@ -500,7 +504,7 @@ export class Debate {
   static reindexParticipants(participants = []) {
     return participants.map((participant, index) => ({
       ...Debate.mkParticipant(index, participant.model),
-      providerId: participant.providerId ?? '',
+      providerId: normalizeProviderId(participant.providerId),
       endpointOverride: participant.endpointOverride ?? '',
       name: participant.name,
       isModerator: !!participant.isModerator || participant.mood === 'moderator',
@@ -514,6 +518,7 @@ export class Debate {
       reasoningLangCustom: participant.reasoningLangCustom ?? '',
       reasoningLangSkipTranslation: !!participant.reasoningLangSkipTranslation,
       thinkingLevel: Debate.normalizeThinkingLevelChoice(participant.thinkingLevel),
+      temperature: normalizeTemperature(participant.temperature),
       localUser: !!participant.localUser || participant.model === Debate.USER_MODEL,
       characterType: participant.characterType ?? null,
       responseLength: participant.responseLength === undefined ? DEFAULT_RESPONSE_LENGTH : participant.responseLength,
@@ -1792,10 +1797,14 @@ export class Debate {
         // tool the request never sends is what makes a model type the call.
         const actorSeesImages = enabledTools?.[VIEW_IMAGE_TOOL.function.name] !== false
           && !!(await getProvider(actor.providerId).supportsVision?.(actor.model, { baseUrl: actorBaseUrl }))
+        // The dice are the one tool that is off unless a mode turns it on:
+        // Role Play does, and any other mode may.
+        const diceEnabled = enabledTools?.[ROLL_DICE_TOOL.function.name] === true
         const availableTools = [
           ...(parts.some(participant => participant.isModerator)
-          ? (isRolePlay ? ROLE_PLAY_TOOLS : LLM_TOOLS)
-          : (isRolePlay ? ROLE_PLAY_TOOLS_WITHOUT_MODERATOR_INTERVENTION : LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION)),
+          ? LLM_TOOLS
+          : LLM_TOOLS_WITHOUT_MODERATOR_INTERVENTION),
+          ...(diceEnabled ? [ROLL_DICE_TOOL] : []),
           ...(actor.isModerator ? MODERATOR_TOOLS : []),
         ].filter(tool => enabledTools?.[tool.function.name] !== false)
           // Offered only to eyes that can use it: a model without vision that
@@ -1908,7 +1917,7 @@ export class Debate {
               syncHistory()
               return result
             },
-            rollDice: isRolePlay
+            rollDice: diceEnabled
               ? args => {
                   const result = rollDice(args)
                   const activeIndex = history.findIndex(message => message.seq === activeMessageSeq)
@@ -1983,6 +1992,7 @@ export class Debate {
             useTools: true,
             tools: availableTools,
             think: actor.thinkingLevel === 'none' ? false : Debate.normalizeThinkingLevel(actor.thinkingLevel),
+            temperature: normalizeTemperature(actor.temperature),
             // A forced stop aborts the request that is open; this is what keeps
             // the turn from opening the next one — a tool round, a retry —
             // between the abort and the run unwinding.

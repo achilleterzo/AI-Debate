@@ -14,7 +14,6 @@ export default function DebateModeSettings({
 }) {
   const UI_STRINGS = useUiStrings()
   const common = UI_STRINGS.common
-  const modeLabels = UI_STRINGS.modes
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -22,8 +21,8 @@ export default function DebateModeSettings({
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
         {debateModeOptions.map(option => {
           const active = option.value === debateMode
-          const label = modeLabels?.[option.value] ?? option.label
-          return <button key={option.value} type="button" disabled={disabled} onClick={() => onDebateModeChange(option.value)} title={label} style={{ background: active ? '#263b5c' : '#151515', border: `1px solid ${active ? '#628dd1' : '#303030'}`, color: active ? '#c5dcff' : '#999', borderRadius: 999, padding: '4px 9px', fontSize: 11, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.65 : 1 }}>{label}</button>
+          const label = option.label
+          return <button key={option.value} type="button" disabled={disabled} onClick={() => onDebateModeChange(option.value)} title={label} style={{ background: active ? 'var(--c-263b5c, #263b5c)' : 'var(--c-151515, #151515)', border: `1px solid ${active ? 'var(--c-628dd1, #628dd1)' : 'var(--c-303030, #303030)'}`, color: active ? 'var(--c-c5dcff, #c5dcff)' : 'var(--c-999999, #999)', borderRadius: 999, padding: '4px 9px', fontSize: 11, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.65 : 1 }}>{label}</button>
         })}
       </div>
     </div>

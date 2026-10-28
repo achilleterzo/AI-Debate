@@ -1,7 +1,8 @@
 import { useCallback } from 'react'
 import { Session } from '../data/Session'
 import { Debate } from '../debate/Debate'
-import { normalizeDebateMode } from '../prompts/Modes'
+import { findDebateMode, getModesConfig, normalizeDebateMode } from '../prompts/Modes'
+import { normalizeProviderId } from '../settings/Settings'
 
 export function useSnapshots({
   state,
@@ -22,6 +23,10 @@ export function useSnapshots({
       turn: refs.turn.current,
       constants: Debate.sessionConstants(),
     })
+    // A mode the user wrote exists only in their settings, so the snapshot
+    // carries its definition for whoever opens it.
+    const mode = findDebateMode(state.debateMode)
+    if (mode.custom) snapshot.customMode = getModesConfig().find(entry => entry.id === mode.id)
     Session.downloadSnapshot(snapshot, { topic, messages: state.messages })
   }, [refs.turn, state, topicRef])
 
@@ -39,6 +44,9 @@ export function useSnapshots({
         }
         if (Array.isArray(data.globalConstraints)) actions.setGlobalConstraints(data.globalConstraints.filter(Boolean))
         if (typeof data.generalPersonalityInstructions === 'string') actions.setGeneralPersonalityInstructions(data.generalPersonalityInstructions)
+        if (data.customMode?.id) {
+          actions.setModesConfig?.(config => (config.some(entry => entry.id === data.customMode.id) ? config : [...config, data.customMode]))
+        }
         if (typeof data.debateMode === 'string') actions.setDebateMode(normalizeDebateMode(data.debateMode))
         if (typeof data.customConclusionPrompt === 'string') actions.setCustomConclusionPrompt(data.customConclusionPrompt)
         // Snapshots written before the guidance was kept per conclusion type
@@ -59,7 +67,9 @@ export function useSnapshots({
           actions.setBaseUrl(data.baseUrl)
           actions.setEndpointInput(data.baseUrl)
         }
-        if (['ollama', 'ollama-cloud', 'openai', 'claude'].includes(data.providerId)) actions.setProviderId?.(data.providerId)
+        // A session saved before the Codex client was renamed names it the old way.
+        const savedProviderId = normalizeProviderId(data.providerId)
+        if (savedProviderId) actions.setProviderId?.(savedProviderId)
         if (data.version !== 2) return
 
         if (data.topic) setTopicValue(data.topic)

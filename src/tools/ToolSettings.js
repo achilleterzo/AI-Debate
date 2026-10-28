@@ -8,11 +8,12 @@ export const TOOL_SETTINGS = [
   { id: 'request_moderator_intervention', icon: '🙋', labelKey: 'requestModeratorIntervention' },
   { id: 'apply_moderation', icon: '🛑', labelKey: 'applyModeration', moderatorOnly: true },
   { id: 'memory', icon: '🧠', labelKey: 'memory' },
-  { id: 'roll_dice', icon: '🎲', labelKey: 'rollDice', rolePlayOnly: true },
+  // Off unless a mode asks for it: Role Play does, any other mode may.
+  { id: 'roll_dice', icon: '🎲', labelKey: 'rollDice', rolePlayOnly: true, defaultEnabled: false },
 ]
 
-export const DEFAULT_ENABLED_TOOLS = Object.fromEntries(TOOL_SETTINGS.map(tool => [tool.id, true]))
+export const DEFAULT_ENABLED_TOOLS = Object.fromEntries(TOOL_SETTINGS.map(tool => [tool.id, tool.defaultEnabled !== false]))
 
 export function normalizeEnabledTools(raw) {
-  return Object.fromEntries(TOOL_SETTINGS.map(tool => [tool.id, raw?.[tool.id] !== false]))
+  return Object.fromEntries(TOOL_SETTINGS.map(tool => [tool.id, typeof raw?.[tool.id] === 'boolean' ? raw[tool.id] : tool.defaultEnabled !== false]))
 }
