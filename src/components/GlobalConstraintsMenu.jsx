@@ -43,14 +43,14 @@ export default function GlobalConstraintsMenu({ constraints = [], onAdd, onEdit,
         aria-expanded={open}
         onClick={() => setOpen(previous => !previous)}
         style={{
-          background: active ? '#24192d' : '#161616',
-          border: `1px solid ${open ? '#8f5bb3' : active ? '#6a3b87' : '#2e2e2e'}`,
+          background: active ? 'var(--c-24192d, #24192d)' : 'var(--c-161616, #161616)',
+          border: `1px solid ${open ? 'var(--c-8f5bb3, #8f5bb3)' : active ? 'var(--c-6a3b87, #6a3b87)' : 'var(--c-2e2e2e, #2e2e2e)'}`,
           borderRadius: 8,
           width: 44,
           height: 44,
           padding: 0,
           cursor: 'pointer',
-          color: active ? '#caa9ee' : '#555',
+          color: active ? 'var(--c-caa9ee, #caa9ee)' : 'var(--c-555555, #555)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0,
           position: 'relative',
           transition: 'all 0.15s',
@@ -66,8 +66,8 @@ export default function GlobalConstraintsMenu({ constraints = [], onAdd, onEdit,
           <span style={{
             position: 'absolute', top: -4, right: -4,
             minWidth: 16, height: 16, borderRadius: 999,
-            background: '#6a3b87', border: '1px solid #8f5bb3',
-            color: '#f3e8ff', fontSize: 10, lineHeight: '14px', fontWeight: 700,
+            background: 'var(--c-6a3b87, #6a3b87)', border: '1px solid var(--c-8f5bb3, #8f5bb3)',
+            color: 'var(--c-f3e8ff, #f3e8ff)', fontSize: 10, lineHeight: '14px', fontWeight: 700,
             padding: '0 4px',
           }}>{constraints.length}</span>
         )}
@@ -79,23 +79,23 @@ export default function GlobalConstraintsMenu({ constraints = [], onAdd, onEdit,
         <div style={{
           position: 'absolute', bottom: '100%', right: 0, marginBottom: 6, zIndex: 200,
           width: 420, maxWidth: '80vw',
-          background: '#1a141f', border: '1px solid #4a2f63', borderRadius: 10,
-          boxShadow: '0 -6px 24px #000a',
+          background: 'var(--c-1a141f, #1a141f)', border: '1px solid var(--c-4a2f63, #4a2f63)', borderRadius: 10,
+          boxShadow: '0 -6px 24px var(--c-000000aa, #000a)',
           overflow: 'hidden',
         }}>
-          <div style={{ padding: '9px 12px', borderBottom: '1px solid #33224a', fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: '#a382c9' }}>
+          <div style={{ padding: '9px 12px', borderBottom: '1px solid var(--c-33224a, #33224a)', fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--c-a382c9, #a382c9)' }}>
             {ui.globalConstraintsTitle}
           </div>
 
           <div style={{ maxHeight: 260, overflowY: 'auto' }}>
             {constraints.length === 0 ? (
-              <div style={{ padding: '14px 12px', fontSize: 12, color: '#6d6d6d' }}>{ui.noGlobalConstraints}</div>
+              <div style={{ padding: '14px 12px', fontSize: 12, color: 'var(--c-6d6d6d, #6d6d6d)' }}>{ui.noGlobalConstraints}</div>
             ) : constraints.map((constraint, index) => (
               <div
                 key={`${constraint}-${index}`}
-                style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', borderBottom: index < constraints.length - 1 ? '1px solid #2a1f38' : 'none' }}
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', borderBottom: index < constraints.length - 1 ? '1px solid var(--c-2a1f38, #2a1f38)' : 'none' }}
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#7f629d" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 3 }}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--c-7f629d, #7f629d)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 3 }}>
                   <path d="M4 4h4M3.5 6h5M4 8h4"/><rect x="1.5" y="1.5" width="9" height="9" rx="1.5"/>
                 </svg>
                 <button
@@ -104,7 +104,7 @@ export default function GlobalConstraintsMenu({ constraints = [], onAdd, onEdit,
                   style={{
                     flex: 1, minWidth: 0, textAlign: 'left',
                     background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                    color: '#caa9ee', fontSize: 12, lineHeight: 1.45,
+                    color: 'var(--c-caa9ee, #caa9ee)', fontSize: 12, lineHeight: 1.45,
                   }}
                 >
                   {constraint}
@@ -120,12 +120,12 @@ export default function GlobalConstraintsMenu({ constraints = [], onAdd, onEdit,
             onClick={() => { onAdd(); setOpen(false) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 7, width: '100%',
-              background: '#24192d', border: 'none', borderTop: '1px solid #33224a',
+              background: 'var(--c-24192d, #24192d)', border: 'none', borderTop: '1px solid var(--c-33224a, #33224a)',
               padding: '10px 12px', cursor: 'pointer',
-              color: '#caa9ee', fontSize: 12, fontWeight: 600, textAlign: 'left',
+              color: 'var(--c-caa9ee, #caa9ee)', fontSize: 12, fontWeight: 600, textAlign: 'left',
             }}
-            onMouseEnter={event => { event.currentTarget.style.background = '#2e2039' }}
-            onMouseLeave={event => { event.currentTarget.style.background = '#24192d' }}
+            onMouseEnter={event => { event.currentTarget.style.background = 'var(--c-2e2039, #2e2039)' }}
+            onMouseLeave={event => { event.currentTarget.style.background = 'var(--c-24192d, #24192d)' }}
           >
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M7 3v8M3 7h8"/>
