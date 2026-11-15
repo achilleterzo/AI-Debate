@@ -215,8 +215,8 @@ describe('buildParticipantPrompt', () => {
 
   it('passes the constraint limit to character generation', () => {
     const prompt = buildParticipantPrompt({ characterTypeLabel: 'Person' })
-    expect(prompt).toContain(`at most ${MAX_CONSTRAINT_CHARS} characters`)
-    expect(prompt).toContain('use additional trait entries instead of truncating it')
+    expect(prompt).toContain(`never exceed ${MAX_CONSTRAINT_CHARS} characters per string`)
+    expect(prompt).toContain('SEPARATE strings')
     expect(prompt).toContain('Prefer "short"')
   })
 
@@ -263,6 +263,7 @@ describe('parseParticipantDrafts', () => {
       mood: 'analytical',
       moodIntensity: 3,
       reasoningLang: 'it',
+      temperature: null,
     }])
   })
 
