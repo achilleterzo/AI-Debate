@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 /**
  * A slider with its reading centred above it. Every slider on a participant's
@@ -23,7 +23,11 @@ export default function StackedSlider({
   ...inputProps
 }) {
   const [draft, setDraft] = useState(value)
-  useEffect(() => { setDraft(value) }, [value])
+  const [seen, setSeen] = useState(value)
+  if (seen !== value) {
+    setSeen(value)
+    setDraft(value)
+  }
 
   const commit = next => { if (next !== value) onCommit(next) }
   const resolve = prop => (typeof prop === 'function' ? prop(draft) : prop)
